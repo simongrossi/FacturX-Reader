@@ -11,7 +11,7 @@ l'utilisation et [VALIDATION.md](VALIDATION.md) pour le bilan de vérification P
 | P0 | Valider l'existant | Presque terminé : reste macOS, Linux et l'installation des paquets |
 | P1 | Confort et fiabilité du moteur | À moitié fait : le confort est livré, la fiabilité reste à faire |
 | P2 | Exploiter des lots de factures | Fait aux deux tiers : reste la recherche étendue et la bibliothèque |
-| P3 | Conformité et distribution | Pas commencé |
+| P3 | Conformité et distribution | Commencé : règles métier EN 16931 natives ; reste XSD, Schematron officiel, PDF/A, signature |
 | P4 | API, MCP et connecteurs | Pas commencé |
 
 Versions publiées (pré-versions, builds non signés) :
@@ -105,7 +105,7 @@ Versions publiées (pré-versions, builds non signés) :
   (fournisseur, numéro, montant, statut), masquage des PDF sans XML.
 - [ ] Recherche dans le texte du PDF et surlignage ; décider séparément du besoin d'OCR.
 - [ ] Rapport de contrôle lisible (PDF ou HTML) et rapport consolidé sur plusieurs factures.
-- [ ] Impression / export PDF de la vue Données.
+- [x] Impression de la vue affichée (données, contrôles, tableau, XML, PDF).
 - [ ] Renommage et classement des fichiers depuis les métadonnées (`Fournisseur_Date_N°.pdf`),
   avec confirmation avant toute écriture.
 - [ ] Échéancier de décaissements à partir des échéances du tableau.
@@ -124,8 +124,12 @@ Versions publiées (pré-versions, builds non signés) :
 
 - [ ] **Signature Windows, notarisation macOS**, puis mise à jour automatique Tauri. À traiter en
   premier : des installeurs non signés sont déjà distribués.
-- [ ] Validation XML XSD puis Schematron EN 16931, selon le profil et la version ; versions des
-  jeux de règles traçables et erreurs reliées aux données concernées.
+- [x] Règles métier EN 16931 évaluées nativement : BR, BR-CO, BR-DEC et règles par catégorie de
+  TVA, reliées aux données concernées. Hors Schematron officiel.
+- [ ] Compléter les règles natives : listes de codes (pays, devises, unités, types de facture),
+  remises et frais de ligne, règles nationales françaises (CIUS).
+- [ ] Validation XML XSD puis Schematron officiel EN 16931, selon le profil et la version ;
+  versions des jeux de règles traçables. Demande un moteur XSLT 2 ou une traduction des règles.
 - [ ] Validation du conteneur PDF/A-3, métadonnées XMP, association et cohérence avec le XML.
 - [ ] Présenter séparément : lecture réussie, contrôles arithmétiques, validation XML et validation
   du conteneur. Un fichier lisible n'est pas nécessairement un Factur-X conforme.
@@ -183,7 +187,8 @@ par projet. Ces deux derniers supposent plusieurs utilisateurs et un serveur : u
 ## Limites connues
 
 - La recherche porte sur les données XML, pas sur le texte du PDF ni les contenus binaires.
-- Les contrôles ne sont pas une validation EN 16931 ; aucun appel réseau ne vérifie l'existence
+- Les règles EN 16931 sont une implémentation native, pas le Schematron officiel ; ni le schéma
+  XSD ni le conteneur PDF/A-3 ne sont contrôlés. Aucun appel réseau ne vérifie l'existence
   d'un SIREN ni le titulaire d'un IBAN.
 - Tableau, doublons et suivi portent sur les documents ouverts (500 au maximum), pas sur un historique.
 - Le suivi de vérification est enregistré dans le stockage local de la WebView, par empreinte du XML.

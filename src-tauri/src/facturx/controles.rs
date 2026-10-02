@@ -20,19 +20,19 @@ use super::{find, find_alt, findall, findall_alt, text, Paths, N, ON};
 // ------------------------------------------------------------------ decimaux
 
 /// 8 decimales : couvre les prix unitaires et quantites a forte precision.
-const SCALE: i128 = 100_000_000;
-const CENT: i128 = SCALE / 100;
+pub(super) const SCALE: i128 = 100_000_000;
+pub(super) const CENT: i128 = SCALE / 100;
 
 /// Decimal a virgule fixe. Aucun flottant : les sommes sont exactes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-struct Dec(i128);
+pub(super) struct Dec(pub(super) i128);
 
 impl Dec {
     const ZERO: Dec = Dec(0);
 
     /// Valeur et nombre de decimales ecrites. `None` si vide, non numerique
     /// ou plus precis que 8 decimales.
-    fn parse(s: &str) -> Option<(Dec, u32)> {
+    pub(super) fn parse(s: &str) -> Option<(Dec, u32)> {
         let s = s.trim();
         let (neg, body) = match s.strip_prefix('-') {
             Some(rest) => (true, rest),
@@ -78,7 +78,7 @@ fn round_div(n: i128, d: i128) -> i128 {
 }
 
 /// a x b / diviseur, arrondi au centime.
-fn mul_cents(a: Dec, b: Dec, divisor: Dec) -> Option<Dec> {
+pub(super) fn mul_cents(a: Dec, b: Dec, divisor: Dec) -> Option<Dec> {
     if divisor.0 == 0 {
         return None;
     }

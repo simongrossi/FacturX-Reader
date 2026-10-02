@@ -92,6 +92,7 @@ function controlReport(f) {
     genere_le: new Date().toISOString(),
     synthese: r.synthese || null,
     controles: r.controles || [],
+    regles_en16931: r.regles || null,
     suivi: { statut: review.status, commentaire: review.comment, lignes: review.lines },
   };
 }

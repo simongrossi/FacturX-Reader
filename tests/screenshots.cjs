@@ -88,7 +88,7 @@ ${tag('ApplicableHeaderTradeSettlement',
     tag('InvoiceCurrencyCode', 'EUR') +
     (inv.iban ? tag('SpecifiedTradeSettlementPaymentMeans', tag('TypeCode', '58') + tag('PayeePartyCreditorFinancialAccount', tag('IBANID', inv.iban))) : '') +
     tag('ApplicableTradeTax', tag('CalculatedAmount', money(tva)) + tag('TypeCode', 'VAT') + tag('BasisAmount', money(ht)) + tag('CategoryCode', 'S') + tag('RateApplicablePercent', '20.00')) +
-    (inv.due ? tag('SpecifiedTradePaymentTerms', tag('Description', 'Paiement à 30 jours') + date('DueDateDateTime', inv.due)) : '') +
+    tag('SpecifiedTradePaymentTerms', tag('Description', inv.due ? 'Paiement à 30 jours' : 'Avoir à déduire du prochain règlement') + (inv.due ? date('DueDateDateTime', inv.due) : '')) +
     tag('SpecifiedTradeSettlementHeaderMonetarySummation',
       tag('LineTotalAmount', money(ht)) + tag('TaxBasisTotalAmount', money(ht)) +
       tag('TaxTotalAmount', money(tva), ' currencyID="EUR"') + tag('GrandTotalAmount', money(ttc)) + tag('DuePayableAmount', money(ttc))))}

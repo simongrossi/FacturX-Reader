@@ -5,6 +5,18 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 
 ## [Non publié]
 
+### Ajouté
+
+- **Règles métier EN 16931** évaluées par le moteur sur chaque facture UBL ou CII : mentions
+  obligatoires (BR-01 à BR-16), lignes (BR-21 à BR-27), remises, frais, ventilation de TVA et
+  paiement (BR-31 à BR-61), calculs (BR-CO), décimales (BR-DEC) et règles par catégorie de TVA
+  (BR-S, BR-Z, BR-E, BR-AE, BR-IC, BR-G, BR-O). Bloc dédié dans l'onglet Données, pastille dans
+  la liste, filtre et export dans le tableau, détail dans le rapport JSON. Implémentation
+  native, hors Schematron officiel ; XSD, listes de codes, CIUS et PDF/A-3 non couverts.
+- **Impression** de la vue affichée (`Ctrl+P`, menu Fichier) : données, contrôles, tableau, XML
+  ou PDF, sans l'habillage de l'application.
+- README : logo, badges, captures d'écran sur factures fictives, comparatif avec d'autres outils.
+
 ## [0.4.0] - 2026-10-02
 
 ### Ajouté

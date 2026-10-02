@@ -22,6 +22,7 @@ async function mockBackend(page, pdf = null, extra = {}) {
       if (command === 'parse_path' && args.path.includes('missing')) throw new Error('Fichier introuvable');
       if (command === 'save_text') { window.__saved = args; return true; }
       if (command === 'save_control_report') { window.__report = args; return true; }
+      if (command === 'print_window') { window.__printed = { theme: document.documentElement.dataset.theme, rules: document.querySelector('#rules')?.open }; return null; }
       if (command === 'parse_file' || command === 'parse_path') return {
         format: 'CII', root: 'CrossIndustryInvoice', doc_hash: 'fixture', header: [], lines: [],
         rows: [{ title: 'Référence', tag: 'ID', value: 'FAC-2026-123', path: 'Invoice/ID' }],
@@ -393,5 +394,60 @@ test('suivi de vérification, rapport JSON, vue PDF et données, tableau persist
   await expect(page.getByLabel('Commentaire de la facture', { exact: true })).toHaveValue('À revoir avec le fournisseur');
   await expect(page.locator('#tab-data').getByLabel('Vérification de suivi.pdf')).toHaveValue('Vérifiée');
   await page.screenshot({ path: 'test-results/dual.png' });
+  expect(errors).toEqual([]);
+});
+
+test('règles EN 16931 affichées, filtrées dans le tableau, et impression', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  const rule = (id, etat, detail = '') => ({ id, libelle: 'Énoncé de ' + id, etat, detail, path: 'Invoice/ID' });
+  await mockBackend(page, null, {
+    synthese: { numero: 'F-9', type: '380', avoir: false, date: '2026-10-01', echeance: '', jours_echeance: null,
+      week_end: false, vendeur: 'Test Seller', acheteur: '', devise: 'EUR', ht: '100.00', tva: '20.00', ttc: '120.00', a_payer: '120.00' },
+    controles: [{ regle: 'Total TTC = total HT + total TVA', etat: 'conforme', attendu: '120.00', constate: '120.00', ecart: '', path: '', detail: '' }],
+    regles: { niveau: 'Règles métier EN 16931 (implémentation native, hors Schematron officiel).', evaluees: 3, non_conformes: 1,
+      liste: [rule('BR-02', 'conforme'), rule('BR-07', 'non_conforme', 'Absent du XML.'), rule('BR-CO-15', 'conforme')] },
+    sections: [{ name: 'Vendeur', rows: [{ title: 'Raison sociale', value: 'Test Seller', path: 'Invoice/x' }] }],
+  });
+  await page.goto(url);
+  await page.evaluate(() => localStorage.setItem('fx-theme', 'nuit'));
+  await page.reload();
+  await page.locator('#file-input').setInputFiles({ name: 'regles.xml', mimeType: 'text/xml', buffer: Buffer.from('<Invoice/>') });
+  await expect(page.locator('.file-item .badge.warn').filter({ hasText: '1 règle EN 16931' })).toBeVisible();
+  await page.getByRole('button', { name: 'Données', exact: true }).click();
+  const rules = page.locator('#rules');
+  await expect(rules).toHaveAttribute('open', '');
+  await expect(rules.locator('summary')).toContainText('1 non respectée');
+  await expect(rules.locator('summary')).toContainText('2 respectées');
+  await expect(rules.locator('tbody tr').first()).toContainText('BR-07');
+  await expect(rules.locator('tbody tr').first()).toContainText('Absent du XML.');
+  await expect(rules.locator('.rules-note')).toContainText('Ne remplace pas une validation XSD');
+  await expect(page.locator('#controls')).not.toHaveAttribute('open', '');
+
+  // Impression : blocs dépliés et thème clair pendant l'impression, puis état d'origine.
+  await page.locator('#menubar').getByRole('button', { name: 'Fichier' }).click();
+  await page.locator('.menubar-drop').getByRole('menuitem', { name: 'Imprimer… Ctrl+P' }).click();
+  await expect.poll(() => page.evaluate(() => window.__printed)).toEqual({ theme: 'jour', rules: true });
+  await expect(page.locator('#controls')).toHaveAttribute('open', '');
+  await page.emulateMedia({ media: 'print' });
+  await expect(page.locator('#menubar')).toBeHidden();
+  await expect(page.locator('#sidebar')).toBeHidden();
+  await expect(page.locator('#tab-data .review-panel')).toBeHidden();
+  await expect(page.locator('#fv-name')).toBeVisible();
+  await expect(rules).toBeVisible();
+  await page.screenshot({ path: 'test-results/print.png', fullPage: true });
+  await page.emulateMedia({ media: 'screen' });
+  await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+  await expect(page.locator('#controls')).not.toHaveAttribute('open', '');
+  expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe('nuit');
+
+  await page.locator('#btn-control-report').click();
+  await expect.poll(() => page.evaluate(() => window.__report?.report.regles_en16931?.non_conformes)).toBe(1);
+  await page.locator('#tab-batch').click();
+  await expect(page.locator('#batch-table tbody tr.batch-row')).toContainText('1 règle');
+  await page.locator('#batch-filter').selectOption('regles');
+  await expect(page.locator('#batch-table tbody tr.batch-row')).toHaveCount(1);
+  await rules.page().locator('#batch-export').click();
+  await expect.poll(() => page.evaluate(() => window.__saved?.content.split('\r\n')[1])).toContain(';BR-07;');
   expect(errors).toEqual([]);
 });

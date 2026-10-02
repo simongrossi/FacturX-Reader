@@ -186,6 +186,12 @@ async fn save_control_report(app: tauri::AppHandle, filename: String, report: Va
     Ok(true)
 }
 
+/// Ouvre la boîte d'impression du système pour le contenu de la fenêtre.
+#[tauri::command]
+fn print_window(window: tauri::WebviewWindow) -> Result<(), String> {
+    window.print().map_err(|e| format!("Impression impossible : {e}"))
+}
+
 /// Informations affichees dans la fenetre Parametres.
 #[tauri::command]
 fn app_info(app: tauri::AppHandle, store: tauri::State<'_, pointages::Store>) -> Value {
@@ -212,6 +218,7 @@ pub fn run() {
             save_pdf,
             save_text,
             save_control_report,
+            print_window,
             app_info,
             pointages::get_pointage,
             pointages::set_pointage,

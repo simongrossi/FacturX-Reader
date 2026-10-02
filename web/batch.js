@@ -26,6 +26,7 @@ const BATCH_FILTERS = {
   all: () => true,
   ecart: (r) => r.counts.ecart > 0,
   alerte: (r) => r.counts.alerte > 0 || r.doublon,
+  regles: (r) => r.regles > 0,
   echue: (r) => r.jours != null && r.jours < 0,
   sanstva: (r) => r.lu && !(parseFloat(r.tva) > 0),
   weekend: (r) => r.weekEnd,
@@ -52,8 +53,9 @@ function batchRows() {
     const counts = { ecart: 0, alerte: 0, non_verifiable: 0, conforme: 0, info: 0 };
     for (const c of (r && r.controles) || []) counts[c.etat] = (counts[c.etat] || 0) + 1;
     const doublon = keysOf(f).some((k) => seen.get(k) > 1);
+    const broken = ((r && r.regles && r.regles.liste) || []).filter((x) => x.etat === "non_conforme");
     const row = {
-      f, lu: !!s, counts, doublon,
+      f, lu: !!s, counts, doublon, regles: broken.length,
       fichier: f.name,
       vendeur: s ? s.vendeur : "", numero: s ? s.numero : "",
       type: s ? (s.avoir ? "Avoir" : "Facture") : "",
@@ -72,13 +74,15 @@ function batchRows() {
       if (counts.ecart) parts.push(counts.ecart + " écart" + (counts.ecart > 1 ? "s" : ""));
       if (counts.alerte) parts.push(counts.alerte + " alerte" + (counts.alerte > 1 ? "s" : ""));
       if (doublon) parts.push("doublon");
-      row.etatKey = counts.ecart ? "ecart" : (counts.alerte || doublon) ? "alerte" : counts.non_verifiable ? "non_verifiable" : "conforme";
+      if (broken.length) parts.push(broken.length + " règle" + (broken.length > 1 ? "s" : ""));
+      row.etatKey = counts.ecart ? "ecart" : (counts.alerte || doublon || broken.length) ? "alerte" : counts.non_verifiable ? "non_verifiable" : "conforme";
       if (!parts.length) parts.push(counts.non_verifiable ? "Non vérifiable" : "Conforme");
     }
     row.etat = parts.join(", ");
     row.detail = f.status === "error" ? f.error
       : ((r && r.controles) || []).filter((c) => c.etat === "ecart" || c.etat === "alerte")
-        .map((c) => c.regle + (c.ecart ? " (" + c.ecart + ")" : "")).join(" | ");
+        .map((c) => c.regle + (c.ecart ? " (" + c.ecart + ")" : ""))
+        .concat([...new Set(broken.map((x) => x.id))]).join(" | ");
     return row;
   });
 }

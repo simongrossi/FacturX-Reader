@@ -44,12 +44,14 @@ tableaux lisibles en français, **recalcule les montants** et signale ce qui ne 
 | | |
 |---|---|
 | 📄 **Lecture** | PDF Factur-X, archive ZIP, XML UBL 2.x et CII. PDF d'origine, données en tableaux, XML complet et XML brut. |
+| 📐 **Règles EN 16931** | Une soixantaine de règles métier de la norme évaluées sur chaque facture : mentions obligatoires, calculs, décimales, catégories de TVA. |
 | ✅ **Contrôles de cohérence** | Calculs en décimaux exacts : lignes, HT, TVA par taux, TTC, net à payer. Mentions essentielles, clés SIREN/SIRET, n° de TVA et IBAN, échéance, escompte. |
 | 📊 **Tableau multi-factures** | Toutes les factures ouvertes sur une page : totaux par devise, avoirs déduits, filtres d'anomalies, export CSV. |
 | 🪟 **PDF et données côte à côte** | Vérifiez une ligne sans changer d'onglet. |
 | 🖊️ **Pointage et suivi** | Pointage des lignes, statut À vérifier / Vérifiée / Anomalie, commentaires par facture et par ligne. |
 | 🔎 **Recherche** | Texte ou regex, dans le document ou dans tous les documents ouverts, avec surlignage. |
 | 📤 **Exports** | Lignes et tableau en CSV, rapport de contrôle en JSON, copie en CSV, JSON ou Markdown par clic droit. |
+| 🖨️ **Impression** | La vue affichée (données, contrôles, tableau, PDF) sans l'habillage de l'application. |
 | 🗂️ **Confort** | Onglets par document, reprise de session, documents récents, barre de menus, thèmes clair et sombre. |
 
 <table>
@@ -81,9 +83,10 @@ une case est cochée des deux côtés, le niveau de détail peut différer.
 | PDF et données côte à côte | ✅ | ✅ | — | — |
 | Plusieurs factures en onglets | ✅ | ✅ | — | — |
 | Recherche | ✅ texte et regex | ✅ | — | Texte du PDF |
-| Impression | — | ✅ | — | ✅ |
+| Impression | ✅ | ✅ | — | ✅ |
 | Contrôles arithmétiques détaillés | ✅ | — | Via la validation | — |
-| Validation EN 16931 (Schematron) | — *(prévu)* | ✅ en ligne | ✅ | — |
+| Règles métier EN 16931 | ✅ natif, hors ligne | ✅ en ligne | ✅ | — |
+| Schematron officiel, XSD, PDF/A-3 | — *(prévu)* | ✅ en ligne | ✅ | — |
 | Tableau multi-factures avec totaux | ✅ | — | — | — |
 | Pointage, statuts et commentaires | ✅ | — | — | — |
 | Export CSV / rapport JSON | ✅ | — | — | — |
@@ -94,8 +97,9 @@ une case est cochée des deux côtés, le niveau de détail peut différer.
 
 <sub>Établi le 2 octobre 2026 d'après la documentation publique de chaque projet ; une case vide
 signifie « non documenté à cette date », pas forcément « impossible ». Corrections bienvenues.
-Factur-X Reader ne valide pas encore la conformité à la norme : pour cela, Mustang ou Quba
-restent les bons outils.</sub>
+Factur-X Reader évalue les règles métier de la norme avec sa propre implémentation, pas avec le
+Schematron officiel, et ne contrôle ni le schéma XSD ni le conteneur PDF/A-3 : pour une
+validation de conformité opposable, Mustang ou Quba restent les bons outils.</sub>
 
 ## Téléchargement
 
@@ -226,6 +230,39 @@ Une facture avec écart porte une pastille rouge dans la liste des fichiers.
 Ces contrôles ne sont pas une validation EN 16931 (XSD / Schematron) : voir la roadmap. Aucun
 appel réseau : l'existence du SIREN ou la propriété de l'IBAN ne sont pas vérifiées.
 
+### Règles EN 16931
+
+Le bloc **Règles EN 16931** de l'onglet Données liste les règles métier de la norme évaluées
+sur la facture, celles qui ne sont pas respectées en premier, avec leur identifiant officiel
+(`BR-07`, `BR-CO-15`, `BR-S-08`…). Un clic ouvre l'élément concerné dans « XML complet ».
+
+| Famille | Ce qui est vérifié |
+|---|---|
+| `BR-01` à `BR-16` | Mentions obligatoires : identifiant de spécification, numéro, date, type, devise, vendeur, acheteur, adresses, totaux, au moins une ligne |
+| `BR-21` à `BR-27` | Chaque ligne : identifiant, quantité, unité, montant net, nom de l'article, prix net non négatif |
+| `BR-31` à `BR-38`, `BR-45` à `BR-49`, `BR-61` | Remises et frais de niveau document, ventilation de TVA, moyen de paiement |
+| `BR-CO-03` à `BR-CO-26` | Calculs et cohérence : sommes, total HT, TVA, TTC, montant à payer, échéance, identification du vendeur |
+| `BR-DEC` | Montants à deux décimales au plus |
+| `BR-S`, `BR-Z`, `BR-E`, `BR-AE`, `BR-IC`, `BR-G`, `BR-O` | Règles par catégorie de TVA : ventilation présente, identifiants fiscaux, taux, base, montant, motif d'exonération |
+
+Limites, à connaître avant de s'y fier :
+
+- c'est une **implémentation native** écrite d'après l'énoncé des règles, pas le Schematron
+  officiel : elle peut diverger sur des cas particuliers ;
+- **non couverts** : le schéma XSD, les listes de codes (hors catégories de TVA), les règles
+  nationales (CIUS, XRechnung), le conteneur PDF/A-3 et ses métadonnées ;
+- pour les profils Factur-X **MINIMUM** et **BASIC WL**, hors norme EN 16931, seules les règles
+  qui ont un objet sont évaluées.
+
+Les factures qui enfreignent une règle portent une pastille dans la liste et se filtrent dans le
+tableau. Le rapport JSON contient le détail de toutes les règles.
+
+### Impression
+
+**Fichier → Imprimer** (`Ctrl+P`) imprime la vue affichée : données et contrôles, tableau des
+factures, XML ou pages du PDF. L'habillage de l'application est retiré, les blocs repliés sont
+dépliés et le thème clair est utilisé le temps de l'impression.
+
 ### Suivi de vérification et rapport
 
 Sous les contrôles, le bloc **Suivi de vérification** porte un statut manuel (*À vérifier*,
@@ -326,6 +363,7 @@ web/                       interface (aucune étape de compilation)
 src-tauri/
   src/facturx.rs           moteur : PDF Factur-X, ZIP, UBL, CII
   src/facturx/controles.rs contrôles de cohérence (décimaux exacts)
+  src/facturx/en16931.rs   règles métier EN 16931
   src/tables.rs            libellés français et tables de codes
   src/pointages.rs         persistance des pointages
   src/lib.rs               commandes exposées au front
@@ -409,6 +447,7 @@ cargo run --example dump -- ../samples/facture.pdf > facture.json
 | `save_pdf` | boîte « Enregistrer sous » et écriture du PDF |
 | `save_text` | boîte « Enregistrer sous » et écriture d'un export CSV |
 | `save_control_report` | boîte « Enregistrer sous » et écriture du rapport de contrôle JSON |
+| `print_window` | boîte d'impression du système |
 | `app_info` | version et emplacement des pointages |
 
 ## Auteurs et licence

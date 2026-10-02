@@ -21,6 +21,7 @@ use sha2::{Digest, Sha256};
 use crate::tables;
 
 mod controles;
+mod en16931;
 
 #[derive(Debug)]
 pub struct FacturXError(pub String);
@@ -1624,6 +1625,7 @@ pub fn parse_file(filename: &str, data: &[u8]) -> Result<Value, FacturXError> {
         let (checks, synthese) = controles::run(root, format, &paths, &structured, today);
         structured.insert("controles".into(), checks.into());
         structured.insert("synthese".into(), synthese);
+        structured.insert("regles".into(), en16931::run(root, format, &paths));
     }
 
     let mut result = Map::new();

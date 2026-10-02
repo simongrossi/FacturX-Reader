@@ -71,6 +71,7 @@ const api = {
   }),
   saveText: (filename, content) => invoke("save_text", { filename, content }),
   saveReport: (filename, report) => invoke("save_control_report", { filename, report }),
+  print: () => invoke("print_window"),
 };
 
 /* ---------------- chargement / analyse des fichiers ---------------- */
@@ -212,6 +213,8 @@ function fmtBadge(result) {
   if (result.rows) b.push('<span class="badge">' + result.rows.length + " valeurs XML</span>");
   const gaps = (result.controles || []).filter((c) => c.etat === "ecart").length;
   if (gaps) b.push('<span class="badge err">' + gaps + " écart" + (gaps > 1 ? "s" : "") + "</span>");
+  const broken = (result.regles && result.regles.non_conformes) || 0;
+  if (broken) b.push('<span class="badge warn">' + broken + " règle" + (broken > 1 ? "s" : "") + " EN 16931</span>");
   return b.join(" ");
 }
 
@@ -970,6 +973,85 @@ function controlsSection(f) {
   return sec;
 }
 
+/* ---- règles métier EN 16931 (évaluées par le moteur) ---- */
+
+function rulesSection(f) {
+  const report = f.result.regles;
+  if (!report || !report.liste || !report.liste.length) return null;
+  const failed = report.non_conformes || 0;
+  const passed = report.evaluees - failed;
+  const sec = document.createElement("details");
+  sec.id = "rules";
+  sec.className = "section controls";
+  sec.open = failed > 0;
+  const head = document.createElement("summary");
+  head.className = "section-head controls-head";
+  head.appendChild(Object.assign(document.createElement("span"), { textContent: "Règles EN 16931" }));
+  if (failed) head.appendChild(Object.assign(document.createElement("span"), {
+    className: "ctl-chip ctl-ecart", textContent: failed + " non respectée" + (failed > 1 ? "s" : ""),
+  }));
+  head.appendChild(Object.assign(document.createElement("span"), {
+    className: "ctl-chip ctl-conforme", textContent: passed + " respectée" + (passed > 1 ? "s" : ""),
+  }));
+  sec.appendChild(head);
+  const note = document.createElement("p");
+  note.className = "rules-note";
+  note.textContent = report.niveau + " Ne remplace pas une validation XSD, Schematron ni PDF/A-3.";
+  sec.appendChild(note);
+
+  const wrap = document.createElement("div");
+  wrap.className = "table-wrap";
+  const table = document.createElement("table");
+  table.innerHTML = "<thead><tr><th style='width:130px'>État</th><th style='width:110px'>Règle</th><th>Énoncé</th></tr></thead>";
+  const tbody = document.createElement("tbody");
+  const sorted = report.liste.slice().sort((a, b) => (a.etat === "conforme") - (b.etat === "conforme"));
+  for (const rule of sorted) {
+    const ok = rule.etat === "conforme";
+    const tr = document.createElement("tr");
+    tr.className = "ctl-row " + (ok ? "ctl-conforme" : "ctl-ecart");
+    tr.innerHTML =
+      '<td><span class="ctl-chip ' + (ok ? "ctl-conforme" : "ctl-ecart") + '">' + (ok ? "Respectée" : "Non respectée") + "</span></td>" +
+      "<td>" + esc(rule.id) + "</td>" +
+      "<td>" + esc(rule.libelle) + (rule.detail ? '<span class="note">' + esc(rule.detail) + "</span>" : "") + "</td>";
+    if (rule.path) {
+      tr.classList.add("ctl-link");
+      tr.title = "Voir dans le XML : " + rule.path;
+      tr.addEventListener("click", () => gotoXml(rule.path));
+    }
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+  wrap.appendChild(table);
+  sec.appendChild(wrap);
+  return sec;
+}
+
+/* ---- impression de la vue affichée ---- */
+
+function printView() {
+  hideContextMenu();
+  hidePopover();
+  // Blocs repliés ouverts et thème clair le temps de l'impression.
+  const closed = [...document.querySelectorAll("#controls:not([open]), #rules:not([open])")];
+  closed.forEach((d) => { d.open = true; });
+  const root = document.documentElement;
+  const theme = root.getAttribute("data-theme");
+  root.setAttribute("data-theme", "jour");
+  let restored = false;
+  const restore = () => {
+    if (restored) return;
+    restored = true;
+    closed.forEach((d) => { d.open = false; });
+    root.setAttribute("data-theme", theme);
+    window.removeEventListener("afterprint", restore);
+    document.removeEventListener("pointerdown", restore, true);
+  };
+  window.addEventListener("afterprint", restore);
+  // Filet de sécurité si la fenêtre ne signale pas la fin de l'impression.
+  document.addEventListener("pointerdown", restore, true);
+  api.print().catch(() => window.print());
+}
+
 function renderData(f) {
   const pane = byId("tab-data");
   pane.innerHTML = "";
@@ -1005,6 +1087,8 @@ function renderData(f) {
 
   const controls = controlsSection(f);
   if (controls) pane.appendChild(controls);
+  const rules = rulesSection(f);
+  if (rules) pane.appendChild(rules);
   pane.appendChild(reviewPanel(f));
 
   if (r.lines && r.lines.length) {
@@ -1569,6 +1653,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     if (e.key === "Escape") { e.target.value = ""; scheduleQuickSearch(); }
   });
   document.addEventListener("keydown", e => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "p") { e.preventDefault(); printView(); }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
       e.preventDefault(); byId("quick-query").focus(); byId("quick-query").select();
     }

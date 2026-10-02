@@ -916,6 +916,7 @@ tr.flash { animation: flash 1.8s ease-out; }
 .batch-tools { margin: 0 0 12px; }
 .document-tab-batch { border-right: 1px solid var(--border); font-weight: 600; }
 #batch-table th { cursor: pointer; white-space: nowrap; }
+#batch-table tbody td:nth-child(n+3) { white-space: nowrap; }
 #batch-table tbody tr.batch-row { cursor: pointer; }
 #batch-table tbody tr.batch-ecart td { background: color-mix(in srgb, var(--err) 5%, transparent); }
 #batch-table tfoot td { font-weight: 600; background: var(--panel-2); border-top: 2px solid var(--border); }
@@ -980,3 +981,27 @@ tr.flash { animation: flash 1.8s ease-out; }
 
 /* ---------- onglets fixes (Accueil, Tableau) ---------- */
 .document-tabs-fixed { display: flex; flex-shrink: 0; position: sticky; left: 0; z-index: 2; background: var(--panel); border-right: 1px solid var(--border); box-shadow: 4px 0 6px -4px rgba(16, 32, 54, 0.25); }
+
+/* ---------- règles EN 16931 ---------- */
+.rules-note { margin: 0; padding: 8px 14px; color: var(--muted); font-size: 12.5px; border-bottom: 1px solid var(--border-soft); }
+
+/* ---------- impression ---------- */
+@media print {
+  .menubar, .topbar, .document-tabs, .quick-search, .sidebar, .tabs, .file-head-right, .pdf-toolbar,
+  .lines-tools, .batch-tools, .pane-tools, .ctx-menu, .pop, .toast, #workspace-message, .review-panel,
+  .col-point, .col-detail, .controls-report, .line-detail-row:not(.open) { display: none !important; }
+  html, body { height: auto !important; overflow: visible !important; background: #fff !important; }
+  body, .layout, #reading-panes { display: block !important; }
+  .main { overflow: visible !important; }
+  .file-view, .batch-view { padding: 0 !important; }
+  .dual-reading > .active { height: auto !important; overflow: visible !important; }
+  .section, .card { box-shadow: none !important; break-inside: avoid; }
+  .lines-section, #tab-xml .table-wrap, #batch-table { break-inside: auto; }
+  .lines-head, thead th { position: static !important; }
+  .table-wrap { overflow: visible !important; }
+  tr { break-inside: avoid; }
+  .pdf-page { box-shadow: none !important; margin: 0 auto !important; break-after: page; }
+  .pdf-page canvas { max-width: 100% !important; height: auto !important; }
+  .review-select { appearance: none; border: 0 !important; }
+  @page { margin: 12mm; }
+}
