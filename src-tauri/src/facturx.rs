@@ -20,6 +20,8 @@ use sha2::{Digest, Sha256};
 
 use crate::tables;
 
+mod controles;
+
 #[derive(Debug)]
 pub struct FacturXError(pub String);
 
@@ -1596,7 +1598,7 @@ pub fn parse_file(filename: &str, data: &[u8]) -> Result<Value, FacturXError> {
     };
 
     let root_local = local(root);
-    let (format, structured) = match root_local {
+    let (format, mut structured) = match root_local {
         "Invoice" | "CreditNote" => ("UBL", extract_ubl(root, &paths, &mut warnings)),
         "CrossIndustryInvoice" => ("CII", extract_cii(root, &paths, &mut warnings)),
         _ => {
@@ -1613,6 +1615,14 @@ pub fn parse_file(filename: &str, data: &[u8]) -> Result<Value, FacturXError> {
 
     if main_pdf.is_none() {
         warnings.push("Aucun PDF integre trouve dans ce fichier.".into());
+    }
+
+    // Controles de coherence, seulement si la structure de la facture a ete reconnue.
+    let recognized = structured.get("header").and_then(Value::as_array).is_some_and(|h| !h.is_empty());
+    if recognized && format != "XML" {
+        let today = chrono::Local::now().date_naive();
+        let checks = controles::run(root, format, &paths, &structured, today);
+        structured.insert("controles".into(), checks.into());
     }
 
     let mut result = Map::new();
@@ -1795,6 +1805,89 @@ mod tests {
         assert!(e.0.starts_with("PDF sans XML de facture"));
         let e = parse_file("x.xml", b"<a><b></a>").unwrap_err();
         assert!(e.0.starts_with("XML invalide"));
+    }
+
+    fn controles_of(xml: &str, today: (i32, u32, u32)) -> Vec<Value> {
+        let doc = parse_xml(xml).unwrap();
+        let root = doc.root_element();
+        let paths = Paths::build(root);
+        let mut warnings = Vec::new();
+        let (format, s) = if local(root) == "CrossIndustryInvoice" {
+            ("CII", extract_cii(root, &paths, &mut warnings))
+        } else {
+            ("UBL", extract_ubl(root, &paths, &mut warnings))
+        };
+        let today = chrono::NaiveDate::from_ymd_opt(today.0, today.1, today.2).unwrap();
+        controles::run(root, format, &paths, &s, today)
+    }
+
+    fn controle<'a>(checks: &'a [Value], prefix: &str) -> &'a Value {
+        checks
+            .iter()
+            .find(|c| c["regle"].as_str().unwrap().starts_with(prefix))
+            .unwrap_or_else(|| panic!("controle absent : {prefix}"))
+    }
+
+    #[test]
+    fn controles_facture_juste() {
+        let c = controles_of(CII, (2026, 10, 2));
+        assert!(c.iter().all(|x| x["etat"] != "ecart"), "{c:#?}");
+        assert_eq!(controle(&c, "Lignes :")["etat"], "conforme");
+        assert_eq!(controle(&c, "Somme des lignes")["etat"], "conforme");
+        assert_eq!(controle(&c, "Total TTC")["etat"], "conforme");
+        assert_eq!(controle(&c, "Total TTC")["attendu"], "120.00");
+        assert_eq!(controle(&c, "Net à payer")["etat"], "conforme");
+        assert_eq!(controle(&c, "Mentions essentielles")["etat"], "conforme");
+        // IBAN et n° de TVA de la fixture : cles de controle fausses.
+        assert_eq!(controle(&c, "IBAN")["etat"], "alerte");
+        assert_eq!(controle(&c, "N° de TVA")["etat"], "alerte");
+        assert_eq!(controle(&c, "Échéance dans 8 jours")["etat"], "info");
+        let late = controles_of(CII, (2026, 10, 13));
+        assert_eq!(controle(&late, "Échéance dépassée depuis 3 jours")["etat"], "alerte");
+    }
+
+    #[test]
+    fn controles_ecarts() {
+        let xml = CII
+            .replace("<ram:TotalAmount currencyID=\"EUR\">120.00", "<ram:TotalAmount currencyID=\"EUR\">120.01")
+            .replace(
+                "<ram:LineExtensionAmount currencyID=\"EUR\">100.00",
+                "<ram:LineExtensionAmount currencyID=\"EUR\">100.02",
+            );
+        let c = controles_of(&xml, (2026, 10, 2));
+        // Ecart d'un centime sur le TTC : 100.00 + 20.00 attendu, 120.01 constate.
+        let ttc = controle(&c, "Total TTC");
+        assert_eq!(ttc["etat"], "ecart");
+        assert_eq!(ttc["attendu"], "120.00");
+        assert_eq!(ttc["constate"], "120.01");
+        assert_eq!(ttc["ecart"], "0.01");
+        assert!(ttc["path"].as_str().unwrap().ends_with("ApplicableTradeSettlement/TotalAmount"));
+        assert_eq!(controle(&c, "Net à payer")["ecart"], "-0.01");
+        // 2 x 50.00 : 100.01 s'explique par l'arrondi du prix, 100.02 non.
+        assert_eq!(controle(&c, "Lignes :")["etat"], "ecart");
+        assert_eq!(controle(&c, "Ligne 1 :")["ecart"], "0.02");
+        assert_eq!(controle(&c, "Somme des lignes")["ecart"], "-0.02");
+        let tolerated = CII.replace(
+            "<ram:LineExtensionAmount currencyID=\"EUR\">100.00",
+            "<ram:LineExtensionAmount currencyID=\"EUR\">100.01",
+        );
+        assert_eq!(controle(&controles_of(&tolerated, (2026, 10, 2)), "Lignes :")["etat"], "conforme");
+    }
+
+    #[test]
+    fn controles_ubl_incomplet() {
+        let c = controles_of(UBL, (2026, 10, 2));
+        // Ligne 1 : 10 x 10.00 + 15.00 de frais = 115.00 ; ligne 2 sans prix.
+        let lignes = controle(&c, "Lignes :");
+        assert_eq!(lignes["etat"], "conforme");
+        assert!(lignes["detail"].as_str().unwrap().starts_with("1 ligne(s) vérifiée(s) ; 1 sans"));
+        assert_eq!(controle(&c, "Total TTC")["etat"], "non_verifiable");
+        let mentions = controle(&c, "Mentions essentielles");
+        assert_eq!(mentions["etat"], "ecart");
+        assert_eq!(mentions["detail"], "Absent du XML : Nom de l'acheteur");
+        assert_eq!(controle(&c, "Identification du vendeur")["etat"], "alerte");
+        let r = parse_file("test-ubl.xml", UBL.as_bytes()).unwrap();
+        assert!(!r["controles"].as_array().unwrap().is_empty());
     }
 
     #[test]

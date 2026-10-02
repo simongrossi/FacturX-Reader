@@ -8,7 +8,8 @@ Déposez une facture — ou un dossier entier — et l'outil affiche :
 - le **PDF d'origine** (zoom, navigation page par page, enregistrement) ;
 - toutes les **valeurs du XML** en tableaux, avec des titres lisibles en français ;
 - les **lignes de facturation** (références, désignations, quantités, prix, TVA, totaux),
-  triables, filtrables et **pointables** ;
+  triables, filtrables, **pointables** et **exportables en CSV** ;
+- des **contrôles de cohérence** : calculs, mentions, identifiants, échéance, doublons ;
 - le **XML complet** (filtrable par champ, valeur ou chemin) et le **XML brut** (recherche
   avec surlignage).
 
@@ -124,6 +125,31 @@ Sur le tableau des **lignes de facture** :
 - **Colonnes de note** : une note de ligne de la forme `libellé : valeur | libellé : valeur`
   est éclatée en colonnes.
 
+### Contrôles
+
+L'onglet **Données** affiche un bloc **Contrôles**, déplié dès qu'il y a un écart ou une alerte :
+
+- **Calculs** en décimaux exacts : quantité × prix unitaire = total de ligne, somme des lignes,
+  total HT, TVA par taux, total TVA, total TTC, net à payer. Un écart d'un centime est signalé ;
+  seul l'arrondi du prix unitaire est toléré sur les lignes, et un centime sur la TVA par taux.
+- **Mentions essentielles** : numéro, date, type, devise, vendeur, acheteur.
+- **Identifiants** : clé de contrôle du SIREN/SIRET, du n° de TVA français et de l'IBAN.
+- **Dates** : échéance dépassée ou à venir, gain d'escompte si le XML le décrit.
+- **Doublons** parmi les documents ouverts : XML identique, ou même vendeur et même numéro.
+
+Chaque ligne donne l'attendu, le constaté et l'écart ; un clic ouvre l'élément dans « XML complet ».
+Les états sont *conforme*, *écart*, *alerte*, *info* et *non vérifiable* (donnée absente du XML).
+Une facture avec écart porte une pastille rouge dans la liste des fichiers.
+
+Ces contrôles ne sont pas une validation EN 16931 (XSD / Schematron) : voir la roadmap. Aucun
+appel réseau : l'existence du SIREN ou la propriété de l'IBAN ne sont pas vérifiées.
+
+### Export des lignes
+
+**Exporter CSV** enregistre les lignes affichées (recherche, filtre de pointage et tri appliqués)
+dans un fichier lisible par Excel : séparateur point-virgule, UTF-8, décimale française, devise
+dans sa propre colonne, colonne « Pointée ». **Copier** place le même tableau dans le presse-papiers.
+
 ### Pointages
 
 Les lignes pointées sont enregistrées automatiquement et retrouvées à la réouverture de la même
@@ -169,6 +195,7 @@ web/                       interface (aucune étape de compilation)
   pdfjs/                   PDF.js embarqué
 src-tauri/
   src/facturx.rs           moteur : PDF Factur-X, ZIP, UBL, CII
+  src/facturx/controles.rs contrôles de cohérence (décimaux exacts)
   src/tables.rs            libellés français et tables de codes
   src/pointages.rs         persistance des pointages
   src/lib.rs               commandes exposées au front
@@ -250,6 +277,7 @@ cargo run --example dump -- ../samples/facture.pdf > facture.json
 | `startup_paths` | fichiers et dossiers passés en ligne de commande |
 | `get_pointage` / `set_pointage` / `clear_pointage` | pointages d'une facture |
 | `save_pdf` | boîte « Enregistrer sous » et écriture du PDF |
+| `save_text` | boîte « Enregistrer sous » et écriture d'un export CSV |
 | `app_info` | version et emplacement des pointages |
 
 ## Auteurs et licence

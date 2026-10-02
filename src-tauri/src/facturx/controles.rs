@@ -1,0 +1,653 @@
+//! Controles de coherence d'une facture : arithmetique en decimaux exacts,
+//! mentions essentielles, identifiants (SIREN/SIRET, TVA, IBAN) et echeance.
+//!
+//! Chaque controle porte un etat :
+//!   - `conforme`       : la regle est verifiee ;
+//!   - `ecart`          : la valeur du XML differe de la valeur recalculee ;
+//!   - `alerte`         : point a examiner (identifiant douteux, echeance depassee) ;
+//!   - `info`           : information utile, sans anomalie ;
+//!   - `non_verifiable` : donnees absentes du XML, la regle ne peut pas etre evaluee.
+//!
+//! Une regle sans objet (ex. pas de lignes dans un profil BASIC WL) n'est pas emise.
+
+use std::fmt;
+
+use chrono::NaiveDate;
+use serde_json::{json, Map, Value};
+
+use super::{find, find_alt, findall, findall_alt, text, Paths, N, ON};
+
+// ------------------------------------------------------------------ decimaux
+
+/// 8 decimales : couvre les prix unitaires et quantites a forte precision.
+const SCALE: i128 = 100_000_000;
+const CENT: i128 = SCALE / 100;
+
+/// Decimal a virgule fixe. Aucun flottant : les sommes sont exactes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+struct Dec(i128);
+
+impl Dec {
+    const ZERO: Dec = Dec(0);
+
+    /// Valeur et nombre de decimales ecrites. `None` si vide, non numerique
+    /// ou plus precis que 8 decimales.
+    fn parse(s: &str) -> Option<(Dec, u32)> {
+        let s = s.trim();
+        let (neg, body) = match s.strip_prefix('-') {
+            Some(rest) => (true, rest),
+            None => (false, s.strip_prefix('+').unwrap_or(s)),
+        };
+        let (int, frac) = body.split_once('.').unwrap_or((body, ""));
+        if (int.is_empty() && frac.is_empty())
+            || int.len() > 18
+            || frac.len() > 8
+            || !int.bytes().chain(frac.bytes()).all(|b| b.is_ascii_digit())
+        {
+            return None;
+        }
+        let int_v: i128 = if int.is_empty() { 0 } else { int.parse().ok()? };
+        let frac_v: i128 = if frac.is_empty() { 0 } else { frac.parse().ok()? };
+        let v = int_v * SCALE + frac_v * 10i128.pow(8 - frac.len() as u32);
+        Some((Dec(if neg { -v } else { v }), frac.len() as u32))
+    }
+
+    fn abs(self) -> Dec {
+        Dec(self.0.abs())
+    }
+}
+
+impl fmt::Display for Dec {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let a = self.0.abs();
+        let mut frac = format!("{:08}", a % SCALE);
+        while frac.len() > 2 && frac.ends_with('0') {
+            frac.pop();
+        }
+        write!(f, "{}{}.{frac}", if self.0 < 0 { "-" } else { "" }, a / SCALE)
+    }
+}
+
+/// Division arrondie au plus proche, demi a l'ecart de zero (d > 0).
+fn round_div(n: i128, d: i128) -> i128 {
+    if n >= 0 {
+        (n + d / 2) / d
+    } else {
+        -((-n + d / 2) / d)
+    }
+}
+
+/// a x b / diviseur, arrondi au centime.
+fn mul_cents(a: Dec, b: Dec, divisor: Dec) -> Option<Dec> {
+    if divisor.0 == 0 {
+        return None;
+    }
+    let (n, d) = (a.0.checked_mul(b.0)?, divisor.0.checked_mul(CENT)?);
+    let (n, d) = if d < 0 { (-n, -d) } else { (n, d) };
+    Some(Dec(round_div(n, d) * CENT))
+}
+
+/// Montant lu dans le XML, avec sa precision et son chemin.
+#[derive(Clone, Debug)]
+struct Amt {
+    v: Dec,
+    dp: u32,
+    path: String,
+}
+
+fn amt(el: ON, paths: &Paths) -> Option<Amt> {
+    let (v, dp) = Dec::parse(&text(el))?;
+    Some(Amt { v, dp, path: paths.of(el) })
+}
+
+// ------------------------------------------------------------------ donnees communes
+
+#[derive(Default)]
+struct Line {
+    id: String,
+    path: String,
+    qty: Option<Amt>,
+    price: Option<Amt>,
+    base_qty: Option<Amt>,
+    total: Option<Amt>,
+    /// Frais - remises de la ligne.
+    ac_net: i128,
+}
+
+#[derive(Default)]
+struct Breakdown {
+    base: Option<Amt>,
+    rate: Option<Amt>,
+    tax: Option<Amt>,
+}
+
+#[derive(Default)]
+struct Totals {
+    lines: Vec<Line>,
+    lines_sum: Option<Amt>,
+    allowances: Option<Amt>,
+    charges: Option<Amt>,
+    basis: Option<Amt>,
+    tax: Option<Amt>,
+    grand: Option<Amt>,
+    prepaid: Option<Amt>,
+    rounding: Option<Amt>,
+    payable: Option<Amt>,
+    breakdown: Vec<Breakdown>,
+    discount_pct: Option<Amt>,
+    discount_amount: Option<Amt>,
+}
+
+fn is_true(el: ON) -> bool {
+    matches!(text(el).to_lowercase().as_str(), "true" | "1" | "yes" | "oui")
+}
+
+fn ubl_totals(root: N, paths: &Paths) -> Totals {
+    let r = Some(root);
+    let a = |el: ON| amt(el, paths);
+    let lmt = find(r, "LegalMonetaryTotal");
+    let tax_totals = findall(r, "TaxTotal");
+    let tt = tax_totals
+        .iter()
+        .copied()
+        .find(|t| find(Some(*t), "TaxSubtotal").is_some())
+        .or_else(|| tax_totals.first().copied());
+    let mut t = Totals {
+        lines_sum: a(find(lmt, "LineExtensionAmount")),
+        allowances: a(find(lmt, "AllowanceTotalAmount")),
+        charges: a(find(lmt, "ChargeTotalAmount")),
+        basis: a(find(lmt, "TaxExclusiveAmount")),
+        tax: a(find(tt, "TaxAmount")),
+        grand: a(find(lmt, "TaxInclusiveAmount")),
+        prepaid: a(find(lmt, "PrepaidAmount")),
+        rounding: a(find(lmt, "PayableRoundingAmount")),
+        payable: a(find(lmt, "PayableAmount")),
+        discount_pct: a(find(find(r, "PaymentTerms"), "SettlementDiscountPercent")),
+        ..Totals::default()
+    };
+    for sub in findall(tt, "TaxSubtotal") {
+        let sub = Some(sub);
+        t.breakdown.push(Breakdown {
+            base: a(find(sub, "TaxableAmount")),
+            rate: a(find(find(sub, "TaxCategory"), "Percent")),
+            tax: a(find(sub, "TaxAmount")),
+        });
+    }
+    for line in findall_alt(r, &["InvoiceLine", "CreditNoteLine"]) {
+        let l = Some(line);
+        let price = find(l, "Price");
+        let mut ac_net = 0;
+        for ac in findall(l, "AllowanceCharge") {
+            let ac = Some(ac);
+            let indicator = find(ac, "ChargeIndicator");
+            let v = a(find(ac, "Amount")).map_or(0, |x| x.v.0);
+            // ChargeIndicator absent = majoration, comme dans le moteur d'affichage.
+            ac_net += if indicator.is_none() || is_true(indicator) { v } else { -v };
+        }
+        t.lines.push(Line {
+            id: text(find(l, "ID")),
+            path: paths.of(l),
+            qty: a(find_alt(l, &["InvoicedQuantity", "CreditedQuantity"])),
+            price: a(find(price, "PriceAmount")),
+            base_qty: a(find(price, "BaseQuantity")),
+            total: a(find(l, "LineExtensionAmount")),
+            ac_net,
+        });
+    }
+    t
+}
+
+fn cii_totals(root: N, paths: &Paths) -> Totals {
+    let a = |el: ON| amt(el, paths);
+    let txn = find(Some(root), "SupplyChainTradeTransaction");
+    let settlement = find_alt(txn, &["ApplicableTradeSettlement", "ApplicableHeaderTradeSettlement"]);
+    let sum = find(settlement, "SpecifiedTradeSettlementHeaderMonetarySummation");
+    let pick = |names: &[&str]| names.iter().find_map(|n| find(sum, n).or_else(|| find(settlement, n)));
+    // TaxTotalAmount peut etre repete (devise de facture et devise comptable).
+    let currency = text(find(settlement, "InvoiceCurrencyCode"));
+    let tax_totals = findall(sum, "TaxTotalAmount");
+    let tax_el = tax_totals
+        .iter()
+        .copied()
+        .find(|t| !currency.is_empty() && t.attribute("currencyID") == Some(currency.as_str()))
+        .or_else(|| tax_totals.first().copied());
+    let discount = find(find(settlement, "SpecifiedTradePaymentTerms"), "ApplicableTradePaymentDiscountTerms");
+    let mut t = Totals {
+        lines_sum: a(pick(&["LineTotalAmount"])),
+        allowances: a(pick(&["AllowanceTotalAmount"])),
+        charges: a(pick(&["ChargeTotalAmount"])),
+        basis: a(pick(&["TaxBasisTotalAmount"])),
+        tax: a(tax_el),
+        grand: a(pick(&["GrandTotalAmount", "TotalAmount"])),
+        prepaid: a(pick(&["TotalPrepaidAmount"])),
+        rounding: a(pick(&["RoundingAmount"])),
+        payable: a(pick(&["DuePayableAmount", "NetPayableAmount"])),
+        discount_pct: a(find(discount, "CalculationPercent")),
+        discount_amount: a(find(discount, "ActualDiscountAmount")),
+        ..Totals::default()
+    };
+    for tax in findall(settlement, "ApplicableTradeTax") {
+        let tax = Some(tax);
+        t.breakdown.push(Breakdown {
+            base: a(find(tax, "BasisAmount")),
+            rate: a(find(find(tax, "CategoryTradeTax"), "RateApplicablePercent")
+                .or_else(|| find(tax, "RateApplicablePercent"))),
+            tax: a(find(tax, "CalculatedAmount")),
+        });
+    }
+    for li in findall_alt(txn, &["SpecifiedTradeLineItem", "IncludedSupplyChainTradeLineItem"]) {
+        let l = Some(li);
+        let agr = find_alt(l, &["SpecifiedLineTradeAgreement", "IncludedLineTradeAgreement"]);
+        let tr = find(l, "SpecifiedLineTradeTransaction");
+        let dl = find_alt(l, &["SpecifiedLineTradeDelivery", "IncludedLineTradeDelivery"]);
+        let st = find_alt(l, &["SpecifiedLineTradeSettlement", "IncludedLineTradeSettlement"]);
+        let price = find_alt(agr, &["NetPriceProductTradePrice", "NetPrice"]);
+        let mut ac_net = 0;
+        for ac in findall(st, "SpecifiedTradeAllowanceCharge") {
+            let ac = Some(ac);
+            let indicator = find(ac, "ChargeIndicator");
+            let v = a(find(ac, "ActualAmount")).map_or(0, |x| x.v.0);
+            ac_net += if is_true(find(indicator, "Indicator").or(indicator)) { v } else { -v };
+        }
+        t.lines.push(Line {
+            id: text(find(l, "LineID").or_else(|| find(find(l, "AssociatedDocumentLineDocument"), "LineID"))),
+            path: paths.of(l),
+            qty: a(find(tr, "InvoicedQuantity").or_else(|| find(dl, "BilledQuantity"))),
+            price: a(find(price, "ChargeAmount")),
+            base_qty: a(find(price, "BasisQuantity")),
+            total: a(find(tr, "LineExtensionAmount")
+                .or_else(|| find(find(st, "SpecifiedTradeSettlementLineMonetarySummation"), "LineTotalAmount"))),
+            ac_net,
+        });
+    }
+    t
+}
+
+// ------------------------------------------------------------------ resultats
+
+fn check(regle: &str, etat: &str, attendu: &str, constate: &str, ecart: &str, path: &str, detail: &str) -> Value {
+    json!({
+        "regle": regle,
+        "etat": etat,
+        "attendu": attendu,
+        "constate": constate,
+        "ecart": ecart,
+        "path": path,
+        "detail": detail,
+    })
+}
+
+fn simple(regle: &str, etat: &str, path: &str, detail: &str) -> Value {
+    check(regle, etat, "", "", "", path, detail)
+}
+
+/// Compare une valeur recalculee a la valeur du XML, avec une tolerance.
+fn compare(out: &mut Vec<Value>, regle: &str, detail: &str, expected: Dec, found: &Amt, tolerance: i128) {
+    let diff = Dec(found.v.0 - expected.0);
+    let (etat, ecart) = if diff.abs().0 <= tolerance { ("conforme", String::new()) } else { ("ecart", diff.to_string()) };
+    out.push(check(regle, etat, &expected.to_string(), &found.v.to_string(), &ecart, &found.path, detail));
+}
+
+fn val(a: &Option<Amt>) -> i128 {
+    a.as_ref().map_or(0, |x| x.v.0)
+}
+
+// ------------------------------------------------------------------ regles arithmetiques
+
+fn check_lines(out: &mut Vec<Value>, t: &Totals) {
+    if t.lines.is_empty() {
+        return;
+    }
+    let (mut ok, mut skipped) = (0usize, 0usize);
+    let mut gaps = Vec::new();
+    for line in &t.lines {
+        let (Some(qty), Some(price), Some(total)) = (&line.qty, &line.price, &line.total) else {
+            skipped += 1;
+            continue;
+        };
+        let base = line.base_qty.as_ref().map_or(Dec(SCALE), |b| b.v);
+        let Some(expected) = mul_cents(qty.v, price.v, base) else {
+            skipped += 1;
+            continue;
+        };
+        // Un prix unitaire arrondi explique un ecart d'au plus quantite x demi-unite
+        // de sa derniere decimale ; au-dela, c'est un ecart.
+        let tolerance = qty.v.abs().0 / (2 * 10i128.pow(price.dp));
+        // Deux conventions d'emetteurs : total de ligne avec ou sans frais/remises de ligne.
+        let with_ac = Dec(expected.0 + line.ac_net);
+        let near = |e: Dec| (total.v.0 - e.0).abs() <= tolerance;
+        if near(expected) || near(with_ac) {
+            ok += 1;
+            continue;
+        }
+        let reference = if line.ac_net != 0 { with_ac } else { expected };
+        let label = if line.id.is_empty() { "Ligne".to_string() } else { format!("Ligne {}", line.id) };
+        gaps.push(check(
+            &format!("{label} : quantité × prix unitaire = total de ligne"),
+            "ecart",
+            &reference.to_string(),
+            &total.v.to_string(),
+            &Dec(total.v.0 - reference.0).to_string(),
+            &total.path,
+            &format!("{} × {}{}", qty.v, price.v, if line.ac_net != 0 { " + frais/remises de ligne" } else { "" }),
+        ));
+    }
+    let regle = "Lignes : quantité × prix unitaire = total de ligne";
+    let first_path = t.lines.first().map_or("", |l| l.path.as_str());
+    let skipped_note = if skipped > 0 { format!(" ; {skipped} sans quantité, prix ou total") } else { String::new() };
+    if ok == 0 && gaps.is_empty() {
+        out.push(simple(regle, "non_verifiable", first_path, "Quantité, prix unitaire ou total absents des lignes."));
+    } else if gaps.is_empty() {
+        out.push(simple(regle, "conforme", first_path, &format!("{ok} ligne(s) vérifiée(s){skipped_note}")));
+    } else {
+        out.push(simple(
+            regle,
+            "ecart",
+            first_path,
+            &format!("{} ligne(s) en écart sur {}{skipped_note}", gaps.len(), ok + gaps.len()),
+        ));
+        out.extend(gaps);
+    }
+}
+
+fn check_totals(out: &mut Vec<Value>, t: &Totals) {
+    // Somme des lignes = total des lignes (BR-CO-10).
+    if let Some(found) = &t.lines_sum {
+        if !t.lines.is_empty() && t.lines.iter().all(|l| l.total.is_some()) {
+            let sum = Dec(t.lines.iter().map(|l| val(&l.total)).sum());
+            compare(out, "Somme des lignes = total des lignes", "Σ totaux de ligne", sum, found, 0);
+        }
+    }
+    // Total HT = total des lignes - remises + frais (BR-CO-13).
+    if let (Some(lines_sum), Some(found)) = (&t.lines_sum, &t.basis) {
+        let expected = Dec(lines_sum.v.0 - val(&t.allowances) + val(&t.charges));
+        compare(out, "Total HT = total des lignes − remises + frais", "Niveau document", expected, found, 0);
+    }
+    // TVA par taux = base × taux (BR-CO-17), au centime pres.
+    for b in &t.breakdown {
+        let (Some(base), Some(rate), Some(found)) = (&b.base, &b.rate, &b.tax) else { continue };
+        if let Some(expected) = mul_cents(base.v, rate.v, Dec(100 * SCALE)) {
+            let regle = format!("TVA {} % = base × taux", rate.v);
+            compare(out, &regle, &format!("{} × {} %", base.v, rate.v), expected, found, CENT);
+        }
+    }
+    // Total TVA = somme des TVA par taux (BR-CO-14).
+    let breakdown_sum = (!t.breakdown.is_empty() && t.breakdown.iter().all(|b| b.tax.is_some()))
+        .then(|| Dec(t.breakdown.iter().map(|b| val(&b.tax)).sum()));
+    if let (Some(sum), Some(found)) = (breakdown_sum, &t.tax) {
+        compare(out, "Total TVA = somme des TVA par taux", "Σ ventilation de TVA", sum, found, 0);
+    }
+    // Total TTC = total HT + total TVA (BR-CO-15).
+    let regle = "Total TTC = total HT + total TVA";
+    let ht = t.basis.as_ref().or(t.lines_sum.as_ref());
+    let tva = t.tax.as_ref().map(|x| x.v).or(breakdown_sum);
+    match (ht, tva, &t.grand) {
+        (Some(ht), Some(tva), Some(found)) => {
+            compare(out, regle, &format!("{} + {tva}", ht.v), Dec(ht.v.0 + tva.0), found, 0);
+        }
+        (_, _, grand) => {
+            let path = grand.as_ref().map_or("", |g| g.path.as_str());
+            out.push(simple(regle, "non_verifiable", path, "Total HT, total TVA ou total TTC absent du XML."));
+        }
+    }
+    // Net a payer = total TTC - acomptes + arrondi (BR-CO-16).
+    if let (Some(grand), Some(found)) = (&t.grand, &t.payable) {
+        let expected = Dec(grand.v.0 - val(&t.prepaid) + val(&t.rounding));
+        compare(out, "Net à payer = total TTC − acomptes + arrondi", "", expected, found, 0);
+    }
+}
+
+// ------------------------------------------------------------------ mentions et identifiants
+
+/// (valeur, chemin) d'une ligne de l'en-tete (`section` = None) ou d'une section.
+fn field(s: &Map<String, Value>, section: Option<&str>, titles: &[&str]) -> Option<(String, String)> {
+    let rows = match section {
+        None => s.get("header")?.as_array()?,
+        Some(name) => s.get("sections")?.as_array()?.iter().find(|x| x["name"] == name)?["rows"].as_array()?,
+    };
+    titles.iter().find_map(|title| {
+        let r = rows.iter().find(|r| r["title"] == *title && r["value"].as_str().is_some_and(|v| !v.is_empty()))?;
+        Some((r["value"].as_str()?.to_string(), r["path"].as_str().unwrap_or("").to_string()))
+    })
+}
+
+fn luhn(digits: &str) -> bool {
+    let sum: u32 = digits
+        .bytes()
+        .rev()
+        .enumerate()
+        .map(|(i, b)| {
+            let d = u32::from(b - b'0');
+            if i % 2 == 1 {
+                let d = d * 2;
+                if d > 9 { d - 9 } else { d }
+            } else {
+                d
+            }
+        })
+        .sum();
+    sum % 10 == 0
+}
+
+/// `Some(valide)` pour un SIREN (9 chiffres) ou un SIRET (14 chiffres), `None` sinon.
+fn siren_siret_valid(id: &str) -> Option<bool> {
+    let id: String = id.chars().filter(|c| !c.is_whitespace()).collect();
+    if !(id.len() == 9 || id.len() == 14) || !id.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    // Les SIRET de La Poste (SIREN 356000000) ne suivent pas la cle de Luhn.
+    if id.len() == 14 && id.starts_with("356000000") {
+        return None;
+    }
+    Some(luhn(&id))
+}
+
+/// `Some(valide)` pour un n° de TVA francais a cle numerique, `None` sinon.
+fn fr_vat_valid(vat: &str) -> Option<bool> {
+    let vat: String = vat.chars().filter(|c| !c.is_whitespace()).collect::<String>().to_uppercase();
+    let rest = vat.strip_prefix("FR")?;
+    if rest.len() != 11 || !rest.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    let key: u64 = rest[..2].parse().ok()?;
+    let siren: u64 = rest[2..].parse().ok()?;
+    Some(key == (12 + 3 * (siren % 97)) % 97)
+}
+
+/// `Some(valide)` pour une chaine de forme IBAN (controle modulo 97), `None` sinon.
+fn iban_valid(iban: &str) -> Option<bool> {
+    let iban: String = iban.chars().filter(|c| !c.is_whitespace()).collect::<String>().to_uppercase();
+    let b = iban.as_bytes();
+    if !(15..=34).contains(&b.len())
+        || !b.iter().all(u8::is_ascii_alphanumeric)
+        || !b[..2].iter().all(u8::is_ascii_alphabetic)
+        || !b[2..4].iter().all(u8::is_ascii_digit)
+    {
+        return None;
+    }
+    let mut rem: u32 = 0;
+    for &c in b[4..].iter().chain(&b[..4]) {
+        if c.is_ascii_digit() {
+            rem = (rem * 10 + u32::from(c - b'0')) % 97;
+        } else {
+            rem = (rem * 100 + u32::from(c - b'A') + 10) % 97;
+        }
+    }
+    Some(rem == 1)
+}
+
+fn check_mentions(out: &mut Vec<Value>, s: &Map<String, Value>) {
+    let required: [(&str, Option<&str>, &[&str]); 6] = [
+        ("Numéro de facture", None, &["N° de facture"]),
+        ("Date d'émission", None, &["Date d'emission"]),
+        ("Type de facture", None, &["Type de facture"]),
+        ("Devise", None, &["Devise"]),
+        ("Nom du vendeur", Some("Vendeur"), &["Raison sociale", "Denomination legale"]),
+        ("Nom de l'acheteur", Some("Acheteur"), &["Raison sociale", "Denomination legale"]),
+    ];
+    let missing: Vec<&str> =
+        required.iter().filter(|(_, sec, titles)| field(s, *sec, titles).is_none()).map(|(n, _, _)| *n).collect();
+    let regle = "Mentions essentielles présentes";
+    if missing.is_empty() {
+        out.push(simple(regle, "conforme", "", "Numéro, date, type, devise, vendeur, acheteur"));
+    } else {
+        out.push(simple(regle, "ecart", "", &format!("Absent du XML : {}", missing.join(", "))));
+    }
+
+    let legal = field(s, Some("Vendeur"), &["SIREN / registre", "Identifiant legal"]);
+    let vat = field(s, Some("Vendeur"), &["N° de TVA"]);
+    if legal.is_none() && vat.is_none() {
+        out.push(simple(
+            "Identification du vendeur",
+            "alerte",
+            "",
+            "Ni identifiant légal (SIREN/SIRET) ni n° de TVA du vendeur dans le XML.",
+        ));
+    }
+    if let Some((v, path)) = &legal {
+        match siren_siret_valid(v) {
+            Some(true) => out.push(simple("SIREN / SIRET du vendeur", "conforme", path, "Clé de contrôle valide")),
+            Some(false) => out.push(simple(
+                "SIREN / SIRET du vendeur",
+                "alerte",
+                path,
+                &format!("Clé de contrôle invalide : {v}"),
+            )),
+            None => {}
+        }
+    }
+    if let Some((v, path)) = &vat {
+        match fr_vat_valid(v) {
+            Some(true) => out.push(simple("N° de TVA du vendeur", "conforme", path, "Clé de contrôle valide")),
+            Some(false) => {
+                out.push(simple("N° de TVA du vendeur", "alerte", path, &format!("Clé de contrôle invalide : {v}")))
+            }
+            None => {}
+        }
+    }
+    if let Some((v, path)) = field(s, Some("Paiement"), &["IBAN"]) {
+        match iban_valid(&v) {
+            Some(true) => out.push(simple("IBAN", "conforme", &path, "Clé de contrôle valide")),
+            Some(false) => out.push(simple("IBAN", "alerte", &path, &format!("Clé de contrôle invalide : {v}"))),
+            None => out.push(simple("IBAN", "alerte", &path, &format!("Format d'IBAN non reconnu : {v}"))),
+        }
+    }
+}
+
+// ------------------------------------------------------------------ dates cles
+
+fn parse_date(s: &str) -> Option<NaiveDate> {
+    let s = s.trim();
+    let digits: String = s.chars().take(10).filter(char::is_ascii_digit).collect();
+    let well_formed = (s.len() >= 10 && s.as_bytes()[4] == b'-' && s.as_bytes()[7] == b'-') || s.len() == 8;
+    if digits.len() != 8 || !well_formed {
+        return None;
+    }
+    NaiveDate::from_ymd_opt(digits[0..4].parse().ok()?, digits[4..6].parse().ok()?, digits[6..8].parse().ok()?)
+}
+
+fn plural(n: i64) -> &'static str {
+    if n > 1 { "s" } else { "" }
+}
+
+fn check_dates(out: &mut Vec<Value>, s: &Map<String, Value>, t: &Totals, is_credit_note: bool, today: NaiveDate) {
+    if is_credit_note || t.payable.as_ref().is_some_and(|p| p.v.0 <= 0) {
+        return;
+    }
+    if let Some((v, path)) = field(s, None, &["Date d'echance"]) {
+        if let Some(due) = parse_date(&v) {
+            let days = (due - today).num_days();
+            let note = "L'échéance ne préjuge pas du paiement effectif.";
+            out.push(match days {
+                d if d < 0 => simple(
+                    &format!("Échéance dépassée depuis {} jour{}", -d, plural(-d)),
+                    "alerte",
+                    &path,
+                    &format!("Échéance : {v}. {note}"),
+                ),
+                0 => simple("Échéance aujourd'hui", "alerte", &path, &format!("Échéance : {v}. {note}")),
+                d => simple(
+                    &format!("Échéance dans {d} jour{}", plural(d)),
+                    "info",
+                    &path,
+                    &format!("Échéance : {v}"),
+                ),
+            });
+        }
+    }
+    if let Some(pct) = &t.discount_pct {
+        let gain = t.discount_amount.as_ref().map(|a| a.v).or_else(|| {
+            t.payable.as_ref().and_then(|p| mul_cents(p.v, pct.v, Dec(100 * SCALE)))
+        });
+        if let Some(gain) = gain.filter(|g| *g > Dec::ZERO) {
+            out.push(simple(
+                &format!("Escompte de {} % pour paiement anticipé", pct.v),
+                "info",
+                &pct.path,
+                &format!("Gain possible : {gain}. Voir les conditions de paiement pour le délai."),
+            ));
+        }
+    }
+}
+
+// ------------------------------------------------------------------ point d'entree
+
+/// Controles d'une facture UBL ou CII deja extraite (`structured`).
+pub(super) fn run(root: N, format: &str, paths: &Paths, structured: &Map<String, Value>, today: NaiveDate) -> Vec<Value> {
+    let totals = if format == "UBL" { ubl_totals(root, paths) } else { cii_totals(root, paths) };
+    let type_code = field(structured, None, &["Type de facture"]).map(|(v, _)| v).unwrap_or_default();
+    let is_credit_note = root.tag_name().name() == "CreditNote" || type_code == "381";
+    let mut out = Vec::new();
+    check_lines(&mut out, &totals);
+    check_totals(&mut out, &totals);
+    check_mentions(&mut out, structured);
+    check_dates(&mut out, structured, &totals, is_credit_note, today);
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn decimaux() {
+        assert_eq!(Dec::parse("12.5").unwrap(), (Dec(1_250_000_000), 1));
+        assert_eq!(Dec::parse("-0.01").unwrap().0.to_string(), "-0.01");
+        assert_eq!(Dec::parse("1234.56789").unwrap().0.to_string(), "1234.56789");
+        assert_eq!(Dec::parse("7").unwrap().0.to_string(), "7.00");
+        assert!(Dec::parse("").is_none());
+        assert!(Dec::parse("1,5").is_none());
+        assert!(Dec::parse("1e3").is_none());
+        let d = |s: &str| Dec::parse(s).unwrap().0;
+        // 0.1 + 0.2 = 0.3 exactement, contrairement aux flottants.
+        assert_eq!(Dec(d("0.1").0 + d("0.2").0), d("0.3"));
+        // Arrondi au centime, demi a l'ecart de zero.
+        assert_eq!(mul_cents(d("3"), d("0.335"), Dec(SCALE)).unwrap().to_string(), "1.01");
+        assert_eq!(mul_cents(d("-3"), d("0.335"), Dec(SCALE)).unwrap().to_string(), "-1.01");
+        assert_eq!(mul_cents(d("100.00"), d("5.5"), Dec(100 * SCALE)).unwrap().to_string(), "5.50");
+        assert!(mul_cents(d("1"), d("1"), Dec::ZERO).is_none());
+    }
+
+    #[test]
+    fn identifiants() {
+        assert_eq!(siren_siret_valid("732 829 320"), Some(true));
+        assert_eq!(siren_siret_valid("732829321"), Some(false));
+        assert_eq!(siren_siret_valid("73282932000074"), Some(true));
+        assert_eq!(siren_siret_valid("DE123"), None);
+        assert_eq!(fr_vat_valid("FR44732829320"), Some(true));
+        assert_eq!(fr_vat_valid("FR45732829320"), Some(false));
+        assert_eq!(fr_vat_valid("DE123456789"), None);
+        assert_eq!(iban_valid("FR76 3000 6000 0112 3456 7890 189"), Some(true));
+        assert_eq!(iban_valid("FR7630006000011234567890188"), Some(false));
+        assert_eq!(iban_valid("compte 12"), None);
+    }
+
+    #[test]
+    fn dates() {
+        assert_eq!(parse_date("2026-10-10"), NaiveDate::from_ymd_opt(2026, 10, 10));
+        assert_eq!(parse_date("20261010"), NaiveDate::from_ymd_opt(2026, 10, 10));
+        assert_eq!(parse_date("2026-10-10T00:00:00"), NaiveDate::from_ymd_opt(2026, 10, 10));
+        assert_eq!(parse_date("10/10/2026"), None);
+        assert_eq!(parse_date("2026-13-40"), None);
+    }
+}

@@ -149,6 +149,28 @@ async fn save_pdf(app: tauri::AppHandle, filename: String, base64: String) -> Re
     Ok(true)
 }
 
+/// Boite « Enregistrer sous » native puis ecriture d'un fichier texte (export CSV).
+/// Retourne false si annule.
+#[tauri::command]
+async fn save_text(app: tauri::AppHandle, filename: String, content: String) -> Result<bool, String> {
+    let extension = Path::new(&filename)
+        .extension()
+        .map(|e| e.to_string_lossy().to_lowercase())
+        .unwrap_or_else(|| "txt".into());
+    let Some(dest) = app
+        .dialog()
+        .file()
+        .set_file_name(&filename)
+        .add_filter(extension.to_uppercase(), &[extension.as_str()])
+        .blocking_save_file()
+    else {
+        return Ok(false);
+    };
+    let path = dest.into_path().map_err(|e| e.to_string())?;
+    std::fs::write(&path, content).map_err(|e| format!("Ecriture impossible : {e}"))?;
+    Ok(true)
+}
+
 /// Informations affichees dans la fenetre Parametres.
 #[tauri::command]
 fn app_info(app: tauri::AppHandle, store: tauri::State<'_, pointages::Store>) -> Value {
@@ -173,6 +195,7 @@ pub fn run() {
             pick_folder,
             parse_path,
             save_pdf,
+            save_text,
             app_info,
             pointages::get_pointage,
             pointages::set_pointage,

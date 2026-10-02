@@ -5,8 +5,23 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 
 ## [Non publié]
 
+## [0.2.0] - 2026-10-02
+
 ### Ajouté
 
+- **Contrôles de cohérence** dans l'onglet Données, calculés en décimaux exacts (aucun
+  flottant) : quantité × prix unitaire = total de ligne, somme des lignes, total HT, TVA par
+  taux, total TVA, total TTC, net à payer. Chaque contrôle affiche l'attendu, le constaté,
+  l'écart et renvoie à l'élément XML. États : conforme, écart, alerte, info, non vérifiable.
+- Mentions essentielles (numéro, date, type, devise, vendeur, acheteur) et clés de contrôle
+  du SIREN/SIRET, du n° de TVA français et de l'IBAN.
+- Dates clés : échéance dépassée ou à venir (hors avoirs et factures soldées), gain
+  d'escompte quand le XML le décrit.
+- Doublons parmi les documents ouverts : XML identique, ou même vendeur et même numéro.
+- Pastille « N écarts » dans la liste des fichiers.
+- **Export CSV** des lignes affichées (recherche, filtre de pointage et tri appliqués) et
+  copie dans le presse-papiers pour un tableur. Montants en décimale française, devise dans
+  sa colonne, protection contre l'injection de formules.
 - Recherche rapide (`Ctrl+F`) : texte ou regex, document sélectionné par défaut ou tous
   les documents ouverts. Navigation précédent/suivant et surlignage jaune de l'élément
   trouvé dans XML complet. Recherche des données XML uniquement, hors contenus binaires.

@@ -78,6 +78,7 @@ const api = {
     filename: pdfObj.filename || "facture.pdf",
     base64: pdfObj.base64,
   }),
+  saveText: (filename, content) => invoke("save_text", { filename, content }),
 };
 
 /* ---------------- chargement / analyse des fichiers ---------------- */
@@ -217,6 +218,8 @@ function fmtBadge(result) {
   if (result.pdf) b.push('<span class="badge ok">PDF ' + esc(fmtSize(result.pdf.size)) + "</span>");
   else b.push('<span class="badge warn">sans PDF</span>');
   if (result.rows) b.push('<span class="badge">' + result.rows.length + " valeurs XML</span>");
+  const gaps = (result.controles || []).filter((c) => c.etat === "ecart").length;
+  if (gaps) b.push('<span class="badge err">' + gaps + " écart" + (gaps > 1 ? "s" : "") + "</span>");
   return b.join(" ");
 }
 
@@ -661,6 +664,53 @@ function applyLineFilters(f) {
   return rows;
 }
 
+/* ---- export des lignes affichées (recherche, filtre de pointage et tri appliqués) ---- */
+
+/* Tableau [en-têtes, ...lignes]. Les montants « 12.50 EUR » deviennent « 12,50 »
+   (décimale française, lisible par Excel) et la devise passe dans sa propre colonne. */
+function linesExportRows(f) {
+  const cols = linesCols(f.result).filter((c) => c.key !== "detail");
+  const table = [["Pointée", ...cols.map((c) => c.title), "Devise"]];
+  for (const { line, idx } of applyLineFilters(f)) {
+    let currency = "";
+    const cells = cols.map((col) => {
+      const v = String((line.cells[col.key] || {}).value ?? "");
+      const m = col.align === "right" && /^(-?\d+(?:\.\d+)?)(?: ([A-Z]{3}))?$/.exec(v);
+      if (!m) return v;
+      if (m[2]) currency = m[2];
+      return m[1].replace(".", ",");
+    });
+    table.push([f.pointed.has(idx) ? "oui" : "non", ...cells, currency]);
+  }
+  return table;
+}
+
+function csvCell(v) {
+  // Une valeur de facture ne doit pas être interprétée comme une formule par le tableur.
+  if (/^[=+@]/.test(v) || (/^-/.test(v) && !/^-\d+(,\d+)?$/.test(v))) v = "'" + v;
+  return /[;"\r\n]/.test(v) ? '"' + v.replaceAll('"', '""') + '"' : v;
+}
+
+function linesCsv(f) {
+  // BOM UTF-8 + point-virgule + CRLF : ouverture directe dans Excel en français.
+  return "﻿" + linesExportRows(f).map((row) => row.map(csvCell).join(";")).join("\r\n") + "\r\n";
+}
+
+function linesTsv(f) {
+  return linesExportRows(f).map((row) => row.map((v) => v.replace(/[\t\r\n]+/g, " ")).join("\t")).join("\n");
+}
+
+async function exportLinesCsv(f, btn) {
+  const old = btn.textContent;
+  try {
+    const saved = await api.saveText(f.name.replace(/\.[^.]+$/, "") + "-lignes.csv", linesCsv(f));
+    if (saved) btn.textContent = "Exporté";
+  } catch (e) {
+    workspaceNotice("Export impossible : " + ((e && e.message) || e));
+  }
+  setTimeout(() => { btn.textContent = old; }, 1200);
+}
+
 function linesTable(f) {
   const r = f.result;
   const cols = linesCols(r);
@@ -818,6 +868,89 @@ function renderLinesOnly(f) {
   syncStickyOffsets();
 }
 
+/* ---- contrôles de cohérence (calculés par le moteur) et doublons ---- */
+
+const CONTROL_STATES = {
+  ecart: "Écart",
+  alerte: "Alerte",
+  non_verifiable: "Non vérifiable",
+  info: "Info",
+  conforme: "Conforme",
+};
+
+function summaryValue(r, title) {
+  return ((r.summary || []).find((s) => s.title === title) || {}).value || "";
+}
+
+/* Doublons parmi les documents ouverts : même XML, ou même vendeur et même numéro. */
+function duplicateChecks(f) {
+  const r = f.result;
+  const number = summaryValue(r, "N° de facture");
+  const seller = summaryValue(r, "Vendeur");
+  const exact = [], probable = [];
+  for (const g of state.files) {
+    if (g === f || g.status !== "ok" || !g.result) continue;
+    if (r.doc_hash && g.result.doc_hash === r.doc_hash) exact.push(g.name);
+    else if (number && seller && summaryValue(g.result, "N° de facture") === number &&
+      summaryValue(g.result, "Vendeur") === seller) probable.push(g.name);
+  }
+  const out = [];
+  if (exact.length) out.push({ regle: "Doublon exact parmi les documents ouverts", etat: "alerte", detail: "XML identique : " + exact.join(", ") });
+  if (probable.length) out.push({ regle: "Doublon probable parmi les documents ouverts", etat: "alerte", detail: "Même vendeur et même numéro : " + probable.join(", ") });
+  return out;
+}
+
+function controlsSection(f) {
+  const checks = [...duplicateChecks(f), ...(f.result.controles || [])];
+  if (!checks.length) return null;
+  const order = Object.keys(CONTROL_STATES);
+  const counts = {};
+  for (const c of checks) counts[c.etat] = (counts[c.etat] || 0) + 1;
+
+  const sec = document.createElement("details");
+  sec.id = "controls";
+  sec.className = "section controls";
+  sec.open = !!(counts.ecart || counts.alerte);
+  const head = document.createElement("summary");
+  head.className = "section-head controls-head";
+  head.appendChild(Object.assign(document.createElement("span"), { textContent: "Contrôles" }));
+  for (const etat of order) {
+    if (!counts[etat]) continue;
+    head.appendChild(Object.assign(document.createElement("span"), {
+      className: "ctl-chip ctl-" + etat,
+      textContent: counts[etat] + " " + CONTROL_STATES[etat].toLowerCase() + (counts[etat] > 1 && etat !== "info" ? "s" : ""),
+    }));
+  }
+  sec.appendChild(head);
+
+  const wrap = document.createElement("div");
+  wrap.className = "table-wrap";
+  const table = document.createElement("table");
+  table.innerHTML = "<thead><tr><th style='width:120px'>État</th><th>Contrôle</th>" +
+    "<th class='num'>Attendu</th><th class='num'>Constaté</th><th class='num'>Écart</th></tr></thead>";
+  const tbody = document.createElement("tbody");
+  const sorted = checks.slice().sort((a, b) => order.indexOf(a.etat) - order.indexOf(b.etat));
+  for (const c of sorted) {
+    const tr = document.createElement("tr");
+    tr.className = "ctl-row ctl-" + c.etat;
+    tr.innerHTML =
+      '<td><span class="ctl-chip ctl-' + esc(c.etat) + '">' + esc(CONTROL_STATES[c.etat] || c.etat) + "</span></td>" +
+      "<td>" + esc(c.regle) + (c.detail ? '<span class="note">' + esc(c.detail) + "</span>" : "") + "</td>" +
+      '<td class="num">' + esc(c.attendu) + '</td><td class="num">' + esc(c.constate) + "</td>" +
+      '<td class="num">' + esc(c.ecart) + "</td>";
+    if (c.path) {
+      tr.classList.add("ctl-link");
+      tr.title = "Voir dans le XML : " + c.path;
+      tr.addEventListener("click", () => gotoXml(c.path));
+    }
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+  wrap.appendChild(table);
+  sec.appendChild(wrap);
+  return sec;
+}
+
 function renderData(f) {
   const pane = byId("tab-data");
   pane.innerHTML = "";
@@ -850,6 +983,9 @@ function renderData(f) {
     }
     pane.appendChild(cards);
   }
+
+  const controls = controlsSection(f);
+  if (controls) pane.appendChild(controls);
 
   if (r.lines && r.lines.length) {
     const sec = document.createElement("div");
@@ -887,7 +1023,23 @@ function renderData(f) {
     tools.appendChild(search);
     tools.appendChild(count);
     tools.appendChild(pointedCount);
+    const exportBtn = document.createElement("button");
+    exportBtn.id = "btn-lines-export";
+    exportBtn.className = "btn btn-sm";
+    exportBtn.type = "button";
+    exportBtn.textContent = "Exporter CSV";
+    exportBtn.title = "Enregistrer les lignes affichées dans un fichier CSV (Excel)";
+    exportBtn.addEventListener("click", () => exportLinesCsv(f, exportBtn));
+    const copyBtn = document.createElement("button");
+    copyBtn.id = "btn-lines-copy";
+    copyBtn.className = "btn btn-sm";
+    copyBtn.type = "button";
+    copyBtn.textContent = "Copier";
+    copyBtn.title = "Copier les lignes affichées, à coller dans un tableur";
+    copyBtn.addEventListener("click", () => copyText(linesTsv(f), copyBtn));
     tools.appendChild(filterBtn);
+    tools.appendChild(exportBtn);
+    tools.appendChild(copyBtn);
     tools.appendChild(clearBtn);
     head.appendChild(tools);
     sec.appendChild(head);

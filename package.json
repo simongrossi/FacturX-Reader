@@ -1,7 +1,7 @@
 {
   "name": "facturx-reader",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Visualiseur local de factures électroniques (Factur-X, UBL, CII), basé sur Tauri",
   "author": "Christophe Mehault",
   "contributors": [

@@ -52,21 +52,23 @@ Les vérifications macOS/Linux et l'installation des paquets restent à faire su
 
 - [ ] Corriger les libellés accentués dans `tables.rs` et le moteur : Désignation, Quantité,
   Date d'échéance, etc. Vérifier les comparaisons de titres et les tests concernés.
-- [ ] Export CSV / Excel des lignes visibles ou pointées ; copie de tableaux dans le presse-papiers.
+- [x] Export CSV des lignes visibles ou pointées ; copie du tableau dans le presse-papiers (0.2.0).
+- [ ] Export Excel natif (.xlsx).
 - [ ] Associations de fichiers, « Ouvrir avec » et instance unique.
 - [ ] Compléter les récents avec les dossiers.
 
 ### Socle de fiabilité, avant les contrôles et connecteurs
 
 - [ ] Calculs monétaires décimaux à la place des `f64`, avec règles d'arrondi explicites.
+  Fait pour les contrôles (0.2.0) ; l'affichage (P.U. et TVA de ligne reconstitués) reste en `f64`.
 - [ ] Distinguer les valeurs extraites du XML des valeurs reconstituées : provenance, formule,
   valeur d'origine et chemin XML consultables. Ne pas présenter un calcul comme une donnée source.
 - [ ] Extraction PDF avec un vrai parseur, au-delà des expressions régulières actuelles :
   structures PDF complexes, pièces jointes multiples, sélection du XML pertinent.
 - [ ] Protection des pointages : sauvegarde, restauration, export/import, erreur visible si le
   fichier est illisible ; ne pas traiter une corruption comme un historique vide.
-- [ ] Détection des doublons exacts (empreinte XML, déjà disponible), puis des doublons possibles
-  (fournisseur, numéro, montant), sans fusion automatique de documents simplement ressemblants.
+- [x] Détection des doublons exacts (empreinte XML) et probables (vendeur + numéro) parmi les
+  documents ouverts (0.2.0), sans fusion automatique. Reste : historique entre sessions (bibliothèque).
 - [ ] Jeu de tests anonymisé et versionnable pour la CI : profils sans lignes, avoirs, remises,
   frais, acomptes, plusieurs taux de TVA, arrondis, devises, PDF/ZIP et variantes UBL/CII.
 - [ ] Mise à jour de PDF.js (3.11 embarqué actuellement) et déclaration explicite du worker.
@@ -82,11 +84,11 @@ Les vérifications macOS/Linux et l'installation des paquets restent à faire su
 - [ ] Vue PDF et données côte à côte, positions et zoom indépendants.
 - [ ] Statuts « À vérifier », « Vérifiée », « Anomalie », commentaires par facture et par ligne,
   pointage de la facture entière. Distinguer vérification et paiement confirmé.
-- [ ] Contrôles arithmétiques : lignes, remises/frais globaux, TVA par taux, HT/TTC,
-  acomptes, arrondis, net à payer et avoirs ; échéance dépassée comme alerte distincte,
-  sans déduire automatiquement qu'une facture est impayée.
-- [ ] Résultats de contrôle : conforme au contrôle, écart détecté, non vérifiable, non applicable.
-  L'absence de lignes détaillées n'est pas automatiquement une erreur.
+- [x] Contrôles arithmétiques : lignes, remises/frais globaux, TVA par taux, HT/TTC,
+  acomptes, arrondis, net à payer ; échéance dépassée comme alerte distincte,
+  sans déduire qu'une facture est impayée ; mentions essentielles, clés SIREN/SIRET, TVA, IBAN (0.2.0).
+- [x] Résultats de contrôle : conforme, écart, alerte, info, non vérifiable ; une règle sans objet
+  (pas de lignes) n'est pas émise (0.2.0).
 - [ ] Rapport de contrôle exportable : règle, attendu, constaté, écart et chemin XML.
 - [ ] Impression / export PDF de la vue Données.
 - [ ] Bibliothèque locale persistante : recherche fournisseur, référence article, période,

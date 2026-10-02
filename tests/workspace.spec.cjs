@@ -13,22 +13,24 @@ test.beforeAll(async () => {
   url = `http://127.0.0.1:${server.address().port}`;
 });
 test.afterAll(() => server.close());
-async function mockBackend(page, pdf = null) {
-  await page.addInitScript(pdf => {
+async function mockBackend(page, pdf = null, extra = {}) {
+  await page.addInitScript(({ pdf, extra }) => {
     window.__TAURI__ = { core: { invoke: async (command, args) => {
       if (command === 'startup_paths') return { files: [] };
       if (command === 'app_info') return { version: 'test', pointages: 'test' };
       if (command === 'get_pointage') return { lines: [] };
       if (command === 'parse_path' && args.path.includes('missing')) throw new Error('Fichier introuvable');
+      if (command === 'save_text') { window.__saved = args; return true; }
       if (command === 'parse_file' || command === 'parse_path') return {
         format: 'CII', root: 'CrossIndustryInvoice', doc_hash: 'fixture', header: [], lines: [],
         rows: [{ title: 'Référence', tag: 'ID', value: 'FAC-2026-123', path: 'Invoice/ID' }],
         xml_pretty: '<Invoice>FAC-2026-123</Invoice>', summary: [], sections: [], warnings: [],
         pdf: pdf ? { base64: pdf, filename: 'synthetic.pdf' } : null,
+        ...extra,
       };
       return {};
     } } };
-  }, pdf);
+  }, { pdf, extra });
 }
 test('session, accueil, onglets, récents et recherche transversale', async ({ page }) => {
   const errors = [];
@@ -157,4 +159,49 @@ test('lot volumineux : 500 documents, limites et reprise', async ({ page }) => {
   await page.reload();
   await expect(page.locator('.document-tab-group')).toHaveCount(500);
   await expect(page.locator('#fv-name')).toHaveText('batch-499.xml', { timeout: 60000 });
+});
+
+test('contrôles affichés, doublon signalé et export CSV des lignes visibles', async ({ page }) => {
+  const cell = (title, value) => ({ title, value, path: 'Invoice/x' });
+  const line = (id, name, qty, price, total) => ({ fields: [], cells: {
+    id: cell('N° de ligne', id), name: cell('Designation', name), qty: cell('Quantite', qty),
+    price: cell('Prix unitaire HT', price), total: cell('Total ligne HT', total),
+  } });
+  await mockBackend(page, null, {
+    summary: [{ title: 'N° de facture', value: 'F-1' }, { title: 'Vendeur', value: 'Test Seller' }],
+    lines_columns: [
+      { key: 'id', title: 'N°', align: 'left' }, { key: 'name', title: 'Designation', align: 'left' },
+      { key: 'qty', title: 'Quantite', align: 'right' }, { key: 'price', title: 'P.U. HT', align: 'right' },
+      { key: 'total', title: 'Total HT', align: 'right' }, { key: 'detail', title: 'Détail', align: 'left' },
+    ],
+    lines: [line('1', 'Toner; noir', '2', '50.00 EUR', '100.00 EUR'), line('2', '=SUM(A1)', '1.5', '-3.00 EUR', '-4.50 EUR')],
+    controles: [
+      { regle: 'Mentions essentielles présentes', etat: 'conforme', attendu: '', constate: '', ecart: '', path: '', detail: '' },
+      { regle: 'Total TTC = total HT + total TVA', etat: 'ecart', attendu: '120.00', constate: '120.01', ecart: '0.01', path: 'Invoice/ID', detail: '100.00 + 20.00' },
+    ],
+  });
+  await page.goto(url);
+  await page.locator('#file-input').setInputFiles([
+    { name: 'one.xml', mimeType: 'text/xml', buffer: Buffer.from('<Invoice/>') },
+    { name: 'two.xml', mimeType: 'text/xml', buffer: Buffer.from('<Invoice/>') },
+  ]);
+  await expect(page.locator('.file-item .badge.err')).toHaveCount(2);
+  await page.getByRole('button', { name: 'Données', exact: true }).click();
+  const controls = page.locator('#controls');
+  await expect(controls).toHaveAttribute('open', '');
+  await expect(controls.locator('summary')).toContainText('1 écart');
+  await expect(controls.locator('summary')).toContainText('1 alerte');
+  await expect(controls.locator('tr.ctl-ecart')).toContainText('120.01');
+  await expect(controls.locator('tr.ctl-alerte')).toContainText('XML identique : one.xml');
+  await page.locator('#btn-lines-export').click();
+  await expect.poll(() => page.evaluate(() => window.__saved?.filename)).toBe('two-lignes.csv');
+  expect(await page.evaluate(() => window.__saved.content)).toBe(
+    '\uFEFFPointée;N°;Designation;Quantite;P.U. HT;Total HT;Devise\r\n' +
+    'non;1;"Toner; noir";2;50,00;100,00;EUR\r\n' +
+    "non;2;'=SUM(A1);1,5;-3,00;-4,50;EUR\r\n");
+  await page.locator('#lines-search').fill('toner');
+  await page.locator('#btn-lines-export').click();
+  await expect.poll(() => page.evaluate(() => window.__saved.content.split('\r\n').length)).toBe(3);
+  await controls.locator('tr.ctl-ecart').click();
+  await expect(page.locator('#tab-xml')).toHaveClass(/active/);
 });
