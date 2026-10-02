@@ -215,6 +215,20 @@ Sur le tableau des **lignes de facture** :
 - **Colonnes de note** : une note de ligne de la forme `libellé : valeur | libellé : valeur`
   est éclatée en colonnes.
 
+### Verdicts
+
+En tête de l'onglet **Données**, trois verdicts indépendants, jamais fondus en un seul « conforme » :
+
+| Verdict | Ce qu'il dit | Ce qu'il ne dit pas |
+|---|---|---|
+| **Lecture réussie** | Le XML a été trouvé et ses données extraites | Que le fichier est un Factur-X valide |
+| **Calculs cohérents** | Les montants du XML se recalculent sans écart | Que la facture respecte la norme |
+| **Règles EN 16931 respectées** | Les règles métier évaluées par l'application passent | Que le Schematron officiel passerait |
+
+Les autres constats (identifiants, échéance, doublons, IBAN) sont comptés à part comme alertes.
+**Non contrôlés** : le Schematron officiel, le schéma XSD et le conteneur PDF/A-3. Le tableau
+multi-factures reprend ces verdicts en trois colonnes, et le rapport JSON dans un bloc `verdicts`.
+
 ### Contrôles
 
 L'onglet **Données** affiche un bloc **Contrôles**, déplié dès qu'il y a un écart ou une alerte :
@@ -288,7 +302,7 @@ dans sa propre colonne, colonne « Pointée ». **Copier** place le même tablea
 
 Dès qu'un document est ouvert, l'onglet **Tableau** (à côté d'Accueil) liste toutes les factures
 ouvertes : fichier, vendeur, numéro, type, date, échéance, HT, TVA, TTC, à payer, devise et état
-des contrôles. Un clic sur une ligne ouvre la facture.
+(calculs, règles EN 16931, alertes). Un clic sur une ligne ouvre la facture.
 
 - **Tri** par clic sur un en-tête, **filtre** texte.
 - **Filtre d'anomalies** : écart de calcul, alerte, échéance dépassée, sans TVA, émise un

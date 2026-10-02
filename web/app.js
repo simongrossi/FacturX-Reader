@@ -225,8 +225,8 @@ function fmtBadge(result) {
   if (result.pdf) b.push('<span class="badge ok">PDF ' + esc(fmtSize(result.pdf.size)) + "</span>");
   else b.push('<span class="badge warn">sans PDF</span>');
   if (result.rows) b.push('<span class="badge">' + result.rows.length + " valeurs XML</span>");
-  const gaps = (result.controles || []).filter((c) => c.etat === "ecart").length;
-  if (gaps) b.push('<span class="badge err">' + gaps + " écart" + (gaps > 1 ? "s" : "") + "</span>");
+  const gaps = (result.controles || []).filter((c) => c.famille === "calcul" && c.etat === "ecart").length;
+  if (gaps) b.push('<span class="badge err">' + gaps + " écart" + (gaps > 1 ? "s" : "") + " de calcul</span>");
   const broken = (result.regles && result.regles.non_conformes) || 0;
   if (broken) b.push('<span class="badge warn">' + broken + " règle" + (broken > 1 ? "s" : "") + " EN 16931</span>");
   return b.join(" ");
@@ -1006,6 +1006,56 @@ function renderLinesOnly(f) {
   syncStickyOffsets();
 }
 
+/* ---- verdicts : lecture, calculs et règles EN 16931 ne sont jamais confondus ---- */
+
+const NOT_CHECKED = ["Schematron officiel", "schéma XSD", "conteneur PDF/A-3"];
+const NOT_CHECKED_NOTE = "Non contrôlés : " + NOT_CHECKED.join(", ") + ". « Cohérent » et « respectées » ne valent pas conformité à la norme.";
+
+/* Trois verdicts indépendants d'un document, plus le nombre d'autres alertes. */
+function invoiceVerdicts(f, extraAlerts = 0) {
+  const r = f.result;
+  const plural = (n, word) => n + " " + word + (n > 1 ? "s" : "");
+  if (f.status === "error") {
+    const none = { etat: "erreur", court: "Non lue", label: "Non lue" };
+    return { lecture: { etat: "erreur", court: "Non lue", label: "Lecture impossible" }, calculs: none, regles: none, alertes: 0 };
+  }
+  if (!r || !r.synthese) {
+    const none = { etat: "non_verifiable", court: "—", label: "Non évalué" };
+    return { lecture: { etat: "non_verifiable", court: "Non reconnue", label: "Structure non reconnue" }, calculs: none, regles: none, alertes: 0 };
+  }
+  const checks = r.controles || [];
+  const calc = checks.filter((c) => c.famille === "calcul");
+  const gaps = calc.filter((c) => c.etat === "ecart").length;
+  const calculs = gaps ? { etat: "ecart", court: plural(gaps, "écart"), label: plural(gaps, "écart") + " de calcul" }
+    : calc.some((c) => c.etat === "conforme") ? { etat: "conforme", court: "Cohérents", label: "Calculs cohérents" }
+    : { etat: "non_verifiable", court: "Non vérifiables", label: "Calculs non vérifiables" };
+  const report = r.regles;
+  const broken = (report && report.non_conformes) || 0;
+  const regles = !report || !report.evaluees ? { etat: "non_verifiable", court: "Non évaluées", label: "Règles EN 16931 non évaluées" }
+    : broken ? { etat: "ecart", court: broken + " non respectée" + (broken > 1 ? "s" : ""), label: broken + " règle" + (broken > 1 ? "s" : "") + " EN 16931 non respectée" + (broken > 1 ? "s" : "") }
+    : { etat: "conforme", court: "Respectées", label: "Règles EN 16931 respectées" };
+  const alertes = checks.filter((c) => c.famille !== "calcul" && (c.etat === "alerte" || c.etat === "ecart")).length + extraAlerts;
+  return { lecture: { etat: "conforme", court: "Lue", label: "Lecture réussie" }, calculs, regles, alertes };
+}
+
+/* Bandeau de verdicts en tête de l'onglet Données. */
+function verdictStrip(f) {
+  const v = invoiceVerdicts(f, duplicateChecks(f).length);
+  const strip = document.createElement("div");
+  strip.id = "verdicts";
+  strip.className = "verdicts";
+  const chips = document.createElement("div");
+  chips.className = "verdict-chips";
+  const chip = (verdict) => chips.appendChild(Object.assign(document.createElement("span"), {
+    className: "ctl-chip ctl-" + verdict.etat, textContent: verdict.label,
+  }));
+  chip(v.lecture); chip(v.calculs); chip(v.regles);
+  if (v.alertes) chip({ etat: "alerte", label: v.alertes + " alerte" + (v.alertes > 1 ? "s" : "") });
+  strip.appendChild(chips);
+  strip.appendChild(Object.assign(document.createElement("p"), { className: "verdict-note", textContent: NOT_CHECKED_NOTE }));
+  return strip;
+}
+
 /* ---- contrôles de cohérence (calculés par le moteur) et doublons ---- */
 
 const CONTROL_STATES = {
@@ -1033,8 +1083,8 @@ function duplicateChecks(f) {
       summaryValue(g.result, "Vendeur") === seller) probable.push(g.name);
   }
   const out = [];
-  if (exact.length) out.push({ regle: "Doublon exact parmi les documents ouverts", etat: "alerte", detail: "XML identique : " + exact.join(", ") });
-  if (probable.length) out.push({ regle: "Doublon probable parmi les documents ouverts", etat: "alerte", detail: "Même vendeur et même numéro : " + probable.join(", ") });
+  if (exact.length) out.push({ regle: "Doublon exact parmi les documents ouverts", etat: "alerte", famille: "historique", detail: "XML identique : " + exact.join(", ") });
+  if (probable.length) out.push({ regle: "Doublon probable parmi les documents ouverts", etat: "alerte", famille: "historique", detail: "Même vendeur et même numéro : " + probable.join(", ") });
   return out;
 }
 
@@ -1207,6 +1257,7 @@ function renderData(f) {
     pane.appendChild(cards);
   }
 
+  if (r.synthese) pane.appendChild(verdictStrip(f));
   const controls = controlsSection(f);
   if (controls) pane.appendChild(controls);
   const rules = rulesSection(f);

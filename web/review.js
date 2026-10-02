@@ -121,6 +121,10 @@ function controlReport(f) {
     empreinte_xml: r.doc_hash || null,
     format: r.format,
     genere_le: new Date().toISOString(),
+    verdicts: (() => {
+      const v = invoiceVerdicts(f);
+      return { lecture: v.lecture.label, calculs: v.calculs.label, regles_en16931: v.regles.label, autres_alertes: v.alertes, non_controle: NOT_CHECKED };
+    })(),
     synthese: r.synthese || null,
     controles: r.controles || [],
     regles_en16931: r.regles || null,

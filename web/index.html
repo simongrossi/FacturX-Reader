@@ -115,7 +115,7 @@
         <select id="batch-filter" class="zoom-select" aria-label="Filtre des anomalies">
           <option value="all">Toutes</option>
           <option value="ecart">Écart de calcul</option>
-          <option value="alerte">Alerte</option>
+          <option value="alerte">Autre alerte</option>
           <option value="regles">Règle EN 16931 non respectée</option>
           <option value="echue">Échéance dépassée</option>
           <option value="sanstva">Sans TVA</option>
@@ -132,6 +132,7 @@
         <button id="batch-copy" class="btn btn-sm" type="button" title="Copier le tableau affiché, à coller dans un tableur">Copier</button>
       </div>
       <div class="section"><div class="table-wrap"><table id="batch-table"></table></div></div>
+      <p class="verdict-note" id="batch-note">Calculs et règles EN 16931 sont évalués par l'application. Non contrôlés : Schematron officiel, schéma XSD, conteneur PDF/A-3. « Cohérents » et « respectées » ne valent pas conformité à la norme.</p>
     </div>
 
     <div id="library-view" class="batch-view" hidden>

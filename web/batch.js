@@ -17,15 +17,17 @@ const BATCH_COLS = [
   { key: "ttc", title: "TTC", num: true },
   { key: "a_payer", title: "À payer", num: true },
   { key: "devise", title: "Devise" },
-  { key: "etat", title: "Contrôles" },
+  { key: "calculs", title: "Calculs", verdict: true },
+  { key: "regles_txt", title: "Règles EN 16931", verdict: true },
+  { key: "alertes_txt", title: "Alertes", verdict: true },
   { key: "suivi", title: "Vérification" },
 ];
 const BATCH_MONEY = BATCH_COLS.filter((c) => c.num).map((c) => c.key);
 
 const BATCH_FILTERS = {
   all: () => true,
-  ecart: (r) => r.counts.ecart > 0,
-  alerte: (r) => r.counts.alerte > 0 || r.doublon,
+  ecart: (r) => r.verdicts.calculs.etat === "ecart",
+  alerte: (r) => r.verdicts.alertes > 0,
   regles: (r) => r.regles > 0,
   echue: (r) => r.jours != null && r.jours < 0,
   sanstva: (r) => r.lu && !(parseFloat(r.tva) > 0),
@@ -67,18 +69,14 @@ function batchRows() {
       suivi: f.status === "ok" ? readReview(f).status : "",
       commentaire: f.status === "ok" ? readReview(f).comment : "",
     };
-    const parts = [];
-    if (f.status === "error") { row.etatKey = "erreur"; parts.push("Erreur de lecture"); }
-    else if (!s) { row.etatKey = "non_verifiable"; parts.push("Structure non reconnue"); }
-    else {
-      if (counts.ecart) parts.push(counts.ecart + " écart" + (counts.ecart > 1 ? "s" : ""));
-      if (counts.alerte) parts.push(counts.alerte + " alerte" + (counts.alerte > 1 ? "s" : ""));
-      if (doublon) parts.push("doublon");
-      if (broken.length) parts.push(broken.length + " règle" + (broken.length > 1 ? "s" : ""));
-      row.etatKey = counts.ecart ? "ecart" : (counts.alerte || doublon || broken.length) ? "alerte" : counts.non_verifiable ? "non_verifiable" : "conforme";
-      if (!parts.length) parts.push(counts.non_verifiable ? "Non vérifiable" : "Conforme");
-    }
-    row.etat = parts.join(", ");
+    // Trois verdicts séparés : un calcul cohérent ne dit rien de la conformité à la norme.
+    const v = invoiceVerdicts(f, doublon ? 1 : 0);
+    row.verdicts = v;
+    row.calculs = f.status === "error" ? "Non lue" : !s ? "Structure non reconnue" : v.calculs.court;
+    row.regles_txt = s ? v.regles.court : "";
+    const others = v.alertes - (doublon ? 1 : 0);
+    row.alertes_txt = [others ? others + " alerte" + (others > 1 ? "s" : "") : "", doublon ? "doublon" : ""].filter(Boolean).join(", ");
+    row.etatKey = v.calculs.etat;
     row.detail = f.status === "error" ? f.error
       : ((r && r.controles) || []).filter((c) => c.etat === "ecart" || c.etat === "alerte")
         .map((c) => c.regle + (c.ecart ? " (" + c.ecart + ")" : ""))
@@ -167,8 +165,10 @@ function renderBatch() {
         select.addEventListener("click", (e) => e.stopPropagation());
         select.addEventListener("change", () => renderBatch());
         td.appendChild(select);
-      } else if (col.key === "etat") {
-        td.appendChild(Object.assign(document.createElement("span"), { className: "ctl-chip ctl-" + r.etatKey, textContent: v }));
+      } else if (col.verdict) {
+        const etat = col.key === "calculs" ? r.verdicts.calculs.etat : col.key === "regles_txt" ? r.verdicts.regles.etat : "alerte";
+        if (v) td.appendChild(Object.assign(document.createElement("span"), { className: "ctl-chip ctl-" + etat, textContent: v }));
+        else td.textContent = "—";
       } else if (col.num) {
         td.classList.add("num");
         td.textContent = v === "" ? "—" : batchMoney.format(parseFloat(v));
@@ -201,8 +201,7 @@ function renderBatch() {
       td.textContent = batchMoney.format(t[k] / 100);
     }
     tr.insertCell().textContent = devise;
-    tr.insertCell();
-    tr.insertCell();
+    for (let i = 0; i < 4; i++) tr.insertCell();
   }
 }
 

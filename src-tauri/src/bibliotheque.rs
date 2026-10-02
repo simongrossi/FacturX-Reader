@@ -87,7 +87,7 @@ fn now() -> String {
 }
 
 fn note(regle: &str, etat: &str, detail: String, path: &str) -> Value {
-    json!({ "regle": regle, "etat": etat, "attendu": "", "constate": "", "ecart": "", "path": path, "detail": detail })
+    json!({ "regle": regle, "etat": etat, "famille": "historique", "attendu": "", "constate": "", "ecart": "", "path": path, "detail": detail })
 }
 
 impl Library {

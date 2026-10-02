@@ -1866,6 +1866,12 @@ mod tests {
         let c = controles_of(CII, (2026, 10, 2));
         assert!(c.iter().all(|x| x["etat"] != "ecart"), "{c:#?}");
         assert_eq!(controle(&c, "Lignes :")["etat"], "conforme");
+        assert_eq!(controle(&c, "Lignes :")["famille"], "calcul");
+        assert_eq!(controle(&c, "Total TTC")["famille"], "calcul");
+        assert_eq!(controle(&c, "Mentions essentielles")["famille"], "mention");
+        assert_eq!(controle(&c, "IBAN")["famille"], "mention");
+        assert_eq!(controle(&c, "Échéance dans 8 jours")["famille"], "date");
+        assert!(c.iter().all(|x| x["famille"].is_string()));
         assert_eq!(controle(&c, "Somme des lignes")["etat"], "conforme");
         assert_eq!(controle(&c, "Total TTC")["etat"], "conforme");
         assert_eq!(controle(&c, "Total TTC")["attendu"], "120.00");

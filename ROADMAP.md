@@ -134,8 +134,9 @@ Versions publiées (pré-versions, builds non signés) :
 - [ ] Validation XML XSD puis Schematron officiel EN 16931, selon le profil et la version ;
   versions des jeux de règles traçables. Demande un moteur XSLT 2 ou une traduction des règles.
 - [ ] Validation du conteneur PDF/A-3, métadonnées XMP, association et cohérence avec le XML.
-- [ ] Présenter séparément : lecture réussie, contrôles arithmétiques, validation XML et validation
-  du conteneur. Un fichier lisible n'est pas nécessairement un Factur-X conforme.
+- [x] Verdicts séparés : lecture réussie, calculs cohérents, règles EN 16931 respectées, avec la
+  mention de ce qui n'est pas contrôlé. Un fichier lisible n'est pas nécessairement conforme.
+- [ ] Ajouter aux verdicts la validation XML officielle et celle du conteneur quand elles existeront.
 - [ ] Comparaison PDF vs XML : montants clés recherchés dans le texte du PDF, écart mis en
   évidence (PDF texte uniquement). Puis synchronisation au clic XML ↔ PDF.
 - [ ] Signature électronique du PDF : détecter sa présence, puis vérifier l'intégrité.

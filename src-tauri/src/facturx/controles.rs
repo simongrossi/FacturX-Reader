@@ -674,10 +674,21 @@ pub(super) fn run(
     let type_code = field(structured, None, &["Type de facture"]).map(|(v, _)| v).unwrap_or_default();
     let is_credit_note = root.tag_name().name() == "CreditNote" || type_code == "381";
     let mut out = Vec::new();
+    // Famille de chaque controle : `calcul`, `mention` (mentions et identifiants) ou `date`.
+    let tag = |out: &mut Vec<Value>, from: usize, family: &str| {
+        for item in &mut out[from..] {
+            item["famille"] = family.into();
+        }
+    };
     check_lines(&mut out, &totals);
     check_totals(&mut out, &totals);
+    tag(&mut out, 0, "calcul");
+    let from = out.len();
     check_mentions(&mut out, structured);
+    tag(&mut out, from, "mention");
+    let from = out.len();
     check_dates(&mut out, structured, &totals, is_credit_note, today);
+    tag(&mut out, from, "date");
     let synthese = synthese(structured, &totals, &type_code, is_credit_note, today);
     (out, synthese)
 }

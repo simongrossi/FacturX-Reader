@@ -95,6 +95,9 @@ async function main() {
     await page.getByRole('button', { name: 'PDF et données', exact: true }).click();
     await expect(page.locator('#reading-panes')).toHaveClass('dual-reading');
     await expect(page.locator('#controls tr').filter({ hasText: 'Total TTC = total HT + total TVA' })).toContainText('Conforme');
+    await expect(page.locator('#verdicts .ctl-chip').first()).toHaveText('Lecture réussie');
+    await expect(page.locator('#verdicts')).toContainText('Calculs cohérents');
+    await expect(page.locator('#verdicts')).toContainText('EN 16931 non respectée');
     await expect(page.locator('#controls tr').filter({ hasText: 'Mentions essentielles' })).toContainText('Nom de l\'acheteur');
     await page.locator('#tab-data .review-panel summary span').click();
     await page.getByLabel('Commentaire de la facture', { exact: true }).fill('Test natif P2');

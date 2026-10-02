@@ -1035,3 +1035,10 @@ tr.flash { animation: flash 1.8s ease-out; }
 .workspace-message { display: flex; align-items: center; gap: 12px; }
 .workspace-message span { flex: 1; }
 .workspace-message .icon-btn { color: inherit; }
+
+/* ---------- verdicts ---------- */
+.verdicts { margin-bottom: 16px; }
+.verdict-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.verdict-chips .ctl-chip { font-size: 13px; padding: 5px 12px; }
+.verdict-note { margin: 6px 2px 0; color: var(--muted); font-size: 12px; }
+.ctl-chip.ctl-non_verifiable { color: var(--muted); }

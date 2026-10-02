@@ -5,6 +5,16 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 
 ## [Non publié]
 
+### Modifié
+
+- **Verdicts séparés** : lecture, calculs et règles EN 16931 ne sont plus résumés par un seul
+  « Conforme ». L'onglet Données affiche trois verdicts distincts en tête, le tableau a trois
+  colonnes (Calculs, Règles EN 16931, Alertes), et le rapport JSON porte un bloc `verdicts`.
+  Partout, une mention rappelle ce qui n'est pas contrôlé : Schematron officiel, schéma XSD,
+  conteneur PDF/A-3.
+- Chaque contrôle porte sa famille (`calcul`, `mention`, `date`, `historique`) ; la pastille
+  rouge de la liste ne compte plus que les écarts de calcul.
+
 ## [0.5.0] - 2026-10-02
 
 ### Ajouté
