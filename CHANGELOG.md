@@ -5,6 +5,8 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 
 ## [Non publié]
 
+## [0.4.0] - 2026-10-02
+
 ### Ajouté
 
 - **Barre de menus** Fichier, Édition, Affichage, Aide, avec les raccourcis clavier.
