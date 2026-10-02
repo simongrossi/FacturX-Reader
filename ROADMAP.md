@@ -1,6 +1,6 @@
 # Roadmap
 
-Mise à jour : 2 octobre 2026, après la version 0.4.0.
+Mise à jour : 2 octobre 2026, après la version 0.5.0.
 Voir [CHANGELOG.md](CHANGELOG.md) pour le détail des versions, [README.md](README.md) pour
 l'utilisation et [VALIDATION.md](VALIDATION.md) pour le bilan de vérification P0.
 
@@ -9,7 +9,7 @@ l'utilisation et [VALIDATION.md](VALIDATION.md) pour le bilan de vérification P
 | Priorité | Thème | État |
 |---|---|---|
 | P0 | Valider l'existant | Presque terminé : reste macOS, Linux et l'installation des paquets |
-| P1 | Confort et fiabilité du moteur | À moitié fait : le confort est livré, la fiabilité reste à faire |
+| P1 | Confort et fiabilité du moteur | Aux deux tiers : reste la provenance des valeurs, le parseur PDF, « Ouvrir avec », l'export Excel |
 | P2 | Exploiter des lots de factures | Presque terminé : reste la recherche dans le PDF, le dossier surveillé, l'échéancier |
 | P3 | Conformité et distribution | Commencé : règles métier EN 16931 natives ; reste XSD, Schematron officiel, PDF/A, signature |
 | P4 | API, MCP et connecteurs | Pas commencé |
@@ -21,6 +21,7 @@ Versions publiées (pré-versions, builds non signés) :
 | 0.2.0 | Contrôles de cohérence en décimaux exacts, export CSV des lignes, doublons, recherche, accueil, onglets, reprise de session |
 | 0.3.0 | Tableau multi-factures, filtres d'anomalies, menu clic droit sur les tableaux |
 | 0.4.0 | Libellés accentués, suivi de vérification, vue PDF et données, rapport JSON, barre de menus, onglets fixes |
+| 0.5.0 | Bibliothèque locale (alerte IBAN, doublons, prix), règles métier EN 16931, impression, protection des pointages et du suivi, en-tête compact |
 
 ## Prochaines étapes proposées
 
@@ -52,6 +53,7 @@ Versions publiées (pré-versions, builds non signés) :
 - [x] Export CSV des lignes visibles ou pointées ; copie dans le presse-papiers (0.2.0).
 - [x] Barre de menus Fichier / Édition / Affichage / Aide (0.4.0).
 - [x] Onglets Accueil et Tableau fixes quand les onglets de documents défilent (0.4.0).
+- [x] En-tête compact, recherche repliable, message fermable (0.5.0).
 - [x] Menu clic droit : copie de cellule, ligne, colonne ou tableau en TSV, CSV, JSON ou Markdown
   (0.3.0) ; actions sur les onglets et la liste des fichiers (0.4.0).
 - [ ] Export Excel natif (.xlsx).
@@ -74,7 +76,7 @@ Versions publiées (pré-versions, builds non signés) :
 - [ ] Jeu de tests anonymisé et versionnable pour la CI : profils sans lignes, avoirs, remises,
   frais, acomptes, plusieurs taux de TVA, arrondis, devises, PDF/ZIP et variantes UBL/CII.
 - [ ] Mise à jour de PDF.js (3.11 embarqué) et déclaration explicite du worker.
-- [ ] Mettre à jour VALIDATION.md, resté au bilan P0 d'avant la 0.2.0.
+- [x] VALIDATION.md remis à jour pour la 0.5.0 : vérifié, non vérifié, limites.
 
 ## P2 — Exploiter des lots de factures
 

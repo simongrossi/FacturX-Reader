@@ -5,6 +5,8 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 
 ## [Non publié]
 
+## [0.5.0] - 2026-10-02
+
 ### Ajouté
 
 - **Règles métier EN 16931** évaluées par le moteur sur chaque facture UBL ou CII : mentions
