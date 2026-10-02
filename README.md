@@ -334,6 +334,14 @@ sauf les dates de première vue.
 *Paramètres → Données* permet de désactiver la bibliothèque, de la vider, ou de la réinitialiser
 si la base est illisible (elle est alors conservée à côté, jamais supprimée).
 
+### En-tête et recherche
+
+Sans document ouvert, l'en-tête montre le logo et les boutons d'ouverture. Dès qu'un document
+est ouvert, il laisse la place au contenu : les actions restent dans le menu **Fichier**
+(`Ctrl+O`, `Ctrl+Maj+O`) et sur l'onglet Accueil. À droite des onglets, la **loupe** ouvre la
+barre de recherche (`Ctrl+F`, `Échap` pour la refermer) et la **roue** ouvre les Paramètres.
+Les messages affichés sous les onglets se ferment avec leur croix.
+
 ### Barre de menus
 
 La barre **Fichier / Édition / Affichage / Aide** regroupe les actions : ouvrir, exporter,

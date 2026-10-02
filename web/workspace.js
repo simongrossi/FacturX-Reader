@@ -30,8 +30,12 @@ function workspaceRead(key, fallback) {
   }
 }
 function workspaceNotice(message) {
-  byId("workspace-message").textContent = message;
+  byId("workspace-message-text").textContent = message;
   byId("workspace-message").hidden = false;
+}
+function dismissWorkspaceNotice() {
+  byId("workspace-message").hidden = true;
+  byId("workspace-message-text").textContent = "";
 }
 async function workspaceBlob(action, key, blob) {
   const db = await new Promise((resolve, reject) => {
@@ -265,6 +269,7 @@ function renderWelcome() {
   byId("welcome-resume").disabled = workspaceRestoring || !workspaceRead("fx-workspace", { files: [] }).files?.length;
 }
 function wireWorkspace() {
+  byId("workspace-message-close").onclick = dismissWorkspaceNotice;
   byId("workspace-clear-history").onclick = clearWorkspaceHistory;
   byId("workspace-clean-cache").onclick = async () => {
     try { await pruneWorkspaceCache(); await updateWorkspaceCacheInfo(); }

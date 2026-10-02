@@ -232,7 +232,23 @@ function fmtBadge(result) {
   return b.join(" ");
 }
 
+/* Barre de recherche : repliée par défaut, ouverte par la loupe, Ctrl+F ou le menu Édition. */
+function showQuickSearch() {
+  byId("quick-search").hidden = false;
+  byId("btn-search").setAttribute("aria-pressed", "true");
+  byId("quick-query").focus();
+  byId("quick-query").select();
+}
+function hideQuickSearch() {
+  byId("quick-query").value = "";
+  scheduleQuickSearch();
+  byId("quick-search").hidden = true;
+  byId("btn-search").setAttribute("aria-pressed", "false");
+}
+
 function renderList(preserveSearch = false) {
+  // L'en-tête (logo, boutons d'ouverture) laisse la place aux documents dès qu'il y en a.
+  document.body.classList.toggle("has-documents", state.files.length > 0);
   renderDocumentTabs();
   saveWorkspace();
   if (!preserveSearch) scheduleQuickSearch();
@@ -1757,14 +1773,16 @@ window.addEventListener("DOMContentLoaded", async () => {
   byId("quick-scope").addEventListener("change", scheduleQuickSearch);
   byId("quick-prev").addEventListener("click", () => moveQuickSearch(-1));
   byId("quick-next").addEventListener("click", () => moveQuickSearch(1));
+  byId("quick-close").addEventListener("click", hideQuickSearch);
+  byId("btn-search").addEventListener("click", () => (byId("quick-search").hidden ? showQuickSearch() : hideQuickSearch()));
   byId("quick-query").addEventListener("keydown", e => {
     if (e.key === "Enter") { e.preventDefault(); moveQuickSearch(e.shiftKey ? -1 : 1); }
-    if (e.key === "Escape") { e.target.value = ""; scheduleQuickSearch(); }
+    if (e.key === "Escape") hideQuickSearch();
   });
   document.addEventListener("keydown", e => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "p") { e.preventDefault(); printView(); }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
-      e.preventDefault(); byId("quick-query").focus(); byId("quick-query").select();
+      e.preventDefault(); showQuickSearch();
     }
   });
   renderList();

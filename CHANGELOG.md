@@ -28,6 +28,11 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 
 ### Modifié
 
+- **En-tête compact** : dès qu'un document est ouvert, le bandeau avec le logo et les boutons
+  d'ouverture disparaît ; le logo passe dans la barre de menus, la recherche et les paramètres
+  deviennent deux icônes à droite des onglets. La barre de recherche est repliée par défaut
+  (loupe, `Ctrl+F`, `Échap` pour fermer).
+- Le bandeau de message se ferme avec sa croix.
 - Le suivi de vérification est enregistré dans `suivi.json`, à côté de `pointages.json`, et non
   plus dans le stockage de la WebView. Les suivis existants sont repris au premier lancement.
 

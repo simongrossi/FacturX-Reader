@@ -987,7 +987,7 @@ tr.flash { animation: flash 1.8s ease-out; }
 
 /* ---------- impression ---------- */
 @media print {
-  .menubar, .topbar, .document-tabs, .quick-search, .sidebar, .tabs, .file-head-right, .pdf-toolbar,
+  .menubar, .topbar, .tabbar, .quick-search, .sidebar, .tabs, .file-head-right, .pdf-toolbar,
   .lines-tools, .batch-tools, .pane-tools, .ctx-menu, .pop, .toast, #workspace-message, .review-panel,
   .col-point, .col-detail, .controls-report, .line-detail-row:not(.open) { display: none !important; }
   html, body { height: auto !important; overflow: visible !important; background: #fff !important; }
@@ -1021,3 +1021,17 @@ tr.flash { animation: flash 1.8s ease-out; }
 .price-current td { font-weight: 600; }
 .price-up { color: var(--err); }
 .price-down { color: var(--ok); }
+
+/* ---------- en-tête compact : barre d'onglets avec actions, recherche repliable, message fermable ---------- */
+.menubar { align-items: center; }
+.menubar-logo { width: 18px; height: 18px; margin: 0 6px 0 2px; border-radius: 4px; }
+.has-documents .topbar { display: none; }
+.tabbar { display: flex; flex-shrink: 0; align-items: stretch; background: var(--panel); border-bottom: 1px solid var(--border); }
+.tabbar .document-tabs { flex: 1; min-width: 0; border-bottom: 0; }
+.tabbar-actions { display: flex; align-items: center; gap: 4px; padding: 0 10px; border-left: 1px solid var(--border-soft); }
+.tabbar-actions .btn-icon { border-color: transparent; background: transparent; box-shadow: none; padding: 6px 7px; }
+.tabbar-actions .btn-icon:hover, .tabbar-actions .btn-icon[aria-pressed="true"] { background: var(--hover); }
+.quick-search[hidden], .workspace-message[hidden] { display: none; }
+.workspace-message { display: flex; align-items: center; gap: 12px; }
+.workspace-message span { flex: 1; }
+.workspace-message .icon-btn { color: inherit; }

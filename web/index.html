@@ -20,7 +20,7 @@
 </head>
 <body>
 
-<nav id="menubar" class="menubar" aria-label="Menus"></nav>
+<nav id="menubar" class="menubar" aria-label="Menus"><img class="menubar-logo" src="logo/icon.svg" alt="Factur-X Reader"></nav>
 
 <header class="topbar">
   <div class="brand">
@@ -34,20 +34,32 @@
   <div class="top-actions">
     <button id="add-files" class="btn primary" title="Ajouter des fichiers (Ctrl+O)">Ajouter des fichiers</button>
     <button type="button" id="open-folder" class="btn" title="Ouvrir un dossier et ses sous-dossiers (Ctrl+Maj+O)">Ouvrir un dossier</button>
+    <input type="file" id="file-input" multiple hidden
+            accept=".xml,.zip,.pdf,.ciixml,.zxml,application/xml,application/zip,application/pdf">
+  </div>
+</header>
+
+<div class="tabbar">
+  <nav id="document-tabs" class="document-tabs" aria-label="Documents ouverts"></nav>
+  <div class="tabbar-actions">
+    <button type="button" id="btn-search" class="btn btn-icon" title="Rechercher (Ctrl+F)" aria-label="Rechercher" aria-pressed="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/>
+      </svg>
+    </button>
     <button type="button" id="btn-settings" class="btn btn-icon" title="Paramètres (Ctrl+,)" aria-label="Paramètres">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <circle cx="12" cy="12" r="3.2"/>
         <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1.03-1.56V3a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 15 4.6a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 1.56 1.03H21a2 2 0 1 1 0 4h-.09A1.7 1.7 0 0 0 19.4 15z"/>
       </svg>
     </button>
-    <input type="file" id="file-input" multiple hidden
-            accept=".xml,.zip,.pdf,.ciixml,.zxml,application/xml,application/zip,application/pdf">
   </div>
-</header>
-
-<nav id="document-tabs" class="document-tabs" aria-label="Documents ouverts"></nav>
-<div id="workspace-message" class="workspace-message" role="status" hidden></div>
-<div class="quick-search" role="search" aria-label="Recherche dans les factures">
+</div>
+<div id="workspace-message" class="workspace-message" role="status" hidden>
+  <span id="workspace-message-text"></span>
+  <button type="button" id="workspace-message-close" class="icon-btn" title="Fermer ce message" aria-label="Fermer ce message">✕</button>
+</div>
+<div id="quick-search" class="quick-search" role="search" aria-label="Recherche dans les factures" hidden>
   <input id="quick-query" type="search" placeholder="Rechercher un texte ou un numéro… (Ctrl+F)" aria-label="Recherche dans les champs, valeurs et chemins XML">
   <label><input id="quick-regex" type="checkbox"> Regex</label>
   <select id="quick-scope" class="zoom-select" aria-label="Portée de la recherche">
@@ -57,6 +69,7 @@
   <button id="quick-prev" class="btn" aria-label="Résultat précédent" disabled>‹</button>
   <button id="quick-next" class="btn" aria-label="Résultat suivant" disabled>›</button>
   <span id="quick-status" role="status" aria-live="polite">Sélectionnez un document · données XML</span>
+  <button type="button" id="quick-close" class="icon-btn" title="Fermer la recherche (Échap)" aria-label="Fermer la recherche">✕</button>
 </div>
 <div class="layout">
   <aside class="sidebar" id="sidebar">

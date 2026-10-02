@@ -122,8 +122,8 @@ function showContextMenu(event, td) {
     const input = byId("quick-query");
     byId("quick-regex").checked = false;
     if (!state.selected) byId("quick-scope").value = "all";
+    showQuickSearch();
     input.value = value;
-    input.focus();
     scheduleQuickSearch();
   });
 

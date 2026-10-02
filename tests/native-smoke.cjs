@@ -83,9 +83,10 @@ async function main() {
       throw error;
     }
     await expect(page.locator('#pdf-zoom')).toHaveValue('1.5');
+    await page.locator('#btn-search').click();
     await page.locator('#quick-query').fill('TEST-P0');
     await expect(page.locator('#xml-table .quick-hit')).toHaveCount(1);
-    await page.locator('#quick-query').fill('');
+    await page.locator('#quick-close').click();
     await page.locator('#tab-batch').click();
     await expect(page.locator('#batch-table tfoot tr')).toContainText('Total EUR — 1 document');
     await expect(page.locator('#batch-table tfoot tr')).toContainText('100,00');

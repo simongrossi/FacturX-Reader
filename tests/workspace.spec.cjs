@@ -84,6 +84,9 @@ test('session, accueil, onglets, récents et recherche transversale', async ({ p
   await expect(page.locator('.document-tab-group')).toHaveCount(2);
   await expect(page.locator('#fv-name')).toHaveText('beta.xml');
   await expect(page.locator('#tab-raw')).toHaveClass(/active/);
+  await expect(page.locator('#quick-search')).toBeHidden();
+  await expect(page.locator('.topbar')).toBeHidden();
+  await page.locator('#btn-search').click();
   await page.locator('#quick-query').fill('FAC-2026-\\d+');
   await page.locator('#quick-regex').check();
   await expect(page.locator('#quick-status')).toContainText('1 / 1');
@@ -99,7 +102,13 @@ test('session, accueil, onglets, récents et recherche transversale', async ({ p
   await expect(page.locator('#xml-table .quick-hit')).toHaveCount(1);
   await page.locator('#quick-next').click();
   await expect(page.locator('#quick-status')).toContainText('2 / 2');
-  await page.locator('#quick-query').fill('');
+  await page.locator('#quick-close').click();
+  await expect(page.locator('#quick-search')).toBeHidden();
+  await expect(page.locator('#xml-table .quick-hit')).toHaveCount(0);
+  await page.keyboard.press('Control+f');
+  await expect(page.locator('#quick-query')).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#quick-search')).toBeHidden();
   await page.locator('#document-tabs').getByRole('button', { name: 'Accueil', exact: true }).click();
   await expect(page.locator('#empty-state')).toBeVisible();
   await expect(page.locator('#recent-files button')).toHaveCount(2);
@@ -125,6 +134,15 @@ test('session, accueil, onglets, récents et recherche transversale', async ({ p
   await page.locator('#welcome-resume').click();
   await expect(page.locator('#workspace-message')).toContainText('1 document');
   await expect(page.locator('.document-tab-group')).toHaveCount(2);
+  // Le message se ferme à la demande.
+  await page.locator('#workspace-message-close').click();
+  await expect(page.locator('#workspace-message')).toBeHidden();
+  // Sans document, l'en-tête complet revient.
+  page.once('dialog', dialog => dialog.accept());
+  await page.locator('#menubar').getByRole('button', { name: 'Fichier' }).click();
+  await page.locator('.menubar-drop').getByRole('menuitem', { name: 'Fermer tous les documents' }).click();
+  await expect(page.locator('.topbar')).toBeVisible();
+  await expect(page.locator('#add-files')).toBeVisible();
   expect(errors).toEqual([]);
 });
 

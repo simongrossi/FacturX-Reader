@@ -36,7 +36,7 @@ const MENUBAR = [
     { label: "Paramètres…", keys: "Ctrl+,", run: () => byId("btn-settings").click() },
   ] },
   { label: "Édition", items: [
-    { label: "Rechercher…", keys: "Ctrl+F", run: () => { byId("quick-query").focus(); byId("quick-query").select(); } },
+    { label: "Rechercher…", keys: "Ctrl+F", run: () => showQuickSearch() },
     null,
     { label: "Copier les lignes affichées", run: () => { clipboardWrite(linesTsv(menubarDoc())); toast("Lignes copiées"); },
       on: () => !!menubarDoc()?.result.lines?.length },
