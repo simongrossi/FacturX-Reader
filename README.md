@@ -1,42 +1,122 @@
+<div align="center">
+
+<img src="web/logo/icon.svg" width="112" alt="Logo Factur-X Reader">
+
 # Factur-X Reader
 
-Visualiseur **100 % local** de factures électroniques (Factur-X, UBL, CII / EN 16931), en
-application de bureau légère pour **Windows, macOS et Linux**.
+**Lisez, contrôlez et exploitez vos factures électroniques, sans que rien ne quitte votre poste.**
 
-Déposez une facture — ou un dossier entier — et l'outil affiche :
+Application de bureau légère pour Factur-X, UBL et CII (EN 16931) — Windows, macOS et Linux.
 
-- le **PDF d'origine** (zoom, navigation page par page, enregistrement) ;
-- toutes les **valeurs du XML** en tableaux, avec des titres lisibles en français ;
-- les **lignes de facturation** (références, désignations, quantités, prix, TVA, totaux),
-  triables, filtrables, **pointables** et **exportables en CSV** ;
-- des **contrôles de cohérence** : calculs, mentions, identifiants, échéance, doublons ;
-- le **XML complet** (filtrable par champ, valeur ou chemin) et le **XML brut** (recherche
-  avec surlignage).
+[![Version](https://img.shields.io/github/v/release/simongrossi/FacturX-Reader?include_prereleases&label=version&color=0b6bcb)](https://github.com/simongrossi/FacturX-Reader/releases)
+[![Tests](https://img.shields.io/github/actions/workflow/status/simongrossi/FacturX-Reader/checks.yml?branch=main&label=tests)](https://github.com/simongrossi/FacturX-Reader/actions/workflows/checks.yml)
+[![Téléchargements](https://img.shields.io/github/downloads/simongrossi/FacturX-Reader/total?label=t%C3%A9l%C3%A9chargements&color=0f8a5f)](https://github.com/simongrossi/FacturX-Reader/releases)
+[![Licence](https://img.shields.io/badge/licence-PolyForm%20Noncommercial-b4610a)](LICENSE.md)
+![Plateformes](https://img.shields.io/badge/plateformes-Windows%20%7C%20macOS%20%7C%20Linux-5b6878)
+![Tauri 2](https://img.shields.io/badge/Tauri-2-24c8db?logo=tauri&logoColor=white)
+![Rust](https://img.shields.io/badge/Rust-moteur-dea584?logo=rust&logoColor=white)
 
-Les données ne quittent jamais la machine : aucun serveur, aucun appel réseau, PDF.js embarqué.
+[**Télécharger**](https://github.com/simongrossi/FacturX-Reader/releases) ·
+[Fonctionnalités](#fonctionnalités) ·
+[Comparatif](#comparatif) ·
+[Utilisation](#utilisation) ·
+[Roadmap](ROADMAP.md) ·
+[Changelog](CHANGELOG.md)
+
+<img src="docs/screenshots/controles.png" width="900" alt="Onglet Données : synthèse de la facture et contrôles de cohérence, avec un écart d'un centime sur le total TTC">
+
+</div>
+
+## En bref
+
+Déposez une facture, ou un dossier entier. Factur-X Reader affiche le PDF, traduit le XML en
+tableaux lisibles en français, **recalcule les montants** et signale ce qui ne colle pas.
+
+- **100 % local** : aucun serveur, aucun appel réseau, aucun compte.
+- **Léger** : exécutable d'environ 7 Mo, installeur d'environ 2 Mo.
+- **Pensé pour vérifier**, pas seulement pour afficher : contrôles, pointage, suivi, exports.
+
+> Version de développement (0.y.z). Les builds ne sont pas signés : Windows SmartScreen et
+> macOS Gatekeeper affichent un avertissement au premier lancement.
+
+## Fonctionnalités
+
+| | |
+|---|---|
+| 📄 **Lecture** | PDF Factur-X, archive ZIP, XML UBL 2.x et CII. PDF d'origine, données en tableaux, XML complet et XML brut. |
+| ✅ **Contrôles de cohérence** | Calculs en décimaux exacts : lignes, HT, TVA par taux, TTC, net à payer. Mentions essentielles, clés SIREN/SIRET, n° de TVA et IBAN, échéance, escompte. |
+| 📊 **Tableau multi-factures** | Toutes les factures ouvertes sur une page : totaux par devise, avoirs déduits, filtres d'anomalies, export CSV. |
+| 🪟 **PDF et données côte à côte** | Vérifiez une ligne sans changer d'onglet. |
+| 🖊️ **Pointage et suivi** | Pointage des lignes, statut À vérifier / Vérifiée / Anomalie, commentaires par facture et par ligne. |
+| 🔎 **Recherche** | Texte ou regex, dans le document ou dans tous les documents ouverts, avec surlignage. |
+| 📤 **Exports** | Lignes et tableau en CSV, rapport de contrôle en JSON, copie en CSV, JSON ou Markdown par clic droit. |
+| 🗂️ **Confort** | Onglets par document, reprise de session, documents récents, barre de menus, thèmes clair et sombre. |
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/tableau.png" alt="Tableau des factures ouvertes avec totaux par devise et état des contrôles"></td>
+<td width="50%"><img src="docs/screenshots/pdf-et-donnees.png" alt="Vue PDF et données côte à côte"></td>
+</tr>
+<tr>
+<td align="center"><sub>Tableau multi-factures : totaux, avoirs déduits, anomalies</sub></td>
+<td align="center"><sub>PDF et données côte à côte</sub></td>
+</tr>
+</table>
+
+<sub>Captures réalisées avec des factures entièrement fictives (`npm run screenshots`).</sub>
+
+## Comparatif
+
+Comparaison avec des outils gratuits courants pour ouvrir une facture électronique. Même quand
+une case est cochée des deux côtés, le niveau de détail peut différer.
+
+| | Factur-X Reader | [Quba Viewer](https://github.com/ZUGFeRD/quba-viewer) | [Mustang](https://www.mustangproject.org/) | Lecteur PDF classique |
+|---|:---:|:---:|:---:|:---:|
+| Type | Application de bureau | Application de bureau | Bibliothèque et ligne de commande | Application de bureau |
+| Technologie | Rust, Tauri | Electron, XSLT | Java | — |
+| Windows, macOS, Linux | ✅ | ✅ | ✅ (Java) | ✅ |
+| Fonctionne hors ligne | ✅ | ✅ | ✅ | ✅ |
+| Affiche le PDF | ✅ | ✅ | — | ✅ |
+| Affiche les données du XML | ✅ | ✅ | HTML (expérimental) | — |
+| PDF et données côte à côte | ✅ | ✅ | — | — |
+| Plusieurs factures en onglets | ✅ | ✅ | — | — |
+| Recherche | ✅ texte et regex | ✅ | — | Texte du PDF |
+| Impression | — | ✅ | — | ✅ |
+| Contrôles arithmétiques détaillés | ✅ | — | Via la validation | — |
+| Validation EN 16931 (Schematron) | — *(prévu)* | ✅ en ligne | ✅ | — |
+| Tableau multi-factures avec totaux | ✅ | — | — | — |
+| Pointage, statuts et commentaires | ✅ | — | — | — |
+| Export CSV / rapport JSON | ✅ | — | — | — |
+| Conversion (CII ↔ UBL, ZUGFeRD 1 → 2) | — | — | ✅ | — |
+| Création de factures | — | — | ✅ | — |
+| Interface en français | ✅ | ✅ | — | Selon l'outil |
+| Licence | PolyForm Noncommercial | Apache 2.0 | Apache 2.0 | Selon l'outil |
+
+<sub>Établi le 2 octobre 2026 d'après la documentation publique de chaque projet ; une case vide
+signifie « non documenté à cette date », pas forcément « impossible ». Corrections bienvenues.
+Factur-X Reader ne valide pas encore la conformité à la norme : pour cela, Mustang ou Quba
+restent les bons outils.</sub>
+
+## Téléchargement
+
+Les installeurs sont sur la page [Releases](https://github.com/simongrossi/FacturX-Reader/releases) :
+
+| Système | Fichier |
+|---|---|
+| Windows | `Factur-X.Reader_x.y.z_x64-setup.exe` ou `.msi` |
+| macOS (Intel et Apple Silicon) | `Factur-X.Reader_x.y.z_universal.dmg` |
+| Linux | `.deb`, `.rpm`, `.AppImage` |
+
+Ils sont produits par le workflow GitHub à chaque tag `vX.Y.Z`, ou localement par `npm run build`
+(voir [Développement](#développement)).
 
 ## Stack
 
-- **Tauri 2** — fenêtre native s'appuyant sur la WebView du système (exécutable ≈ 7 Mo,
-  installeur ≈ 2 Mo) ;
-- **Rust** — moteur d'analyse des factures et persistance des pointages ;
+- **Tauri 2** — fenêtre native s'appuyant sur la WebView du système ;
+- **Rust** — moteur d'analyse, contrôles de cohérence et persistance des pointages ;
 - **HTML / CSS / JS sans framework** — le front de `web/` est servi tel quel, sans étape de
   compilation ;
 - **PDF.js 3.11** — rendu des PDF.
-
-## Installation
-
-Les installeurs sont produits par `npm run build` (voir [Développement](#développement)) ou
-par le workflow GitHub à chaque tag `vX.Y.Z` :
-
-| Système | Formats |
-|---|---|
-| Windows | `.msi`, `-setup.exe` |
-| macOS | `.dmg` (universel Intel + Apple Silicon) |
-| Linux | `.deb`, `.rpm`, `.AppImage` |
-
-Les builds ne sont pas signés : Windows SmartScreen et macOS Gatekeeper affichent un
-avertissement au premier lancement.
 
 ## Utilisation
 
