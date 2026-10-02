@@ -8,7 +8,9 @@ edition = "2021"
 
 [lib]
 name = "facturx_reader_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
+# Application de bureau uniquement : les formes `staticlib` et `cdylib`, utiles aux cibles
+# mobiles de Tauri, faisaient lier trois fois tout le programme à chaque compilation.
+crate-type = ["rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2.0", features = [] }
@@ -28,6 +30,16 @@ rusqlite = { version = "0.40", features = ["bundled"] }
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 lopdf = "0.45.0"
 xee-xpath = "0.1.5"
+
+# Développement : pas d'informations de débogage pour les dépendances (le dossier `target`
+# dépassait 20 Go et l'édition de liens prenait deux minutes), mais un peu d'optimisation,
+# sans quoi la validation Schematron est inutilisable en mode développement.
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false
+opt-level = 1
 
 [profile.release]
 opt-level = 3
