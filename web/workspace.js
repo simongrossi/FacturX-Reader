@@ -173,7 +173,9 @@ async function resumeWorkspace() {
     const failed = state.files.filter(f => f.status === "error");
     if (failed.length) workspaceNotice(`${failed.length} document(s) n’ont pas pu être rouverts. Leurs onglets indiquent l’erreur ; les autres restent disponibles.`);
   } catch (error) { workspaceNotice("Reprise impossible : " + error); }
-  finally { workspaceRestoring = false; workspaceReady = true; renderWelcome(); }
+  // Les enregistrements sont suspendus pendant la reprise : enregistrer l'état final,
+  // y compris un document ajouté entre-temps.
+  finally { workspaceRestoring = false; workspaceReady = true; saveWorkspace(); renderWelcome(); }
 }
 function showWorkspaceHome() {
   captureDocumentView();

@@ -81,6 +81,8 @@ test('session, accueil, onglets, récents et recherche transversale', async ({ p
   await expect(page.locator('.document-tab-group')).toHaveCount(0);
   await page.locator('#welcome-resume').click();
   await expect(page.locator('.document-tab-group')).toHaveCount(1);
+  // L'onglet apparaît dès le début de la reprise : attendre sa fin avant d'ajouter un document.
+  await page.waitForFunction(() => !workspaceRestoring);
   await page.evaluate(async () => { await addPaths({ files: ['C:/missing.xml'] }); });
   await expect(page.locator('.document-tab-group')).toHaveCount(2);
   await page.reload();
