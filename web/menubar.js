@@ -55,6 +55,7 @@ const MENUBAR = [
     null,
     { label: "Document suivant", keys: "Ctrl+Tab", run: () => menubarStep(1), on: () => state.files.length > 0 },
     { label: "Document précédent", keys: "Ctrl+Maj+Tab", run: () => menubarStep(-1), on: () => state.files.length > 0 },
+    { label: "Liste des documents ouverts…", keys: "Ctrl+E", run: () => showDocumentPicker(), on: () => state.files.length > 0 },
     null,
     { label: "Panneau des fichiers", run: () => toggleSidebar(), checked: () => !byId("sidebar").classList.contains("collapsed") },
   ] },

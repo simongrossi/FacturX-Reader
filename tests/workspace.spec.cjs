@@ -115,9 +115,9 @@ test('session, accueil, onglets, récents et recherche transversale', async ({ p
   await expect(page.locator('#quick-search')).toBeHidden();
   await page.locator('#document-tabs').getByRole('button', { name: 'Accueil', exact: true }).click();
   await expect(page.locator('#empty-state')).toBeVisible();
-  await expect(page.locator('#recent-files button')).toHaveCount(2);
+  await expect(page.locator('#recent-files .recent-file')).toHaveCount(2);
   await page.screenshot({ path: 'test-results/workspace-home.png' });
-  await page.locator('#recent-files button').filter({ hasText: 'alpha.xml' }).click();
+  await page.locator('#recent-files .recent-file').filter({ hasText: 'alpha.xml' }).click();
   await expect(page.locator('.document-tab-group')).toHaveCount(2);
   await page.getByRole('button', { name: 'Fermer alpha.xml', exact: true }).click();
   await expect(page.locator('.document-tab-group')).toHaveCount(1);
@@ -179,7 +179,7 @@ test('nettoyage conserve la session, quota et copie manquante sont signalés', a
   });
   const stored = await page.evaluate(() => workspaceBlob('list'));
   expect(stored).toHaveLength(1);
-  await expect(page.locator('#recent-files button')).toHaveCount(0);
+  await expect(page.locator('#recent-files .recent-file')).toHaveCount(0);
   await page.reload();
   await expect(page.locator('#fv-name')).toHaveText('kept.xml');
   await page.evaluate(async () => {
@@ -403,6 +403,22 @@ test('barre de menus, onglets Accueil et Tableau fixes, menu d’onglet', async 
   expect((await page.locator('.document-tab-group.selected').boundingBox()).x).toBeGreaterThanOrEqual(fixedRight - 1);
   await page.screenshot({ path: 'test-results/menubar.png' });
 
+  // Pas d'ascenseur horizontal : la liste des documents ouverts s'ouvre par le chevron et se filtre.
+  expect(await tabs.evaluate(nav => nav.offsetHeight - nav.clientHeight)).toBe(0);
+  await page.locator('#btn-doc-list').click();
+  const picker = page.locator('.doc-picker');
+  await expect(picker.getByRole('option')).toHaveCount(30);
+  await picker.getByRole('textbox').fill('numero-17');
+  await expect(picker.getByRole('option')).toHaveCount(1);
+  await page.screenshot({ path: 'test-results/doc-picker.png' });
+  await page.keyboard.press('Enter');
+  await expect(picker).toHaveCount(0);
+  await expect(page.locator('#fv-name')).toHaveText('facture-numero-17.xml');
+  await page.keyboard.press('Control+e');
+  await expect(picker).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(picker).toHaveCount(0);
+
   await menubar.getByRole('button', { name: 'Affichage' }).click();
   await drop.getByRole('menuitem', { name: 'Tableau des factures' }).click();
   await expect(page.locator('#batch-view')).toBeVisible();
@@ -418,6 +434,20 @@ test('barre de menus, onglets Accueil et Tableau fixes, menu d’onglet', async 
   await page.locator('.ctx-menu').getByRole('menuitem', { name: 'Fermer les autres' }).click();
   await expect(page.locator('.document-tab-group')).toHaveCount(1);
   await expect(page.locator('#fv-name')).toHaveText('facture-numero-0.xml');
+
+  // Accueil : cinq documents récents, « Plus… » ouvre la liste complète, la croix en retire un.
+  await page.locator('#document-tabs').getByRole('button', { name: 'Accueil', exact: true }).click();
+  await expect(page.locator('#recent-files .recent-file')).toHaveCount(5);
+  await page.locator('#recent-files .recent-more').click();
+  await expect(page.locator('.doc-picker').getByRole('option')).toHaveCount(12);
+  await page.screenshot({ path: 'test-results/welcome-recent.png' });
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.doc-picker')).toHaveCount(0);
+  const firstRecent = await page.locator('#recent-files .recent-file span').first().textContent();
+  await page.locator('#recent-files .recent-row').first().hover();
+  await page.locator('#recent-files .recent-remove').first().click();
+  await expect(page.locator('#recent-files .recent-file')).toHaveCount(5);
+  await expect(page.locator('#recent-files')).not.toContainText(firstRecent);
   expect(errors).toEqual([]);
 });
 

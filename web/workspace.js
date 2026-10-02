@@ -252,19 +252,123 @@ function renderDocumentTabs() {
   }
   nav.style.scrollPaddingLeft = fixed.offsetWidth + "px";
   nav.querySelector(".document-tab-group.selected")?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  byId("btn-doc-list").hidden = !state.files.length;
+  if (!state.files.length) hideDocumentPicker();
 }
+/* Liste filtrable sous la barre d'onglets : documents ouverts ou documents récents. */
+function hideDocumentPicker() {
+  document.querySelector(".doc-picker")?.remove();
+  byId("btn-doc-list").setAttribute("aria-expanded", "false");
+}
+function showPicker(placeholder, entries, start = 0) {
+  hideDocumentPicker();
+  hideContextMenu();
+  hidePopover();
+  const picker = document.createElement("div");
+  picker.className = "doc-picker";
+  const input = document.createElement("input");
+  input.type = "text";
+  input.placeholder = placeholder;
+  input.setAttribute("aria-label", placeholder);
+  const list = document.createElement("div");
+  list.className = "doc-picker-list";
+  list.setAttribute("role", "listbox");
+  picker.append(input, list);
+  let active = Math.max(0, start);
+  const mark = () => {
+    const items = [...list.querySelectorAll(".doc-picker-item")];
+    active = Math.max(0, Math.min(active, items.length - 1));
+    items.forEach((item, i) => item.setAttribute("aria-selected", String(i === active)));
+    items[active]?.scrollIntoView({ block: "nearest" });
+  };
+  const fill = () => {
+    const query = input.value.trim().toLowerCase();
+    const shown = entries.filter(entry => (entry.label + " " + entry.detail).toLowerCase().includes(query));
+    list.replaceChildren();
+    for (const entry of shown) {
+      const item = document.createElement("div");
+      item.className = "doc-picker-item" + (entry.current ? " current" : "");
+      item.setAttribute("role", "option");
+      const name = document.createElement("span");
+      name.textContent = entry.label;
+      const detail = document.createElement("small");
+      detail.textContent = entry.detail;
+      item.title = entry.detail || entry.label;
+      item.append(name, detail);
+      item.onclick = () => { hideDocumentPicker(); entry.run(); };
+      list.appendChild(item);
+    }
+    if (!shown.length) list.appendChild(Object.assign(document.createElement("div"), { className: "doc-picker-empty", textContent: "Aucun document ne correspond." }));
+    mark();
+  };
+  input.oninput = () => { active = 0; fill(); };
+  input.onkeydown = e => {
+    if (e.key === "Escape") { e.stopPropagation(); hideDocumentPicker(); }
+    else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      const count = list.querySelectorAll(".doc-picker-item").length;
+      if (count) { active = (active + (e.key === "ArrowDown" ? 1 : -1) + count) % count; mark(); }
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      list.querySelector('.doc-picker-item[aria-selected="true"]')?.click();
+    }
+  };
+  document.body.appendChild(picker);
+  picker.style.top = document.querySelector(".tabbar").getBoundingClientRect().bottom + 4 + "px";
+  fill();
+  input.focus();
+}
+function showDocumentPicker() {
+  if (!state.files.length) return;
+  showPicker("Sélectionnez une facture à ouvrir", state.files.map(f => ({
+    label: (f.status === "error" ? "⚠ " : f.status === "loading" ? "… " : "") + f.name,
+    detail: f.error || f.source?.path || "",
+    current: state.selected === f.id,
+    run: () => selectFile(f.id),
+  })), state.files.findIndex(f => f.id === state.selected));
+  byId("btn-doc-list").setAttribute("aria-expanded", "true");
+}
+function openRecent(source) {
+  openWorkspaceSources([{ source }]).catch(e => workspaceNotice(String(e)));
+}
+function recentFolder(source) {
+  return source.path ? source.path.replace(/[\\/][^\\/]*$/, "") : "Copie locale";
+}
+function showRecentPicker() {
+  showPicker("Sélectionnez un document récent à ouvrir", workspaceRead("fx-recent", []).map(source => ({
+    label: source.name, detail: recentFolder(source), run: () => openRecent(source),
+  })));
+}
+function forgetRecent(source) {
+  try { localStorage.setItem("fx-recent", JSON.stringify(workspaceRead("fx-recent", []).filter(s => s.key !== source.key))); }
+  catch { workspaceNotice("L’historique des documents n’a pas pu être enregistré."); }
+  renderWelcome();
+}
+const WELCOME_RECENT = 5;
 function renderWelcome() {
   const list = byId("recent-files"); list.replaceChildren();
   const recent = workspaceRead("fx-recent", []);
   if (!recent.length) list.textContent = "Vos dernières factures apparaîtront ici.";
-  for (const source of recent) {
-    const button = document.createElement("button"); button.className = "welcome-action recent-file";
+  for (const source of recent.slice(0, WELCOME_RECENT)) {
+    const row = document.createElement("div"); row.className = "recent-row";
+    const button = document.createElement("button"); button.className = "recent-file";
     const name = document.createElement("span"); name.textContent = source.name;
-    const detail = document.createElement("small"); detail.textContent = source.path || "Copie locale du document importé";
-    button.title = detail.textContent;
+    const detail = document.createElement("small"); detail.textContent = recentFolder(source);
+    button.title = source.path || "Copie locale du document importé";
     button.append(name, detail);
-    button.onclick = () => openWorkspaceSources([{ source }]).catch(e => workspaceNotice(String(e)));
-    list.appendChild(button);
+    button.onclick = () => openRecent(source);
+    const remove = document.createElement("button"); remove.className = "recent-remove"; remove.textContent = "×";
+    remove.title = "Retirer des documents récents";
+    remove.setAttribute("aria-label", "Retirer " + source.name + " des documents récents");
+    remove.onclick = () => forgetRecent(source);
+    row.append(button, remove);
+    list.appendChild(row);
+  }
+  if (recent.length > WELCOME_RECENT) {
+    const more = document.createElement("button"); more.className = "recent-more"; more.textContent = "Plus…";
+    more.title = "Tous les documents récents";
+    more.onclick = showRecentPicker;
+    list.appendChild(more);
   }
   byId("welcome-resume").disabled = workspaceRestoring || !workspaceRead("fx-workspace", { files: [] }).files?.length;
 }
@@ -286,8 +390,19 @@ function wireWorkspace() {
     workspaceSaveTimer = setTimeout(() => { captureDocumentView(); saveWorkspace(); }, 250);
   });
   window.addEventListener("pagehide", () => { captureDocumentView(); saveWorkspace(); });
+  byId("btn-doc-list").onclick = () => (document.querySelector(".doc-picker") ? hideDocumentPicker() : showDocumentPicker());
+  document.addEventListener("click", e => { if (!e.target.closest(".doc-picker, #btn-doc-list, .menubar-drop, .recent-more")) hideDocumentPicker(); });
+  window.addEventListener("blur", hideDocumentPicker);
+  // La molette fait défiler les onglets, la barre n'ayant pas d'ascenseur.
+  byId("document-tabs").addEventListener("wheel", e => {
+    const nav = e.currentTarget;
+    if (!e.deltaY || e.shiftKey || nav.scrollWidth <= nav.clientWidth) return;
+    e.preventDefault();
+    nav.scrollLeft += e.deltaY;
+  }, { passive: false });
   document.addEventListener("keydown", e => {
     if (!(e.ctrlKey || e.metaKey) || document.querySelector("dialog[open]")) return;
+    if (e.key.toLowerCase() === "e" && state.files.length) { e.preventDefault(); showDocumentPicker(); }
     if (e.key.toLowerCase() === "w" && state.selected) { e.preventDefault(); removeFile(state.selected); }
     if (e.key === "Tab" && state.files.length) {
       e.preventDefault();
