@@ -279,3 +279,53 @@ test('tableau multi-factures : totaux, filtres, export et menu contextuel', asyn
   await expect(page.locator('#batch-view')).toBeHidden();
   expect(errors).toEqual([]);
 });
+
+test('barre de menus, onglets Accueil et Tableau fixes, menu d’onglet', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await mockBackend(page);
+  await page.goto(url);
+  const menubar = page.locator('#menubar');
+  const drop = page.locator('.menubar-drop');
+  await menubar.getByRole('button', { name: 'Fichier' }).click();
+  await expect(drop.getByRole('menuitem', { name: 'Ouvrir des fichiers… Ctrl+O' })).toBeEnabled();
+  await expect(drop.getByRole('menuitem', { name: 'Fermer tous les documents' })).toBeDisabled();
+  await menubar.getByRole('button', { name: 'Affichage' }).hover();
+  await expect(drop.getByRole('menuitem', { name: '✓ Accueil' })).toBeVisible();
+  await expect(drop.getByRole('menuitem', { name: 'Tableau des factures' })).toBeDisabled();
+  await page.keyboard.press('Escape');
+  await expect(drop).toHaveCount(0);
+  await expect(menubar.locator('[aria-expanded="true"]')).toHaveCount(0);
+
+  await page.evaluate(async () => { await addPaths({ files: Array.from({ length: 30 }, (_, i) => `C:/facture-numero-${i}.xml`) }); });
+  await expect(page.locator('.document-tab-group')).toHaveCount(30);
+  // Le dernier onglet est sélectionné : la barre a défilé, Accueil et Tableau restent à gauche.
+  const tabs = page.locator('#document-tabs');
+  expect(await tabs.evaluate(nav => nav.scrollLeft)).toBeGreaterThan(500);
+  const left = await tabs.evaluate(nav => nav.getBoundingClientRect().left);
+  const home = tabs.getByRole('button', { name: 'Accueil', exact: true });
+  expect((await home.boundingBox()).x).toBeCloseTo(left, 0);
+  const fixedRight = await page.locator('.document-tabs-fixed').evaluate(el => el.getBoundingClientRect().right);
+  expect((await page.locator('.document-tab-group.selected').boundingBox()).x).toBeGreaterThanOrEqual(fixedRight - 1);
+  await tabs.evaluate(nav => { nav.scrollLeft = 0; });
+  await page.evaluate(() => selectFile(state.files[0].id));
+  expect((await page.locator('.document-tab-group.selected').boundingBox()).x).toBeGreaterThanOrEqual(fixedRight - 1);
+  await page.screenshot({ path: 'test-results/menubar.png' });
+
+  await menubar.getByRole('button', { name: 'Affichage' }).click();
+  await drop.getByRole('menuitem', { name: 'Tableau des factures' }).click();
+  await expect(page.locator('#batch-view')).toBeVisible();
+  await menubar.getByRole('button', { name: 'Affichage' }).click();
+  await expect(drop.getByRole('menuitem', { name: '✓ Tableau des factures' })).toBeVisible();
+  await drop.getByRole('menuitem', { name: 'Document suivant Ctrl+Tab' }).click();
+  await expect(page.locator('#fv-name')).toHaveText('facture-numero-0.xml');
+  await menubar.getByRole('button', { name: 'Affichage' }).click();
+  await drop.getByRole('menuitem', { name: 'XML brut' }).click();
+  await expect(page.locator('#tab-raw')).toHaveClass(/active/);
+
+  await page.locator('.document-tab-group').nth(0).click({ button: 'right' });
+  await page.locator('.ctx-menu').getByRole('menuitem', { name: 'Fermer les autres' }).click();
+  await expect(page.locator('.document-tab-group')).toHaveCount(1);
+  await expect(page.locator('#fv-name')).toHaveText('facture-numero-0.xml');
+  expect(errors).toEqual([]);
+});

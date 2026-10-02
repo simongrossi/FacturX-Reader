@@ -223,6 +223,7 @@ function renderList(preserveSearch = false) {
   for (const f of state.files) {
     const li = document.createElement("li");
     li.className = "file-item" + (f.id === state.selected ? " selected" : "");
+    li.dataset.fileId = f.id;
     li.innerHTML =
       '<div class="fi-name">' + esc(f.name) + "</div>" +
       (f.status === "error"
@@ -1535,6 +1536,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   wireWorkspace();
   wireBatch();
   wireContextMenu();
+  wireMenubar();
   renderFileView();
   byId("quick-query").addEventListener("input", scheduleQuickSearch);
   byId("quick-regex").addEventListener("change", scheduleQuickSearch);

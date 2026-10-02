@@ -942,3 +942,14 @@ tr.flash { animation: flash 1.8s ease-out; }
   font-size: 13px;
   box-shadow: var(--shadow-lg);
 }
+
+/* ---------- barre de menus ---------- */
+.menubar { display: flex; flex-shrink: 0; gap: 2px; padding: 3px 8px; background: var(--panel); border-bottom: 1px solid var(--border-soft); font-size: 13px; }
+.menubar > button { border: 0; background: transparent; color: var(--text); font: inherit; padding: 4px 10px; border-radius: 5px; cursor: pointer; }
+.menubar > button:hover, .menubar > button[aria-expanded="true"] { background: var(--hover); }
+.menubar-drop button { display: flex; justify-content: space-between; align-items: center; gap: 28px; }
+.menubar-drop kbd { font: inherit; font-size: 12px; color: var(--muted); }
+.ctx-menu button:disabled { opacity: 0.45; cursor: default; background: transparent; }
+
+/* ---------- onglets fixes (Accueil, Tableau) ---------- */
+.document-tabs-fixed { display: flex; flex-shrink: 0; position: sticky; left: 0; z-index: 2; background: var(--panel); border-right: 1px solid var(--border); box-shadow: 4px 0 6px -4px rgba(16, 32, 54, 0.25); }

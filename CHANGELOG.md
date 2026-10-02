@@ -5,6 +5,17 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 
 ## [Non publié]
 
+### Ajouté
+
+- **Barre de menus** Fichier, Édition, Affichage, Aide, avec les raccourcis clavier.
+- Clic droit sur un onglet ou un fichier de la liste : ouvrir, fermer, fermer les autres,
+  fermer les documents en erreur, copier le nom ou le chemin.
+
+### Modifié
+
+- Les onglets **Accueil** et **Tableau** restent fixes à gauche quand les onglets de
+  documents défilent ; l'onglet sélectionné n'est plus masqué derrière eux.
+
 ## [0.3.0] - 2026-10-02
 
 ### Ajouté

@@ -68,6 +68,7 @@ const MENU_FORMATS = {
 
 function hideContextMenu() {
   document.querySelector(".ctx-menu")?.remove();
+  document.querySelectorAll('.menubar [aria-expanded="true"]').forEach((b) => b.setAttribute("aria-expanded", "false"));
 }
 
 function showContextMenu(event, td) {
@@ -134,9 +135,40 @@ function showContextMenu(event, td) {
   menu.querySelector("button").focus({ preventScroll: true });
 }
 
+/* Document cliqué dans la barre d'onglets ou la liste des fichiers. */
+function showDocumentMenu(event, f) {
+  hideContextMenu();
+  hidePopover();
+  const menu = document.createElement("div");
+  menu.className = "ctx-menu";
+  menu.setAttribute("role", "menu");
+  const item = (label, action, enabled = true) => {
+    const b = Object.assign(document.createElement("button"), { type: "button", textContent: label, disabled: !enabled });
+    b.setAttribute("role", "menuitem");
+    b.addEventListener("click", () => { hideContextMenu(); action(); });
+    menu.appendChild(b);
+  };
+  const others = state.files.filter((g) => g !== f);
+  const closeAll = (files) => { for (const g of files) removeFile(g.id); };
+  item("Ouvrir", () => selectFile(f.id));
+  item("Fermer", () => removeFile(f.id));
+  item("Fermer les autres", () => closeAll(others), others.length > 0);
+  item("Fermer les documents en erreur", () => closeAll(state.files.filter((g) => g.status === "error")),
+    state.files.some((g) => g.status === "error"));
+  menu.appendChild(document.createElement("hr"));
+  item("Copier le nom du fichier", () => { clipboardWrite(f.name); toast("Nom copié"); });
+  item("Copier le chemin du fichier", () => { clipboardWrite(f.source.path); toast("Chemin copié"); }, !!f.source?.path);
+  document.body.appendChild(menu);
+  menu.style.left = Math.max(8, Math.min(event.clientX, window.innerWidth - menu.offsetWidth - 8)) + "px";
+  menu.style.top = Math.max(8, Math.min(event.clientY, window.innerHeight - menu.offsetHeight - 8)) + "px";
+  menu.querySelector("button").focus({ preventScroll: true });
+}
+
 function wireContextMenu() {
   document.addEventListener("contextmenu", (e) => {
     if (e.target.closest(".ctx-menu")) { e.preventDefault(); return; }
+    const doc = e.target.closest("[data-file-id]");
+    if (doc && getFile(doc.dataset.fileId)) { e.preventDefault(); showDocumentMenu(e, getFile(doc.dataset.fileId)); return; }
     // Les champs de saisie gardent le menu natif (couper, copier, coller).
     const td = e.target.closest(".main td");
     if (!td || e.target.closest("input, textarea, select")) { hideContextMenu(); return; }
@@ -150,7 +182,7 @@ function wireContextMenu() {
     if (e.key === "Escape") { hideContextMenu(); return; }
     if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
     e.preventDefault();
-    const buttons = [...menu.querySelectorAll("button")];
+    const buttons = [...menu.querySelectorAll("button:not(:disabled)")];
     const next = buttons.indexOf(document.activeElement) + (e.key === "ArrowDown" ? 1 : -1);
     buttons[(next + buttons.length) % buttons.length].focus();
   });

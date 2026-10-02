@@ -166,7 +166,17 @@ des contrôles. Un clic sur une ligne ouvre la facture.
 Les montants viennent du XML, sans recalcul. Le tableau porte sur les documents ouverts
 (500 au maximum), pas sur un historique.
 
+### Barre de menus
+
+La barre **Fichier / Édition / Affichage / Aide** regroupe les actions : ouvrir, exporter,
+fermer, rechercher, copier, changer de vue ou de document. Les raccourcis y sont rappelés.
+Les onglets **Accueil** et **Tableau** restent fixes à gauche de la barre d'onglets.
+
 ### Clic droit
+
+Sur un onglet ou un fichier de la liste : ouvrir, fermer, fermer les autres, fermer les
+documents en erreur, copier le nom ou le chemin.
+
 
 Un clic droit sur une cellule de n'importe quel tableau propose : copier la cellule, la ligne
 (avec ou sans en-têtes), la colonne ou le tableau affiché ; copier la ligne ou le tableau en
@@ -217,7 +227,8 @@ web/                       interface (aucune étape de compilation)
   index.html, app.js, style.css
   workspace.js             accueil, onglets, session
   batch.js                 tableau multi-factures
-  menu.js                  menu contextuel des tableaux
+  menu.js                  menus contextuels (tableaux, onglets)
+  menubar.js               barre de menus
   pdfjs/                   PDF.js embarqué
 src-tauri/
   src/facturx.rs           moteur : PDF Factur-X, ZIP, UBL, CII

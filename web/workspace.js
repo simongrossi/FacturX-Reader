@@ -189,13 +189,17 @@ function showWorkspaceHome() {
 function renderDocumentTabs() {
   const nav = byId("document-tabs");
   nav.replaceChildren();
+  // Accueil et Tableau restent visibles quand les onglets de documents défilent.
+  const fixed = document.createElement("div");
+  fixed.className = "document-tabs-fixed";
+  nav.appendChild(fixed);
   const home = document.createElement("button");
   const batchShown = state.batch && !state.selected && state.files.length > 0;
   home.className = "document-tab" + (!state.selected && !batchShown ? " selected" : "");
   home.textContent = "Accueil";
   home.setAttribute("aria-pressed", String(!state.selected && !batchShown));
   home.onclick = showWorkspaceHome;
-  nav.appendChild(home);
+  fixed.appendChild(home);
   if (state.files.length) {
     const table = document.createElement("button");
     table.id = "tab-batch";
@@ -204,11 +208,12 @@ function renderDocumentTabs() {
     table.title = "Tableau de toutes les factures ouvertes";
     table.setAttribute("aria-pressed", String(batchShown));
     table.onclick = showBatch;
-    nav.appendChild(table);
+    fixed.appendChild(table);
   }
   for (const f of state.files) {
     const group = document.createElement("div");
     group.className = "document-tab-group" + (state.selected === f.id ? " selected" : "");
+    group.dataset.fileId = f.id;
     const tab = document.createElement("button");
     tab.className = "document-tab";
     tab.textContent = (f.status === "error" ? "⚠ " : f.status === "loading" ? "… " : "") + f.name;
@@ -222,7 +227,8 @@ function renderDocumentTabs() {
     group.onauxclick = e => { if (e.button === 1) { e.preventDefault(); removeFile(f.id); } };
     group.append(tab, close); nav.appendChild(group);
   }
-  nav.querySelector(".selected")?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  nav.style.scrollPaddingLeft = fixed.offsetWidth + "px";
+  nav.querySelector(".document-tab-group.selected")?.scrollIntoView({ block: "nearest", inline: "nearest" });
 }
 function renderWelcome() {
   const list = byId("recent-files"); list.replaceChildren();
