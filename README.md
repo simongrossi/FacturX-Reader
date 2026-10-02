@@ -34,7 +34,7 @@ tableaux lisibles en français, **recalcule les montants** et signale ce qui ne 
 
 - **100 % local** : aucun serveur, aucun appel réseau, aucun compte. La bibliothèque est un
   fichier sur votre poste, désactivable.
-- **Léger** : exécutable d'environ 10 Mo, règles de validation officielles comprises.
+- **Léger** : exécutable d'environ 15 Mo, moteur de validation et règles officielles compris.
 - **Pensé pour vérifier**, pas seulement pour afficher : contrôles, pointage, suivi, exports.
 
 > Version de développement (0.y.z). Les builds ne sont pas signés : Windows SmartScreen et
@@ -127,7 +127,7 @@ Ils sont produits par le workflow GitHub à chaque tag `vX.Y.Z`, ou localement p
 - **SQLite** embarqué — bibliothèque locale ;
 - **HTML / CSS / JS sans framework** — le front de `web/` est servi tel quel, sans étape de
   compilation ;
-- **SaxonJS 2** — moteur XSLT embarqué, pour le Schematron officiel ;
+- **xee** — moteur XPath, pour évaluer le Schematron officiel ;
 - **lopdf** — lecture de la structure des PDF ;
 - **PDF.js 3.11** — rendu des PDF.
 
@@ -241,8 +241,10 @@ les verdicts en colonnes, et le rapport JSON dans un bloc `verdicts`.
 
 L'application embarque les règles de validation officielles de la norme EN 16931, publiées par la
 Commission européenne (dépôt [`eInvoicing-EN16931`](https://github.com/ConnectingEurope/eInvoicing-EN16931),
-version 1.3.16), pour les deux syntaxes CII et UBL. Elles sont exécutées **sur votre poste**, dans
-la fenêtre de l'application, par le moteur XSLT SaxonJS : la facture n'est envoyée nulle part.
+version 1.3.16), pour les deux syntaxes CII et UBL : 806 règles CII et 979 règles UBL. Elles sont
+évaluées **sur votre poste** par le moteur de l'application, en Rust, à l'aide du moteur XPath
+open source `xee` : la facture n'est envoyée nulle part, et aucun code n'est exécuté dans la
+fenêtre.
 
 Le bloc **Schematron officiel** de l'onglet Données liste chaque règle non respectée (bloquante)
 et chaque avertissement, avec l'identifiant officiel (`BR-CO-15`, `UBL-CR-528`, `CII-SR-173`…),
@@ -254,15 +256,23 @@ le texte de la règle et son emplacement dans le XML.
   `CreditNote` UBL aux espaces de noms standard sont validées. Sur tout autre document, le
   verdict est **« non évalué »**, jamais « respecté » ;
 - la validation porte sur le XML tel que réindenté par l'application, pas sur les octets d'origine ;
-- une facture de cent lignes demande environ une seconde, pendant laquelle l'interface peut
-  marquer un temps d'arrêt. À l'ouverture d'un dossier, les documents sont validés un par un en
-  arrière-plan, celui qui est affiché en premier ;
+- elle tourne en arrière-plan, sans bloquer l'interface : moins d'une seconde pour une facture
+  courante, jusqu'à cinq secondes pour une facture de plus de cent lignes. À l'ouverture d'un
+  dossier, plusieurs documents sont validés de front, celui qui est affiché en premier ;
+- si une valeur du XML n'a pas le format attendu (un montant non numérique, par exemple), les
+  règles qui en dépendent sont listées comme **non évaluables** et le verdict n'est pas
+  « respecté » ;
 - les profils Factur-X **MINIMUM** et **BASIC WL** ne sont pas des factures EN 16931 complètes :
   le Schematron EN 16931 y signale des règles non respectées, ce qui est attendu.
 
-Sur les factures d'essai, le Schematron officiel et les règles natives de l'application donnent
-le même résultat pour les règles métier ; le Schematron ajoute les règles de syntaxe (`UBL-CR`,
-`UBL-SR`, `CII-SR`) que le moteur natif ne couvre pas.
+Ce moteur n'est pas l'implémentation de référence : c'est une évaluation directe des règles
+officielles. Il a été comparé à SaxonJS, le moteur XSLT de référence, sur 583 documents (exemples
+officiels, variantes abîmées, factures réelles) : mêmes règles enfreintes, en même nombre, dans
+578 cas ; dans les 5 autres, SaxonJS s'arrête sur une valeur illisible là où l'application
+continue et signale les règles non évaluables.
+
+Le Schematron ajoute aux règles métier les règles de syntaxe (`UBL-CR`, `UBL-SR`, `CII-SR`) que
+les [règles natives](#règles-en-16931) de l'application ne couvrent pas.
 
 ### Conteneur PDF
 
@@ -494,7 +504,7 @@ web/                       interface (aucune étape de compilation)
   batch.js                 tableau multi-factures
   review.js                suivi de vérification, rapport de contrôle
   library.js               bibliothèque locale, historique des prix
-  schematron/              Schematron officiel : moteur SaxonJS, feuilles compilées, licences
+  schematron/              appel du validateur, notices de licence
   menu.js                  menus contextuels (tableaux, onglets)
   menubar.js               barre de menus
   pdfjs/                   PDF.js embarqué
@@ -502,6 +512,8 @@ src-tauri/
   src/facturx.rs           moteur : PDF Factur-X, ZIP, UBL, CII
   src/facturx/controles.rs contrôles de cohérence (décimaux exacts)
   src/facturx/en16931.rs   règles métier EN 16931
+  src/schematron.rs        Schematron officiel EN 16931 (évaluation XPath, fils de travail)
+  schematron/              règles officielles (.sch, EUPL 1.2) et exemples de test
   src/tables.rs            libellés français et tables de codes
   src/pointages.rs         pointages et suivi : persistance, sauvegardes, export/import
   src/bibliotheque.rs      bibliothèque locale (SQLite) : historique, IBAN, doublons, prix
@@ -594,6 +606,7 @@ cargo run --example dump -- ../samples/facture.pdf > facture.json
 | `save_text` | boîte « Enregistrer sous » et écriture d'un export CSV |
 | `save_control_report` | boîte « Enregistrer sous » et écriture du rapport de contrôle JSON |
 | `print_window` | boîte d'impression du système |
+| `validate_schematron` | Schematron officiel EN 16931 sur le XML d'une facture |
 | `app_info` | version et emplacement des pointages |
 
 ## Auteurs et licence

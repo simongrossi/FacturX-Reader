@@ -21,6 +21,10 @@ async function mockBackend(page, pdf = null, extra = {}) {
       if (command === 'get_pointage') return { lines: [] };
       if (command === 'parse_path' && args.path.includes('missing')) throw new Error('Fichier introuvable');
       if (command === 'save_text') { window.__saved = args; return true; }
+      if (command === 'validate_schematron') {
+        window.__schematronCalls = [...(window.__schematronCalls || []), { format: args.format, priority: args.priority, xml: args.xml }];
+        return JSON.parse(sessionStorage.getItem('mock-schematron') || '{}');
+      }
       if (command === 'library_status') return window.__libraryBroken
         ? { ok: false, erreur: 'La bibliothèque (bibliotheque.sqlite) est illisible : file is not a database.', factures: 0, chemin: 'bibliotheque.sqlite' }
         : { ok: true, erreur: '', factures: 2, chemin: 'bibliotheque.sqlite' };
@@ -378,9 +382,9 @@ test('barre de menus, onglets Accueil et Tableau fixes, menu d’onglet', async 
   await menubar.getByRole('button', { name: 'Aide' }).click();
   await drop.getByRole('menuitem', { name: 'Licences des composants tiers' }).click();
   await expect(page.locator('#licenses-dialog')).toBeVisible();
-  await expect(page.locator('#licenses-body')).toContainText('Saxonica Ltd');
-  await expect(page.locator('#licenses-body')).toContainText('Redistribution in binary form, without');
   await expect(page.locator('#licenses-body')).toContainText('European Union Public Licence (EUPL) version 1.2');
+  await expect(page.locator('#licenses-body')).toContainText('EUROPEAN UNION PUBLIC LICENCE v. 1.2');
+  await expect(page.locator('#licenses-body')).toContainText('ConnectingEurope/eInvoicing-EN16931');
   await page.locator('#licenses-close').click();
   await expect(page.locator('#licenses-dialog')).toBeHidden();
 
@@ -670,58 +674,61 @@ test('bibliothèque : recherche, ouverture, retrait, historique des prix, régla
   expect(errors).toEqual([]);
 });
 
-// Facture CII fictive, aux espaces de noms réels : le Schematron officiel s'y applique.
-const CII_OFFICIEL = `<rsm:CrossIndustryInvoice xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100" xmlns:ram="urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100" xmlns:udt="urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100">
-<rsm:ExchangedDocumentContext><ram:GuidelineSpecifiedDocumentContextParameter><ram:ID>urn:cen.eu:en16931:2017</ram:ID></ram:GuidelineSpecifiedDocumentContextParameter></rsm:ExchangedDocumentContext>
-<rsm:ExchangedDocument><ram:ID>F-1</ram:ID><ram:TypeCode>380</ram:TypeCode><ram:IssueDateTime><udt:DateTimeString format="102">20260924</udt:DateTimeString></ram:IssueDateTime></rsm:ExchangedDocument>
-<rsm:SupplyChainTradeTransaction>
-<ram:IncludedSupplyChainTradeLineItem><ram:AssociatedDocumentLineDocument><ram:LineID>1</ram:LineID></ram:AssociatedDocumentLineDocument><ram:SpecifiedTradeProduct><ram:Name>Papier</ram:Name></ram:SpecifiedTradeProduct><ram:SpecifiedLineTradeAgreement><ram:NetPriceProductTradePrice><ram:ChargeAmount>50.00</ram:ChargeAmount></ram:NetPriceProductTradePrice></ram:SpecifiedLineTradeAgreement><ram:SpecifiedLineTradeDelivery><ram:BilledQuantity unitCode="C62">2</ram:BilledQuantity></ram:SpecifiedLineTradeDelivery><ram:SpecifiedLineTradeSettlement><ram:ApplicableTradeTax><ram:TypeCode>VAT</ram:TypeCode><ram:CategoryCode>S</ram:CategoryCode><ram:RateApplicablePercent>20.00</ram:RateApplicablePercent></ram:ApplicableTradeTax><ram:SpecifiedTradeSettlementLineMonetarySummation><ram:LineTotalAmount>100.00</ram:LineTotalAmount></ram:SpecifiedTradeSettlementLineMonetarySummation></ram:SpecifiedLineTradeSettlement></ram:IncludedSupplyChainTradeLineItem>
-<ram:ApplicableHeaderTradeAgreement>
-<ram:SellerTradeParty><ram:Name>Vendeur SAS</ram:Name><ram:PostalTradeAddress><ram:CountryID>FR</ram:CountryID></ram:PostalTradeAddress><ram:SpecifiedTaxRegistration><ram:ID schemeID="VA">FR11123456782</ram:ID></ram:SpecifiedTaxRegistration></ram:SellerTradeParty>
-<ram:BuyerTradeParty><ram:Name>Acheteur SARL</ram:Name><ram:PostalTradeAddress><ram:CountryID>FR</ram:CountryID></ram:PostalTradeAddress></ram:BuyerTradeParty>
-</ram:ApplicableHeaderTradeAgreement>
-<ram:ApplicableHeaderTradeDelivery/>
-<ram:ApplicableHeaderTradeSettlement><ram:InvoiceCurrencyCode>EUR</ram:InvoiceCurrencyCode>
-<ram:ApplicableTradeTax><ram:CalculatedAmount>20.00</ram:CalculatedAmount><ram:TypeCode>VAT</ram:TypeCode><ram:BasisAmount>100.00</ram:BasisAmount><ram:CategoryCode>S</ram:CategoryCode><ram:RateApplicablePercent>20.00</ram:RateApplicablePercent></ram:ApplicableTradeTax>
-<ram:SpecifiedTradePaymentTerms><ram:DueDateDateTime><udt:DateTimeString format="102">20261030</udt:DateTimeString></ram:DueDateDateTime></ram:SpecifiedTradePaymentTerms>
-<ram:SpecifiedTradeSettlementHeaderMonetarySummation><ram:LineTotalAmount>100.00</ram:LineTotalAmount><ram:TaxBasisTotalAmount>100.00</ram:TaxBasisTotalAmount><ram:TaxTotalAmount currencyID="EUR">20.00</ram:TaxTotalAmount><ram:GrandTotalAmount>120.00</ram:GrandTotalAmount><ram:DuePayableAmount>120.00</ram:DuePayableAmount></ram:SpecifiedTradeSettlementHeaderMonetarySummation>
-</ram:ApplicableHeaderTradeSettlement>
-</rsm:SupplyChainTradeTransaction></rsm:CrossIndustryInvoice>`;
-
-test('Schematron officiel : facture respectée, erreur de total détectée, document non reconnu jamais « respecté »', async ({ page }) => {
-  test.setTimeout(60000);
+test('Schematron officiel : verdicts respecté, non respecté, partiel et non évalué', async ({ page }) => {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  await mockBackend(page, null, { synthese: { numero: 'X', vendeur: 'V', devise: 'EUR' },
-    sections: [{ name: 'Vendeur', rows: [{ title: 'Raison sociale', value: 'V', path: 'Invoice/x' }] }] });
+  await mockBackend(page, null, {
+    synthese: { numero: 'X', vendeur: 'V', devise: 'EUR' },
+    sections: [{ name: 'Vendeur', rows: [{ title: 'Raison sociale', value: 'V', path: 'Invoice/x' }] }],
+  });
   await page.goto(url);
-  const run = (xml, format) => page.evaluate(async ({ xml, format }) => {
-    const res = await SchematronValidator.validate(xml, format);
-    return { evalue: res.evalue, ok: !!res.ok, fatals: [...new Set((res.erreurs || []).filter(e => e.flag === 'fatal').map(e => e.id))], fired: res.regles_declenchees || 0 };
-  }, { xml, format });
+  // Le moteur de validation est dans l'application : plus de moteur XSLT ni d'eval dans la page.
+  expect(await page.evaluate(() => typeof SaxonJS)).toBe('undefined');
+  const open = async (name, result) => {
+    await page.evaluate(r => sessionStorage.setItem('mock-schematron', JSON.stringify(r)), result);
+    await page.locator('#file-input').setInputFiles({ name, mimeType: 'text/xml', buffer: Buffer.from('<Invoice/>') });
+    await expect(page.locator('#fv-name')).toHaveText(name);
+    await page.getByRole('button', { name: 'Données', exact: true }).click();
+  };
+  const base = { evalue: true, version_regles: '1.3.16', regles_declenchees: 42, non_conformes: 0, avertissements: 0, non_evaluables: [], erreurs: [], duree_ms: 120 };
+  const verdicts = page.locator('#verdicts');
+  const section = page.locator('#schematron-rules');
 
-  // Feuilles officielles réelles, exécutées dans la page.
-  const valid = await run(CII_OFFICIEL, 'CII');
-  expect(valid).toMatchObject({ evalue: true, ok: true, fatals: [] });
-  expect(valid.fired).toBeGreaterThan(5);
-  const wrong = await run(CII_OFFICIEL.replace('<ram:GrandTotalAmount>120.00', '<ram:GrandTotalAmount>120.01'), 'CII');
-  expect(wrong.ok).toBe(false);
-  expect(wrong.fatals).toContain('BR-CO-15');
-  const noBuyer = await run(CII_OFFICIEL.replace('<ram:Name>Acheteur SARL</ram:Name>', ''), 'CII');
-  expect(noBuyer.fatals).toContain('BR-07');
+  await open('respecte.xml', { ...base, ok: true });
+  await expect(verdicts).toContainText('Schematron officiel respecté');
+  await expect(section).toContainText('Aucune règle bloquante enfreinte');
+  await expect(section).toContainText('EN 16931 v1.3.16');
+  await expect(section).toContainText('42 contextes examinés en 120 ms');
+  // Le moteur reçoit le XML du document et son format.
+  expect(await page.evaluate(() => window.__schematronCalls[0])).toMatchObject({ format: 'CII', xml: '<Invoice>FAC-2026-123</Invoice>' });
 
-  // Un XML que le Schematron ne reconnaît pas ne déclenche aucune règle : ce n'est pas un succès.
-  for (const [xml, format] of [['<Invoice>FAC-2026-123</Invoice>', 'CII'], ['<a><b/></a>', 'UBL'], [CII_OFFICIEL, 'UBL']]) {
-    const unknown = await run(xml, format);
-    expect(unknown).toMatchObject({ evalue: false, ok: false, fired: 0 });
-  }
+  await open('enfreint.xml', { ...base, ok: false, non_conformes: 1, avertissements: 1, erreurs: [
+    { id: 'BR-CO-15', flag: 'fatal', texte: '[BR-CO-15]-Invoice total amount with VAT = Invoice total amount without VAT + Invoice total VAT amount.', location: '/rsm:CrossIndustryInvoice' },
+    { id: 'CII-SR-173', flag: 'warning', texte: '[CII-SR-173]-Avertissement de syntaxe', location: '/rsm:CrossIndustryInvoice/x' },
+  ] });
+  await expect(verdicts).toContainText('1 règle Schematron officiel non respectée');
+  await expect(section).toHaveAttribute('open', '');
+  await expect(section).toContainText('1 règle bloquante non respectée · 1 avertissement');
+  await expect(section.locator('tr.ctl-ecart')).toContainText('BR-CO-15');
+  await expect(section.locator('tr.ctl-ecart')).toContainText('Emplacement : /rsm:CrossIndustryInvoice');
+  await expect(section.locator('tr.ctl-alerte')).toContainText('CII-SR-173');
 
-  // Dans l'interface : verdict et bloc dédiés, jamais « respecté » pour un document non reconnu.
-  await page.locator('#file-input').setInputFiles({ name: 'inconnu.xml', mimeType: 'text/xml', buffer: Buffer.from('<Invoice/>') });
-  await expect(page.locator('#fv-name')).toHaveText('inconnu.xml');
-  await page.getByRole('button', { name: 'Données', exact: true }).click();
-  await expect(page.locator('#verdicts')).toContainText('Schematron officiel non évalué');
-  await expect(page.locator('#verdicts')).not.toContainText('Schematron officiel respecté');
-  await expect(page.locator('#schematron-rules')).toContainText('Aucune règle officielle ne s\'applique');
+  // Une règle que le moteur n'a pas pu évaluer empêche d'afficher « respecté ».
+  await open('partiel.xml', { ...base, ok: false, non_evaluables: ['BR-DEC-23'] });
+  await expect(verdicts).toContainText('Schematron officiel : 1 règle non évaluable');
+  await expect(verdicts).not.toContainText('Schematron officiel respecté');
+  await expect(section).toContainText('BR-DEC-23');
+
+  // Document non reconnu, puis réponse inattendue du moteur : jamais « respecté ».
+  await open('inconnu.xml', { evalue: false, ok: false, erreur_moteur: 'Aucune règle officielle ne s\'applique à ce document (racine ou espace de noms non reconnu)' });
+  await expect(verdicts).toContainText('Schematron officiel non évalué');
+  await expect(section).toContainText('Aucune règle officielle ne s\'applique');
+  await open('muet.xml', {});
+  await expect(verdicts).toContainText('Schematron officiel non évalué');
+  await expect(verdicts).not.toContainText('Schematron officiel respecté');
+
+  // Le tableau reprend les verdicts.
+  await page.locator('#tab-batch').click();
+  await expect(page.locator('#batch-table tbody tr.batch-row')).toHaveCount(5);
   expect(errors).toEqual([]);
 });

@@ -113,7 +113,6 @@ function wireMenubar() {
 
 /* Licences des composants embarqués : leurs textes font partie de l'application installée. */
 const THIRD_PARTY_LICENSES = [
-  { title: "SaxonJS 2 — moteur XSLT (© Saxonica Ltd), SaxonJS Public License", file: "schematron/LICENSE-SAXONJS.txt" },
   { title: "Règles de validation EN 16931 (© Union européenne), licence EUPL 1.2", file: "schematron/NOTICE-EINVOICING.txt" },
   { title: "Texte de la licence EUPL 1.2", file: "schematron/LICENSE-EUPL-1.2.txt" },
 ];

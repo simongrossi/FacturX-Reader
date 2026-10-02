@@ -321,12 +321,12 @@ function getFile(id) {
   return state.files.find((f) => f.id === id);
 }
 
-/* Schematron officiel : une file d'attente, un document à la fois, le document affiché en
-   premier. Chaque validation occupe le fil principal (jusqu'à une seconde et plus sur une
-   grosse facture) : entre deux documents, la main est rendue à l'interface, et la liste
-   n'est rafraîchie qu'une fois par lot, pas à chaque document. */
+/* Schematron officiel : les validations sont faites par le moteur de l'application, dans ses
+   propres fils. L'interface en lance quelques-unes de front, le document affiché en premier,
+   et ne rafraîchit le tableau qu'une fois par lot. */
+const SCHEMATRON_PARALLEL = 3;
 const schematronQueue = [];
-let schematronBusy = false;
+let schematronActive = 0;
 let schematronRefreshTimer = null;
 
 function refreshSchematronViews(entry) {
@@ -340,38 +340,36 @@ function refreshSchematronViews(entry) {
   clearTimeout(schematronRefreshTimer);
   schematronRefreshTimer = setTimeout(() => {
     if (state.batch && !state.selected) renderBatch();
-  }, schematronQueue.length ? 1000 : 0);
+  }, schematronQueue.length || schematronActive ? 1000 : 0);
 }
 
-async function pumpSchematron() {
-  if (schematronBusy) return;
-  schematronBusy = true;
-  while (schematronQueue.length) {
-    const entry = schematronQueue.shift();
+function pumpSchematron() {
+  while (schematronActive < SCHEMATRON_PARALLEL && schematronQueue.length) {
+    const { entry, first } = schematronQueue.shift();
     if (!entry.result || entry.result.schematron || !state.files.includes(entry)) continue;
+    schematronActive++;
     entry.result._schematronRunning = true;
-    try {
-      entry.result.schematron = await SchematronValidator.validate(entry.result.xml_pretty, entry.result.format);
-    } catch (err) {
-      entry.result.schematron = { evalue: false, erreur_moteur: String(err) };
-    } finally {
-      entry.result._schematronRunning = false;
-    }
-    refreshSchematronViews(entry);
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    SchematronValidator.validate(entry.result.xml_pretty, entry.result.format, first)
+      .then((res) => { entry.result.schematron = res; })
+      .catch((err) => { entry.result.schematron = { evalue: false, erreur_moteur: String(err) }; })
+      .finally(() => {
+        entry.result._schematronRunning = false;
+        schematronActive--;
+        refreshSchematronViews(entry);
+        pumpSchematron();
+      });
   }
-  schematronBusy = false;
 }
 
 function triggerSchematronValidation(entry, first) {
   if (!entry || !entry.result || entry.result.schematron || entry.result._schematronRunning) return;
   if (typeof SchematronValidator === "undefined") return;
-  const queued = schematronQueue.indexOf(entry);
+  const queued = schematronQueue.findIndex((q) => q.entry === entry);
   if (queued !== -1) {
     if (!first) return;
     schematronQueue.splice(queued, 1);
   }
-  if (first) schematronQueue.unshift(entry); else schematronQueue.push(entry);
+  if (first) schematronQueue.unshift({ entry, first: true }); else schematronQueue.push({ entry, first: false });
   pumpSchematron();
 }
 
@@ -1097,7 +1095,10 @@ function invoiceVerdicts(f, extraAlerts = 0) {
   let schematron = null;
   if (r.schematron) {
     const sch = r.schematron;
-    if (sch.evalue) {
+    if (sch.evalue && !sch.non_conformes && (sch.non_evaluables || []).length) {
+      const n = sch.non_evaluables.length;
+      schematron = { etat: "alerte", court: "Partiel", label: "Schematron officiel : " + n + " règle" + (n > 1 ? "s" : "") + " non évaluable" + (n > 1 ? "s" : "") };
+    } else if (sch.evalue) {
       schematron = sch.non_conformes > 0
         ? { etat: "ecart", court: plural(sch.non_conformes, "non-conformité"), label: plural(sch.non_conformes, "règle") + " Schematron officiel non respectée" + (sch.non_conformes > 1 ? "s" : "") }
         : { etat: "conforme", court: "Respecté", label: "Schematron officiel respecté" };
@@ -1336,7 +1337,7 @@ function schematronSection(f) {
     sec.appendChild(sum);
     const p = document.createElement("p");
     p.className = "notice";
-    p.textContent = "Le moteur SaxonJS exécute les règles Schematron officielles EN 16931 du CEN / Commission européenne localement…";
+    p.textContent = "Les règles Schematron officielles EN 16931 de la Commission européenne sont en cours d'évaluation sur ce poste…";
     sec.appendChild(p);
     return sec;
   }
@@ -1347,10 +1348,12 @@ function schematronSection(f) {
     return sec;
   }
 
-  const etat = sch.non_conformes ? "ecart" : "conforme";
+  const unevaluated = sch.non_evaluables || [];
+  const etat = sch.non_conformes ? "ecart" : unevaluated.length ? "alerte" : "conforme";
   const badgeTxt = sch.non_conformes
-    ? sch.non_conformes + " règle" + (sch.non_conformes > 1 ? "s" : "") + " non conforme" + (sch.non_conformes > 1 ? "s" : "")
-    : "Conforme (" + (sch.duree_ms != null ? sch.duree_ms + " ms" : "OK") + ")";
+    ? sch.non_conformes + " règle" + (sch.non_conformes > 1 ? "s" : "") + " bloquante" + (sch.non_conformes > 1 ? "s" : "") + " non respectée" + (sch.non_conformes > 1 ? "s" : "")
+    : unevaluated.length ? unevaluated.length + " règle" + (unevaluated.length > 1 ? "s" : "") + " non évaluable" + (unevaluated.length > 1 ? "s" : "")
+    : "Aucune règle bloquante enfreinte";
   sum.innerHTML = '<span class="ctl-chip ctl-' + etat + '">Schematron officiel CEN</span> ' +
     esc(badgeTxt) + (sch.avertissements ? ' · ' + sch.avertissements + ' avertissement' + (sch.avertissements > 1 ? "s" : "") : '');
   sec.appendChild(sum);
@@ -1387,13 +1390,22 @@ function schematronSection(f) {
     const okP = document.createElement("p");
     okP.className = "notice";
     okP.style.color = "var(--ok)";
-    okP.textContent = "Toutes les assertions Schematron officielles publiées par le CEN pour la norme EN 16931 sont respectées (durée d'exécution : " + (sch.duree_ms || 0) + " ms).";
+    okP.textContent = unevaluated.length ? "Aucune règle officielle enfreinte parmi celles qui ont pu être évaluées."
+      : "Aucune règle du Schematron officiel EN 16931 n'est enfreinte.";
+    if (unevaluated.length) okP.style.color = "";
     sec.appendChild(okP);
+  }
+  if (unevaluated.length) {
+    // Une valeur illisible (montant non numérique, par exemple) empêche d'évaluer certaines règles.
+    sec.appendChild(Object.assign(document.createElement("p"), {
+      className: "notice", textContent: "Règles non évaluables sur ce document, une valeur du XML n'ayant pas le format attendu : " + unevaluated.join(", ") + ".",
+    }));
   }
 
   const foot = document.createElement("p");
   foot.className = "verdict-note";
-  foot.textContent = "Feuilles Schematron officielles v1.3.16 de la Commission européenne (EUPL 1.2), exécutées localement par SaxonJS (Saxonica).";
+  foot.textContent = "Règles Schematron officielles EN 16931 v" + (sch.version_regles || "") + " de la Commission européenne (EUPL 1.2), évaluées sur ce poste" +
+    (sch.regles_declenchees ? " : " + sch.regles_declenchees + " contextes examinés" : "") + (sch.duree_ms != null ? " en " + sch.duree_ms + " ms" : "") + ".";
   sec.appendChild(foot);
 
   return sec;

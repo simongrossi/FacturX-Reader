@@ -8,9 +8,11 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 ### Ajouté
 
 - **Schematron officiel EN 16931** : les règles publiées par la Commission européenne
-  (`eInvoicing-EN16931` v1.3.16, licence EUPL 1.2) sont exécutées localement dans la WebView par
-  le moteur SaxonJS, sur les factures CII et UBL. Verdict dédié et bloc listant chaque règle non
-  respectée ou avertissement, avec son identifiant et son emplacement.
+  (`eInvoicing-EN16931` v1.3.16, licence EUPL 1.2), 806 pour CII et 979 pour UBL, sont embarquées
+  sans modification et évaluées par le moteur de l'application, en Rust, avec le moteur XPath
+  open source `xee`. Verdict dédié et bloc listant chaque règle non respectée ou avertissement,
+  avec son identifiant, son texte et son emplacement. Validation en arrière-plan, sur plusieurs
+  fils, résultat mis en cache pour la session.
 - **Conteneur PDF** : extraction par un vrai parseur PDF (`lopdf`), avec repli sur l'ancienne
   méthode. Lecture des déclarations du fichier : PDF/A-3 annoncé dans les métadonnées XMP, pièce
   jointe XML déclarée dans le catalogue (`/AF`, `/EmbeddedFiles`), relation, profil annoncé
@@ -26,8 +28,6 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
   nationales. Aucun verdict ne vaut certification.
 - Chaque contrôle porte sa famille (`calcul`, `mention`, `date`, `historique`, `conteneur`) ; la
   pastille rouge de la liste ne compte plus que les écarts de calcul.
-- La politique de sécurité de la fenêtre autorise désormais `unsafe-eval` pour les scripts,
-  nécessaire au moteur XSLT embarqué.
 
 ### Corrigé
 
@@ -37,8 +37,8 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
   déclarée, y compris PDF/A-1. Il exige PDF/A-3 et parle de déclaration. Les valeurs absentes du
   fichier (niveau de conformité, relation de la pièce jointe) ne sont plus remplacées par une
   valeur par défaut.
-- Ouverture d'un dossier : la validation de chaque document relançait l'affichage de toute la
-  liste. Les validations passent par une file d'attente, document affiché en premier.
+- Menu **Aide → Licences des composants tiers** : le texte de l'EUPL et la notice des règles
+  officielles sont consultables dans l'application.
 - Le verdict Schematron ne se mettait pas à jour à la fin de la validation du document affiché.
 
 ## [0.5.0] - 2026-10-02

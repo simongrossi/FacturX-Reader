@@ -133,22 +133,21 @@ Versions publiées (pré-versions, builds non signés) :
   TVA, reliées aux données concernées. Hors Schematron officiel.
 - [ ] Compléter les règles natives : listes de codes (pays, devises, unités, types de facture),
   remises et frais de ligne, règles nationales françaises (CIUS).
-- [x] Schematron officiel EN 16931 (Commission européenne, v1.3.16) exécuté localement dans la
-  WebView par SaxonJS, sur CII et UBL.
+- [x] Schematron officiel EN 16931 (Commission européenne, v1.3.16) : règles embarquées sans
+  modification et évaluées en Rust (moteur XPath `xee`), hors de l'interface, sur CII et UBL.
+  Comparé à SaxonJS sur 583 documents. Aucun composant propriétaire, aucun `eval` dans la fenêtre.
 - [x] Conteneur PDF : déclarations lues (PDF/A-3 annoncé, pièce jointe déclarée, relation, profil
   annoncé comparé au XML). Ce n'est pas une validation ISO 19005-3.
 - [x] Verdicts séparés : lecture, calculs, règles EN 16931, Schematron officiel, conteneur, avec
   la mention de ce qui n'est pas contrôlé.
-- [ ] Schematron dans un fil séparé (Web Worker) : aujourd'hui chaque validation occupe
-  l'interface, jusqu'à plus d'une seconde sur une grosse facture.
-- [ ] Script reproductible pour régénérer les feuilles compilées (`*.sef.json`) à partir d'une
-  version donnée du dépôt officiel ; le dépôt ne contient aujourd'hui que le résultat.
+- [ ] Schematron plus rapide : jusqu'à cinq secondes sur une facture de plus de cent lignes
+  (contextes et assertions réévalués sur tout le document) ; cache persistant par empreinte.
+- [ ] Intégrer la suite de tests officielle du dépôt de la Commission à la CI.
 - [ ] Schematron des profils Factur-X (MINIMUM, BASIC WL, BASIC, EXTENDED), pour ne plus évaluer
   ces profils avec les seules règles EN 16931.
 - [ ] Valider le XML d'origine plutôt que sa version réindentée.
 - [ ] Validation du schéma XSD.
 - [ ] Validation PDF/A-3 réelle du fichier (type veraPDF).
-- [ ] Réexaminer `unsafe-eval` dans la politique de sécurité, ajouté pour SaxonJS.
 - [ ] Comparaison PDF vs XML : montants clés recherchés dans le texte du PDF, écart mis en
   évidence (PDF texte uniquement). Puis synchronisation au clic XML ↔ PDF.
 - [ ] Signature électronique du PDF : détecter sa présence, puis vérifier l'intégrité.

@@ -11,9 +11,9 @@ Les commandes sont décrites dans [README.md](README.md#tests).
 | Vérification | Résultat / portée |
 |---|---|
 | `npm run check:js` | Syntaxe de tous les scripts de l'interface |
-| `npm run test:rust` | 32 tests unitaires : moteur UBL/CII, contrôles en décimaux exacts, règles EN 16931, conteneur PDF (déclarations lues, écarts), pointages et suivi (corruption, sauvegarde, restauration, fusion), bibliothèque SQLite |
+| `npm run test:rust` | 37 tests unitaires : Schematron officiel (compilation de toutes les règles, exemples officiels, règles enfreintes, file de travail), moteur UBL/CII, contrôles en décimaux exacts, règles EN 16931, conteneur PDF (déclarations lues, écarts), pointages et suivi (corruption, sauvegarde, restauration, fusion), bibliothèque SQLite |
 | Test Rust `samples.rs` | Factures réelles locales, hors dépôt : toutes analysées, sauf celles marquées sans XML |
-| `npm run test:ui` | 13 scénarios navigateur sous Chromium et Edge, commandes Rust simulées, PDF.js réel, Schematron officiel réel |
+| `npm run test:ui` | 13 scénarios navigateur sous Chromium et Edge, commandes Rust simulées, PDF.js réel |
 | `npm run test:native` | Vrai exécutable Windows, vraies commandes Rust, profil WebView2 et dossier de données jetables |
 | Workflow `Checks` | Tests navigateur (Linux) et Rust (Windows) verts sur `main` |
 | Workflow `Release` | Installeurs Windows, macOS et Linux construits à chaque tag |
@@ -28,15 +28,21 @@ démarrage, laissés intacts à l'écriture, puis restaurés depuis une sauvegar
 
 ### Schematron officiel
 
-- Exécuté pour de vrai dans le navigateur de test et dans la fenêtre native Windows.
-- Une facture CII fictive complète est respectée ; la même avec un total faux d'un centime
-  enfreint `BR-CO-15` ; sans nom d'acheteur, `BR-07`.
-- Un XML sans rapport avec une facture, ou une facture CII soumise aux règles UBL, est
-  « non évalué » et jamais « respecté ».
-- Sur 19 factures réelles : même résultat que les règles natives pour les règles métier (trois
-  règles de calcul enfreintes sur une facture) ; deux factures UBL enfreignent en plus une règle
-  de syntaxe (`UBL-SR-34`), que le moteur natif ne couvre pas ; la plupart reçoivent des
-  avertissements de syntaxe. Durée : de 20 ms à 1,4 s par facture.
+- Les 806 règles CII et les 979 règles UBL officielles se compilent toutes (test automatisé).
+- Tests Rust : une facture CII fictive complète et les exemples officiels CII et UBL de la
+  Commission ne enfreignent aucune règle bloquante ; un total faux d'un centime enfreint
+  `BR-CO-15` ; un acheteur sans nom, `BR-07` ; une facture UBL sans date, `BR-03`.
+- Un XML sans rapport avec une facture, une facture CII soumise aux règles UBL ou un texte qui
+  n'est pas du XML sont « non évalués », jamais « respectés ».
+- **Comparaison avec SaxonJS**, moteur XSLT de référence, faite une fois hors dépôt sur 583
+  documents : 32 exemples officiels, 19 factures réelles et leurs variantes abîmées (un élément
+  supprimé ou une valeur altérée). 304 documents enfreignaient au moins une règle bloquante, 93
+  règles distinctes étaient déclenchées. Accord complet, règle par règle et en nombre, sur 578
+  documents. Sur les 5 autres, SaxonJS s'arrête sur une valeur illisible ; l'application continue
+  et signale les règles non évaluables.
+- Exécuté dans la fenêtre native Windows par le test natif.
+- Durée mesurée en version optimisée : médiane sous la seconde, 4,5 à 5,6 s pour des factures de
+  112 lignes, soit environ quatre fois plus que SaxonJS, mais hors de l'interface.
 
 ### Contrôles et règles sur des factures réelles
 
@@ -55,9 +61,10 @@ remontent des écarts de ligne, le prix unitaire et les frais déclarés ne redo
   navigateur simulé, pas sur une installation 0.4.0 réelle.
 - **Bibliothèque sur un grand volume** : testée sur quelques factures, pas sur des milliers.
 - **Schematron sur un gros dossier** : la file d'attente est testée avec 500 documents simulés,
-  pas avec 500 vraies factures ; la validation occupe l'interface pendant son exécution.
-- **Schematron UBL** : exécuté sur les factures réelles, sans test automatisé sur une facture
-  UBL fictive.
+  pas avec 500 vraies factures.
+- **Schematron en version de développement** : nettement plus lent qu'en version optimisée.
+- **Suite de tests officielle** de la Commission (un fichier par règle) : non exécutée ; la
+  comparaison avec SaxonJS en tient lieu pour l'instant.
 - **Conteneur PDF** : testé sur des PDF minimaux construits pour les tests et sur les factures
   réelles locales, pas sur des PDF protégés, chiffrés ou très volumineux.
 
