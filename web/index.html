@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Factur-X Reader</title>
-  <link rel="icon" href="logo/kmcl.jpeg">
+  <link rel="icon" href="logo/icon.svg">
   <script>
     /* Applique le thème mémorisé avant le premier rendu (évite le flash). */
     (function () {
@@ -22,7 +22,7 @@
 
 <header class="topbar">
   <div class="brand">
-    <img class="logo" src="logo/kmcl.jpeg" alt="Konica Minolta Centre Loire">
+    <img class="logo" src="logo/icon.svg" alt="">
     <div class="brand-text">
       <h1>Factur-X Reader</h1>
       <p>Visualiseur de factures électroniques — UBL · CII · Factur-X (EN 16931)</p>
@@ -76,7 +76,7 @@
 
   <main class="main">
     <div id="empty-state" class="empty-state">
-      <img class="empty-icon" src="logo/kmcl.jpeg" alt="Konica Minolta Centre Loire">
+      <img class="empty-icon" src="logo/icon.svg" alt="">
       <h2>Votre espace de factures</h2>
       <p>Ouvrez vos documents ou reprenez votre travail.</p>
       <div class="welcome-columns">
@@ -176,6 +176,13 @@
   </div>
   <div class="settings-body">
     <section class="settings-group">
+      <h3>Historique et copies locales</h3>
+      <p id="workspace-cache-info" class="setting-help">Copies conservées sur cet appareil, dans la limite de 256 Mo.</p>
+      <p class="setting-help">Le nettoyage conserve les documents récents et ceux de la session. Effacer l'historique retire aussi les copies fermées qui ne servent plus à la reprise.</p>
+      <button type="button" id="workspace-clean-cache" class="btn btn-sm">Nettoyer les copies inutilisées</button>
+      <button type="button" id="workspace-clear-history" class="btn btn-sm">Effacer l'historique</button>
+    </section>
+    <section class="settings-group">
       <h3>Apparence</h3>
       <div class="setting">
         <span class="setting-label">Thème</span>
@@ -233,6 +240,8 @@
       <div class="setting-path" id="settings-pointages-path"></div>
     </section>
   </div>
+  <p class="settings-credits">Idée originale : Christophe Mehault · Version Rust : Simon Grossi<br>
+    Licence PolyForm Noncommercial 1.0.0 — usage commercial soumis à l'accord des auteurs.</p>
   <div class="settings-foot">
     <span class="settings-version" id="settings-version"></span>
     <button type="button" id="settings-reset" class="btn btn-sm">Rétablir les valeurs par défaut</button>

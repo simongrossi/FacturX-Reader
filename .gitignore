@@ -8,3 +8,4 @@ samples/
 
 # Sorties de tests Playwright
 test-results/
+playwright-report/

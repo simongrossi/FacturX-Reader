@@ -99,6 +99,11 @@ function newFileEntry(name, status, result) {
 
 /* Charge une liste de sources {name, load()} l'une après l'autre. */
 async function addSources(sources) {
+  const remaining = Math.max(0, 500 - state.files.length);
+  if (sources.length > remaining) {
+    workspaceNotice("La session est limitée à 500 documents. Fermez des onglets avant d’en ajouter d’autres.");
+    sources = sources.slice(0, remaining);
+  }
   if (!sources.length) return;
   workspaceHasSession = true;
   const entries = sources.map((src) => {
@@ -113,8 +118,8 @@ async function addSources(sources) {
     const entry = entries[i];
     try {
       if (sources[i].blob) {
-        try { await workspaceBlob("put", entry.source.key, sources[i].blob); }
-        catch { workspaceNotice("La copie locale n’a pas pu être enregistrée : ce document devra être rouvert manuellement."); }
+        try { await storeWorkspaceBlob(entry.source.key, sources[i].blob); }
+        catch (error) { workspaceNotice("Copie locale non enregistrée : " + (error.message || error) + " Ce document devra être rouvert manuellement."); }
       }
       entry.result = await sources[i].load();
       entry.status = "ok";
@@ -123,7 +128,10 @@ async function addSources(sources) {
       entry.status = "error";
       entry.error = String((e && e.message) || e);
     }
-    renderList();
+    if (i % 10 === 9 || i === sources.length - 1) {
+      renderList();
+      await new Promise(resolve => requestAnimationFrame(resolve));
+    }
   }
   const lastOk = [...entries].reverse().find((x) => x.status === "ok");
   if (lastOk) selectFile(lastOk.id);
@@ -237,6 +245,7 @@ function renderList(preserveSearch = false) {
 }
 
 function removeFile(id) {
+  captureDocumentView();
   const idx = state.files.findIndex((x) => x.id === id);
   if (idx === -1) return;
   state.files.splice(idx, 1);
@@ -307,6 +316,7 @@ function renderFileView() {
   f.rendered = {};
   f._dataStarted = false;
   if (f.view?.zoom) { state.zoom = f.view.zoom; state.fit = !!f.view.fit; byId("pdf-zoom").value = String(state.zoom); }
+  else { state.zoom = parseFloat(settings.pdfZoom) || 1.25; state.fit = settings.pdfZoom === "fit"; }
   f.linesQuery = f.view?.linesQuery ?? f.linesQuery;
   f.sort = f.view?.sort || f.sort;
   loadPointage(f);
@@ -342,7 +352,9 @@ function renderFileView() {
 }
 
 function setTab(name, force) {
+  if (!force) captureDocumentView();
   state.tab = name;
+  workspaceScrollTarget = { id: state.selected, tab: name };
   document.querySelectorAll(".tab").forEach((t) =>
     t.classList.toggle("active", t.dataset.tab === name));
   const paneId = (name === "xmlpdf") ? "tab-pdf" : "tab-" + name;
@@ -377,7 +389,8 @@ function setTab(name, force) {
   if (f) {
     f.view = { ...f.view, tab: name };
     saveWorkspace();
-    if (name === "xml" || name === "raw") restoreDocumentScroll(f);
+    if (name === "xml" || name === "raw" || (name === "data" && f.rendered.data) ||
+      ((name === "pdf" || name === "xmlpdf") && state.pdfDoc && f.rendered.pdf)) restoreDocumentScroll(f);
   }
 }
 
@@ -409,6 +422,7 @@ async function renderPdf(f, src) {
       : "Aucun PDF intégré trouvé dans ce fichier.") + "</div>";
     byId("pdf-pageinfo").textContent = "";
     state.pdfDoc = null;
+    restoreDocumentScroll(f);
     return;
   }
   pane.innerHTML = '<div class="pdf-loading">Chargement du PDF…</div>';
@@ -423,11 +437,17 @@ async function renderPdf(f, src) {
   } catch (e) {
     if (state.selected === f.id && state.pdfSource === src)
       pane.innerHTML = '<div class="notice error">Impossible d’afficher le PDF : ' + esc(String(e)) + "</div>";
+    if (state.selected === f.id) restoreDocumentScroll(f);
   }
 }
 
 async function renderAllPages(doc) {
   const token = ++state.renderToken;
+  const renderingFile = getFile(state.selected);
+  if (renderingFile) {
+    renderingFile.rendered.pdf = false;
+    if (state.tab === state.pdfSource) workspaceScrollTarget = { id: renderingFile.id, tab: state.tab };
+  }
   const pane = byId("pdf-pages");
   pane.innerHTML = "";
   const scale = state.zoom;
@@ -1311,10 +1331,15 @@ function wireUI() {
 
   byId("pdf-prev").addEventListener("click", () => gotoPage(-1));
   byId("pdf-next").addEventListener("click", () => gotoPage(1));
-  byId("pdf-fit").addEventListener("click", fitWidth);
+  byId("pdf-fit").addEventListener("click", () => {
+    state.fit = true;
+    captureDocumentView(); saveWorkspace();
+    fitWidth();
+  });
   byId("pdf-zoom").addEventListener("change", (e) => {
     state.zoom = parseFloat(e.target.value) || 1.25;
     state.fit = false;
+    captureDocumentView(); saveWorkspace();
     if (state.pdfDoc) renderAllPages(state.pdfDoc);
   });
   const mainEl = document.querySelector(".main");

@@ -57,6 +57,13 @@ réouverture ; cette copie ne suit pas les modifications du fichier d'origine.
 Les métadonnées de session sont stockées localement dans la WebView. Un fichier manquant
 est signalé sans bloquer les autres documents. Les pointages conservent leur stockage habituel.
 
+La session est limitée à **500 documents** et les copies locales à **256 Mo**. Une copie qui
+ne peut pas être enregistrée est signalée ; la lecture du document reste possible pour la
+session courante, mais sa réouverture exige le fichier d'origine. Les copies qui ne servent
+plus aux récents ni à la session sont nettoyées automatiquement. Dans les paramètres,
+**Nettoyer les copies inutilisées** et **Effacer l'historique** conservent les documents
+nécessaires à la session ; les pointages restent dans leur fichier habituel.
+
 ### Ouvrir des factures
 
 | Action | Comment |
@@ -87,11 +94,17 @@ traduits en français. Un champ non reconnu est affiché avec son étiquette bru
 ### Onglets
 
 La barre de recherche rapide (`Ctrl+F`, ou `Cmd+F`) recherche dans les champs, valeurs,
-attributs et chemins XML de toutes les factures ouvertes. L'option **Regex** accepte une
+attributs et chemins XML. Le sélecteur de portée propose **Document sélectionné** (par défaut)
+ou **Tous les documents ouverts**. En mode document, changer d'onglet de facture relance
+la recherche sur cette facture. Sur l'accueil, sélectionnez une facture ou passez en mode tous
+les documents ; la recherche ne change pas de portée implicitement.
+L'option **Regex** accepte une
 expression régulière, sans délimiteurs (ex. `FAC-2026-\d+`). La recherche ignore la casse.
 Chaque résultat ouvre la facture dans **XML complet** et surligne l'élément en jaune.
 Utilisez les flèches ou `Entrée` / `Maj+Entrée` pour naviguer ; `Échap` efface la recherche.
 Les PDF et les contenus binaires ne sont pas recherchés. Les regex trop lentes sont interrompues.
+Le compteur compte les éléments XML correspondants, pas les occurrences dans chaque valeur.
+Le surlignage jaune porte sur la ligne de l'élément trouvé.
 
 - **PDF** — rendu du PDF (pages, ajuster, zoom, enregistrer).
 - **PDF du XML** — présent quand le XML embarque un PDF distinct du fichier déposé.
@@ -168,6 +181,45 @@ samples/                   factures réelles pour les tests locaux (non versionn
 
 ### Tests
 
+Les tests de l'interface ont leur dépendance Playwright dans `package-lock.json` :
+
+```bash
+npm ci
+npx playwright install chromium
+npm run check:js
+npm run test:ui
+npm run test:rust
+```
+
+Pour utiliser Edge déjà installé sous PowerShell :
+
+```powershell
+$env:PLAYWRIGHT_CHANNEL = 'msedge'
+npm run test:ui
+```
+
+Le workflow `.github/workflows/checks.yml` lance les tests navigateur et Rust à chaque push
+et pull request. Les tests navigateur simulent uniquement les commandes Rust ; le rendu
+PDF utilise le vrai PDF.js et une facture synthétique de deux pages. Ils couvrent aussi
+les deux portées de recherche, quotas et copie manquante, historique, session invalide et
+restauration de 500 documents.
+
+Sous Windows, un test distinct lance le véritable exécutable dans un profil WebView2 jetable,
+sans changer la session de l'utilisateur. Il valide Rust, PDF, zoom/position, arrêt du processus
+et relance, reprise des copies locales, fichier manquant et recherche :
+
+```powershell
+cargo build --manifest-path src-tauri/Cargo.toml
+npm run test:native
+# Pour le binaire de production déjà construit :
+$env:FACTURX_TEST_EXE = 'src-tauri/target/release/facturx-reader.exe'
+npm run test:native
+```
+
+Le port de débogage WebView2 est activé uniquement par ce processus de test, avec un profil
+temporaire supprimé à la fin. La vérification native macOS/Linux et l'installation des
+paquets se font séparément sur leurs systèmes respectifs.
+
 ```bash
 cd src-tauri
 cargo test
@@ -200,7 +252,23 @@ cargo run --example dump -- ../samples/facture.pdf > facture.json
 | `save_pdf` | boîte « Enregistrer sous » et écriture du PDF |
 | `app_info` | version et emplacement des pointages |
 
+## Auteurs et licence
+
+- **Christophe Mehault** — idée originale et version initiale (moteur d'analyse, interface,
+  pointage des lignes).
+- **Simon Grossi** — reprise du projet et réécriture en application de bureau Rust / Tauri.
+
+Licence **[PolyForm Noncommercial 1.0.0](LICENSE.md)** : code source consultable, usage non
+commercial autorisé, usage commercial par un tiers soumis à l'accord écrit des auteurs. Les
+auteurs restent libres de tout usage. Détails dans [NOTICE.md](NOTICE.md).
+
 ## Suite
 
 Voir [ROADMAP.md](ROADMAP.md) pour les évolutions envisagées et [CHANGELOG.md](CHANGELOG.md)
 pour l'historique.
+
+Les travaux locaux du 2 octobre 2026 (recherche, accueil, onglets et reprise de session)
+sont décrits dans la section **Non publié** du changelog. Leur test navigateur utilise des
+commandes Tauri simulées. P0 inclut désormais une vérification native Windows et la gestion
+du cache ; les vérifications natives sur macOS/Linux restent à réaliser.
+Voir [VALIDATION.md](VALIDATION.md) pour le bilan P0 et les limites des vérifications.

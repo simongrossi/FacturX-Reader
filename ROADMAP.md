@@ -1,99 +1,160 @@
 # Roadmap
 
-Pistes d'évolution, de la plus proche à la plus lointaine. Rien ici n'est encore développé.
+Mise à jour : 2 octobre 2026. Synthèse des échanges et ordre de développement proposé.
+Les éléments cochés existent dans le code local ; ils ne constituent pas une version publiée.
+Voir CHANGELOG.md pour les changements et README.md pour l'utilisation.
+Le bilan de vérification P0 est dans [VALIDATION.md](VALIDATION.md).
 
-## 1. Confort d'ouverture
+## Développé localement — validé sous Windows
 
-- **Associations de fichiers et « Ouvrir avec »** : déclarer l'application pour les `.xml` /
-  `.pdf` de factures, et réutiliser la fenêtre déjà ouverte (instance unique) au lieu d'en
-  lancer une seconde.
-- **Fichiers et dossiers récents** dans l'écran d'accueil.
-- **Dossier surveillé** : choisir un dossier (boîte de dépôt, export de l'ERP, téléchargements)
-  et y charger automatiquement les nouvelles factures.
-- **Filtre de la liste de fichiers** (fournisseur, n° de facture, montant) quand un dossier
-  entier est ouvert, et masquage optionnel des PDF sans XML.
-- Mémoriser la session (fichiers ouverts, onglet, position) entre deux lancements.
+- [x] Recherche rapide (`Ctrl+F`) : texte, numéros, regex sans distinction de casse.
+- [x] Portée explicite : **document sélectionné** par défaut, ou **tous les documents ouverts**.
+- [x] Résultats sur les champs, valeurs, attributs et chemins XML ; un résultat par élément.
+- [x] Navigation précédent/suivant, `Entrée` / `Maj+Entrée`, ouverture de la bonne facture
+  dans XML complet et surlignage jaune de la ligne. `Échap` efface la recherche.
+- [x] Regex exécutées dans un worker, erreurs expliquées, interruption après deux secondes.
+- [x] Accueil inspiré de SmoothCSV : ouvrir, ouvrir un dossier, paramètres, douze documents récents.
+- [x] Onglet Accueil permanent et un onglet par document, inspirés de MD-Workshop.
+- [x] Fermeture individuelle (croix, clic central, `Ctrl+W`), navigation `Ctrl+Tab` / `Ctrl+Maj+Tab`.
+- [x] Reprise automatique de session par défaut, option de démarrage sur l'accueil et reprise manuelle.
+- [x] Conservation des documents, document actif, vue, position et zoom ; les pointages restent séparés.
+- [x] Relecture des fichiers connus par chemin ; copie locale IndexedDB des imports sans chemin.
+- [x] Signalement des fichiers indisponibles sans bloquer les autres documents.
 
-## 2. Exploitation des données
+Limites : recherche dans les données XML uniquement, pas dans le texte du PDF ni les contenus
+binaires. Le jaune couvre l'élément XML, pas chaque occurrence du terme. Les récents portent
+sur les documents, pas encore les dossiers. Les copies locales ne suivent pas les modifications
+du fichier original. La session n'est pas une bibliothèque indexée de toutes les factures.
 
-- **Export des lignes** en CSV / Excel (lignes visibles ou pointées), copie d'un tableau dans
-  le presse-papiers.
-- **Vue multi-factures** : un tableau des factures ouvertes (fournisseur, date, HT, TVA, TTC,
-  échéance) avec totaux et recherche transversale dans toutes les lignes.
-- **Contrôles de cohérence** : somme des lignes = total HT, TVA recalculée par taux, HT + TVA =
-  TTC, échéance dépassée — avec un indicateur par facture.
-- **Validation EN 16931** : schéma XSD puis règles métier (Schematron), avec la liste des
-  règles en erreur.
-- **Pointages enrichis** : commentaire par ligne, export / import des pointages, pointage de
-  la facture entière (« vérifiée »).
-- Impression / export PDF de l'onglet Données.
+Vérification P0 : neuf tests unitaires Rust et test sur les factures locales réussis ; cinq
+scénarios navigateur Edge (dont PDF multipage, quota, cache manquant et session de 500 documents).
+Test Windows natif avec le vrai moteur Rust et un profil WebView2 jetable : fermeture de la
+fenêtre et relance, reprise du PDF de deux pages, zoom/position, copie IndexedDB,
+fichier manquant et recherche. Les quotas navigateur sont simulés dans les tests de panne.
+Les vérifications macOS/Linux et l'installation des paquets restent à faire sur ces systèmes.
 
-## 3. Qualité et distribution
+## P0 — Terminer et valider les changements actuels
 
-- **Libellés accentués** : les titres hérités du premier moteur sont sans accents
-  (« Designation », « Quantite », « Date d'echance ») ; les corriger dans `tables.rs` et le
-  moteur.
-- **Mise à jour de PDF.js** (3.11 actuellement) et déclaration explicite du worker.
-- **Signature des builds** (certificat Windows, notarisation macOS) et **mise à jour
-  automatique** via le plugin updater de Tauri.
-- Version **portable** Windows (zip sans installeur).
-- Analyse des gros fichiers hors du fil principal, avec barre de progression pour les dossiers.
-- Jeu de factures de test **anonymisées** versionnable, pour que les tests tournent aussi en CI
-  (aujourd'hui `samples/` est local uniquement).
-- Interface en anglais.
+- [x] Recompiler et vérifier l'application native Windows, reprise PDF et persistance réelle.
+- [x] Tester stockage plein (panne simulée), copie manquante et session de 500 documents.
+- [x] Limiter les copies locales à 256 Mo, supprimer les copies inutilisées, proposer
+  nettoyage et effacement de l'historique dans les paramètres. Préserver la session et les pointages.
+- [x] Corriger la capture de position pendant le rendu/restauration et regrouper les mises
+  à jour de l'interface et le nettoyage lors des imports volumineux.
+- [x] Tests navigateur reproductibles dans le projet, dépendance Playwright verrouillée,
+  scripts npm et workflow CI ajoutés (exécution distante à constater au prochain push).
+- [ ] Vérification native macOS/Linux sur machines correspondantes ; installation et lancement
+  des installeurs Windows produits, hors du test de l'exécutable.
 
-## 4. Connecteurs : récupérer les factures à la source
+## P1 — Gains immédiats et fiabilité du moteur
 
-Objectif : un menu **Sources** où l'on configure des connexions, et d'où l'on importe des
-factures sans passer par des fichiers téléchargés à la main.
+### Confort et exploitation
 
-### Principe
+- [ ] Corriger les libellés accentués dans `tables.rs` et le moteur : Désignation, Quantité,
+  Date d'échéance, etc. Vérifier les comparaisons de titres et les tests concernés.
+- [ ] Export CSV / Excel des lignes visibles ou pointées ; copie de tableaux dans le presse-papiers.
+- [ ] Associations de fichiers, « Ouvrir avec » et instance unique.
+- [ ] Compléter les récents avec les dossiers.
 
-- Chaque connecteur implémente la même interface côté Rust : *lister* les factures disponibles
-  (période, fournisseur, statut) et *télécharger* une facture (PDF Factur-X ou XML). Le moteur
-  d'analyse existant fait le reste.
-- Les identifiants (clés API, jetons OAuth) sont stockés dans le **trousseau du système**
-  (Gestionnaire d'identifications Windows, Trousseau macOS, Secret Service Linux), jamais dans
-  un fichier de configuration.
-- L'application reste utilisable hors ligne : les connecteurs sont optionnels, désactivés par
-  défaut, et chaque appel réseau est déclenché explicitement par l'utilisateur. La CSP et les
-  permissions Tauri devront être ouvertes connecteur par connecteur.
-- Les factures importées sont mises en cache localement, avec leur source d'origine.
+### Socle de fiabilité, avant les contrôles et connecteurs
 
-### Connecteurs candidats
+- [ ] Calculs monétaires décimaux à la place des `f64`, avec règles d'arrondi explicites.
+- [ ] Distinguer les valeurs extraites du XML des valeurs reconstituées : provenance, formule,
+  valeur d'origine et chemin XML consultables. Ne pas présenter un calcul comme une donnée source.
+- [ ] Extraction PDF avec un vrai parseur, au-delà des expressions régulières actuelles :
+  structures PDF complexes, pièces jointes multiples, sélection du XML pertinent.
+- [ ] Protection des pointages : sauvegarde, restauration, export/import, erreur visible si le
+  fichier est illisible ; ne pas traiter une corruption comme un historique vide.
+- [ ] Détection des doublons exacts (empreinte XML, déjà disponible), puis des doublons possibles
+  (fournisseur, numéro, montant), sans fusion automatique de documents simplement ressemblants.
+- [ ] Jeu de tests anonymisé et versionnable pour la CI : profils sans lignes, avoirs, remises,
+  frais, acomptes, plusieurs taux de TVA, arrondis, devises, PDF/ZIP et variantes UBL/CII.
+- [ ] Mise à jour de PDF.js (3.11 embarqué actuellement) et déclaration explicite du worker.
 
-| Source | Intérêt | Remarques |
-|---|---|---|
-| **Boîte mail (IMAP)** | les factures arrivent souvent en pièce jointe | filtre par expéditeur / dossier ; le plus générique |
-| **Pennylane** | factures fournisseurs déjà centralisées | API publique, jeton par société |
-| **Plateforme agréée (PA, ex-PDP)** | canal officiel de la réforme de la facturation électronique | une API par plateforme : à cibler selon celle retenue |
-| **Chorus Pro** | factures du secteur public | API PISTE, authentification OAuth + compte technique |
-| **Portails fournisseurs** (opérateurs, transporteurs…) | factures récurrentes | au cas par cas, seulement s'il existe une API |
-| **Dossier distant** (SFTP, WebDAV, S3) | dépôts automatisés d'un ERP | proche du « dossier surveillé » |
+## P2 — Traitement quotidien de lots de factures
 
-À faire avant de coder : choisir le premier connecteur selon l'usage réel (probablement IMAP
-ou Pennylane), et vérifier pour chacun les conditions d'accès à l'API.
+- [ ] Tableau multi-factures : fournisseur, numéro, date, HT, TVA, TTC, échéance et état de vérification.
+  Totaux séparés par devise ; prise en compte explicite des avoirs.
+- [ ] Recherche transversale dans les lignes et filtre de la liste des fichiers (fournisseur,
+  numéro, montant), masquage optionnel des PDF sans XML.
+- [ ] Recherche dans le texte du PDF et surlignage à l'emplacement trouvé : extension distincte
+  de la recherche XML actuelle ; décider séparément du besoin d'OCR pour les scans.
+- [ ] Vue PDF et données côte à côte, positions et zoom indépendants.
+- [ ] Statuts « À vérifier », « Vérifiée », « Anomalie », commentaires par facture et par ligne,
+  pointage de la facture entière. Distinguer vérification et paiement confirmé.
+- [ ] Contrôles arithmétiques : lignes, remises/frais globaux, TVA par taux, HT/TTC,
+  acomptes, arrondis, net à payer et avoirs ; échéance dépassée comme alerte distincte,
+  sans déduire automatiquement qu'une facture est impayée.
+- [ ] Résultats de contrôle : conforme au contrôle, écart détecté, non vérifiable, non applicable.
+  L'absence de lignes détaillées n'est pas automatiquement une erreur.
+- [ ] Rapport de contrôle exportable : règle, attendu, constaté, écart et chemin XML.
+- [ ] Impression / export PDF de la vue Données.
+- [ ] Bibliothèque locale persistante : recherche fournisseur, référence article, période,
+  montant et commentaires entre les sessions, au-delà des seuls documents ouverts.
+- [ ] Dossier surveillé, progression/annulation des imports et analyse lourde hors du fil principal.
 
-### MCP (Model Context Protocol)
+## P3 — Validation normative et distribution
 
-Deux usages distincts, à ne pas confondre :
+- [ ] Validation XML XSD puis Schematron, selon le profil et la version ; versions des jeux
+  de règles traçables et erreurs reliées aux données concernées.
+- [ ] Validation du conteneur PDF/A, métadonnées XMP, association et cohérence avec le XML.
+- [ ] Présenter séparément : lecture réussie, contrôles arithmétiques, validation XML et validation
+  du conteneur. Un fichier lisible n'est pas nécessairement un Factur-X conforme.
+- [ ] Signature Windows, notarisation macOS, puis mise à jour automatique Tauri.
+  **Faire remonter la signature en priorité dès la distribution à d'autres utilisateurs.**
+- [ ] Distribution portable Windows en ZIP ; le mode portable des pointages existe déjà.
+- [ ] Interface en anglais.
 
-1. **Factur-X Reader comme serveur MCP** — exposer le moteur à un assistant IA (Claude, etc.)
-   sous forme d'outils : `analyser_facture(chemin)`, `lister_lignes`, `verifier_totaux`,
-   `lire_pointages`. Un binaire `facturx-mcp` en ligne de commande (transport stdio)
-   réutiliserait directement `facturx.rs`, sans interface graphique. C'est le plus simple à
-   réaliser et le plus utile à court terme : l'assistant lit les factures locales sans que les
-   fichiers quittent la machine autrement que par ce que l'utilisateur lui demande.
-2. **Factur-X Reader comme client MCP** — se brancher sur des serveurs MCP existants (comptabilité,
-   messagerie, stockage) pour y récupérer des factures. Plus souple que des connecteurs écrits
-   à la main, mais dépend des serveurs disponibles et demande une interface de gestion des
-   connexions et des autorisations.
+## P4 — API, MCP et architecture réutilisable
 
-Ordre proposé : serveur MCP d'abord (étape 1), puis le premier connecteur natif, et le client
-MCP seulement si le besoin se confirme.
+Préalable : extraire `facturx-core`, sans dépendance Tauri, réutilisable par l'application,
+les tests, un outil en ligne de commande et un serveur MCP. Fiabiliser le moteur avant
+l'exposition à des assistants ou l'import automatique à grande échelle.
 
-### Préalable technique
+### Connecteurs natifs
 
-Extraire le moteur dans une **crate séparée** (`facturx-core`, sans dépendance à Tauri) : elle
-servirait à l'application, au binaire MCP et à un éventuel outil en ligne de commande, et se
-compilerait beaucoup plus vite pour les tests.
+- [ ] Menu **Sources**, interface Rust commune pour lister et télécharger des factures.
+- [ ] Connexions optionnelles et désactivées par défaut ; application utilisable hors ligne.
+- [ ] Identifiants et jetons dans le trousseau système ; permissions/CSP limitées par connecteur.
+- [ ] Appels réseau déclenchés explicitement et import local avec provenance.
+- [ ] Choisir un premier connecteur selon l'usage réel et vérifier les conditions d'accès avant codage.
+
+| Candidat | Besoin / point à vérifier avant développement |
+|---|---|
+| Boîte mail IMAP | Pièces jointes, filtres expéditeur/dossier, authentification prise en charge |
+| Pennylane | Centralisation comptable, droits et accès à l'API de la société |
+| Plateforme agréée | Cibler la plateforme réellement retenue et ses contrats d'API |
+| Chorus Pro | Factures du secteur public, accès PISTE et authentification à vérifier |
+| Portails fournisseurs | Connecteur au cas par cas lorsqu'une API est disponible |
+| SFTP, WebDAV, S3 | Dépôt distant d'un ERP, proche du dossier surveillé |
+
+### Deux usages MCP distincts
+
+- [ ] **Serveur MCP** : binaire `facturx-mcp`, transport stdio, première version en lecture seule,
+  dossiers autorisés et limites de taille. Outils envisagés : analyser une facture, lister les
+  lignes, vérifier les totaux, lire les pointages ; réponses structurées issues du moteur commun.
+- [ ] **Client MCP** : récupérer des factures auprès de serveurs tiers ; à développer seulement
+  si le besoin et les serveurs disponibles le justifient, avec gestion des autorisations.
+
+Le serveur est le premier usage MCP proposé. Son ordre par rapport au premier connecteur natif
+reste guidé par l'usage réel. Un serveur local ne garantit pas que les données restent sur
+la machine : les résultats transmis à l'assistant peuvent partir chez son fournisseur.
+
+## Références et précautions de spécification
+
+Le texte technique fourni pendant les échanges est une piste de travail, pas une spécification
+normative validée. En particulier :
+
+- BASIC WL signifie **Without Lines** ; adapter l'affichage et les contrôles aux profils.
+- Ne pas limiter la conception à CII D16B : les versions récentes utilisent D22B.
+- La page FNFE-MPE consultée pendant les échanges annonce Factur-X 1.09.2 / ZUGFeRD 2.5.2,
+  publié le 4 août 2026. Revérifier la version et télécharger ses artefacts lors de l'implémentation.
+- Vérifier dans les spécifications officielles les références ISO, AFRelationship, identifiants
+  et schemeID, métadonnées et règles nationales ; ne pas reprendre les affirmations du texte
+  joint sans validation. La génération de factures a été évoquée dans ce texte, mais n'est
+  pas un chantier décidé pour ce lecteur.
+
+Sources : [FNFE-MPE](https://fnfe-mpe.org/factur-x/factur-x_en/),
+[implémentation Factur-X](https://fnfe-mpe.org/factur-x/implementer-factur-x/),
+[MD-Workshop](https://github.com/simongrossi/MD-Workshop).
+La capture SmoothCSV fournie sert de référence pour l'accueil.

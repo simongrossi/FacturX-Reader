@@ -3,8 +3,31 @@ let workspaceReady = false;
 let workspaceHasSession = false;
 let workspaceRestoring = false;
 let workspaceSaveTimer;
+let workspaceScrollTarget = null;
+const WORKSPACE_CACHE_LIMIT = 256 * 1024 * 1024;
+let workspaceCacheQueue = Promise.resolve();
+let workspacePruneTimer;
+const workspaceWarnings = new Set();
+function validSource(source) {
+  return source && typeof source.key === "string" && typeof source.name === "string" &&
+    (!source.path || typeof source.path === "string");
+}
 function workspaceRead(key, fallback) {
-  try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch { return fallback; }
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    const value = JSON.parse(raw);
+    const valid = key === "fx-recent" ? Array.isArray(value) && value.every(validSource) :
+      value && Array.isArray(value.files) && value.files.every(item => validSource(item?.source));
+    if (!valid) throw new Error("Format invalide");
+    return value;
+  } catch {
+    if (!workspaceWarnings.has(key)) {
+      workspaceWarnings.add(key);
+      workspaceNotice("Historique ou session illisible : ouvrez vos documents pour démarrer une nouvelle session.");
+    }
+    return fallback;
+  }
 }
 function workspaceNotice(message) {
   byId("workspace-message").textContent = message;
@@ -13,30 +36,90 @@ function workspaceNotice(message) {
 async function workspaceBlob(action, key, blob) {
   const db = await new Promise((resolve, reject) => {
     const req = indexedDB.open("facturx-workspace", 1);
+    let expired = false;
+    const fail = error => { expired = true; clearTimeout(timeout); reject(error); };
+    const timeout = setTimeout(() => fail(new Error("Stockage local indisponible.")), 3000);
     req.onupgradeneeded = () => req.result.createObjectStore("sources");
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
+    req.onsuccess = () => { clearTimeout(timeout); if (expired) req.result.close(); else resolve(req.result); };
+    req.onerror = () => fail(req.error);
+    req.onblocked = () => fail(new Error("Stockage local bloqué par une autre fenêtre."));
   });
   try {
     return await new Promise((resolve, reject) => {
-      const tx = db.transaction("sources", action === "get" ? "readonly" : "readwrite");
+      const tx = db.transaction("sources", action === "get" || action === "list" ? "readonly" : "readwrite");
       const store = tx.objectStore("sources");
-      const req = action === "put" ? store.put(blob, key) : store.get(key);
-      tx.oncomplete = () => resolve(req.result);
+      let result;
+      if (action === "list" || action === "prune") {
+        result = [];
+        const req = store.openCursor();
+        req.onsuccess = () => {
+          const cursor = req.result;
+          if (!cursor) return;
+          if (action === "prune" && !key.has(cursor.key)) cursor.delete();
+          else result.push({ key: cursor.key, size: cursor.value.size || 0 });
+          cursor.continue();
+        };
+      } else {
+        const req = action === "put" ? store.put(blob, key) : store.get(key);
+        req.onsuccess = () => { result = req.result; };
+      }
+      tx.oncomplete = () => resolve(result);
       tx.onerror = tx.onabort = () => reject(tx.error);
     });
   } finally { db.close(); }
 }
+function workspaceCacheTask(task) {
+  const result = workspaceCacheQueue.then(task);
+  workspaceCacheQueue = result.catch(() => {});
+  return result;
+}
+function workspaceRetainedKeys() {
+  return new Set([
+    ...state.files.map(f => f.source),
+    ...workspaceRead("fx-recent", []),
+    ...workspaceRead("fx-workspace", { files: [] }).files.map(item => item.source),
+  ].filter(Boolean).map(source => source.key));
+}
+function pruneWorkspaceCache() {
+  return workspaceCacheTask(() => workspaceBlob("prune", workspaceRetainedKeys()));
+}
+function storeWorkspaceBlob(key, blob) {
+  return workspaceCacheTask(async () => {
+    const stored = await workspaceBlob("prune", workspaceRetainedKeys());
+    const size = stored.filter(item => item.key !== key).reduce((sum, item) => sum + item.size, 0);
+    if (size + blob.size > WORKSPACE_CACHE_LIMIT) throw new Error("Limite de cache atteinte (256 Mo).");
+    await workspaceBlob("put", key, blob);
+  });
+}
+async function updateWorkspaceCacheInfo() {
+  try {
+    const stored = await workspaceBlob("list");
+    byId("workspace-cache-info").textContent = `${stored.length} copie(s) locale(s) · ${fmtSize(stored.reduce((sum, item) => sum + item.size, 0))} / 256 Mo`;
+  } catch { byId("workspace-cache-info").textContent = "Stockage local indisponible."; }
+}
+async function clearWorkspaceHistory() {
+  try {
+    localStorage.removeItem("fx-recent");
+    renderWelcome();
+    await pruneWorkspaceCache();
+    await updateWorkspaceCacheInfo();
+    workspaceNotice("Historique effacé. Les copies nécessaires aux documents ouverts et à la dernière session sont conservées.");
+  } catch { workspaceNotice("L’historique ou le cache n’a pas pu être nettoyé."); }
+}
 function captureDocumentView() {
   const f = getFile(state.selected);
-  if (!f || byId("file-view").hidden) return;
+  if (!f || workspaceRestoring || workspaceScrollTarget || byId("file-view").hidden) return;
   f.view = { ...f.view, tab: state.tab, zoom: state.zoom, fit: state.fit,
     scroll: { ...f.view?.scroll, [state.tab]: document.querySelector(".main").scrollTop },
     linesQuery: f.linesQuery, sort: f.sort };
 }
 function restoreDocumentScroll(f) {
+  const tab = state.tab;
   requestAnimationFrame(() => {
-    if (state.selected === f.id) document.querySelector(".main").scrollTop = f.view?.scroll?.[state.tab] || 0;
+    if (state.selected === f.id && state.tab === tab) {
+      document.querySelector(".main").scrollTop = f.view?.scroll?.[tab] || 0;
+      workspaceScrollTarget = null;
+    }
   });
 }
 function saveWorkspace() {
@@ -55,6 +138,10 @@ function rememberRecent(f) {
   try { localStorage.setItem("fx-recent", JSON.stringify(recent.slice(0, 12))); }
   catch { workspaceNotice("L’historique des documents n’a pas pu être enregistré."); }
   renderWelcome();
+  clearTimeout(workspacePruneTimer);
+  workspacePruneTimer = setTimeout(() => {
+    pruneWorkspaceCache().catch(() => workspaceNotice("Le nettoyage des copies locales n’a pas pu être effectué."));
+  }, 500);
 }
 async function openWorkspaceSources(items) {
   const sources = [];
@@ -91,6 +178,7 @@ async function resumeWorkspace() {
 function showWorkspaceHome() {
   captureDocumentView();
   state.selected = null;
+  workspaceScrollTarget = null;
   state.renderToken++;
   state.pdfDoc = null; state.pdfSource = null;
   renderList(); renderFileView(); renderWelcome();
@@ -138,6 +226,12 @@ function renderWelcome() {
   byId("welcome-resume").disabled = workspaceRestoring || !workspaceRead("fx-workspace", { files: [] }).files?.length;
 }
 function wireWorkspace() {
+  byId("workspace-clear-history").onclick = clearWorkspaceHistory;
+  byId("workspace-clean-cache").onclick = async () => {
+    try { await pruneWorkspaceCache(); await updateWorkspaceCacheInfo(); }
+    catch { workspaceNotice("Le cache n’a pas pu être nettoyé."); }
+  };
+  byId("btn-settings").addEventListener("click", updateWorkspaceCacheInfo);
   byId("welcome-open").onclick = () => byId("add-files").click();
   byId("welcome-folder").onclick = openFolder;
   byId("welcome-settings").onclick = () => byId("btn-settings").click();

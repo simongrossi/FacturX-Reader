@@ -3,13 +3,22 @@
   "private": true,
   "version": "0.1.0",
   "description": "Visualiseur local de factures électroniques (Factur-X, UBL, CII), basé sur Tauri",
-  "author": "Simon Grossi",
+  "author": "Christophe Mehault",
+  "contributors": [
+    "Simon Grossi"
+  ],
+  "license": "PolyForm-Noncommercial-1.0.0",
   "scripts": {
     "tauri": "tauri",
     "dev": "tauri dev",
-    "build": "tauri build"
+    "build": "tauri build",
+    "test:ui": "playwright test",
+    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
+    "test:native": "node tests/native-smoke.cjs",
+    "check:js": "node --check web/app.js && node --check web/workspace.js && node --check web/search-worker.js"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@tauri-apps/cli": "^2.8.0"
   }
 }

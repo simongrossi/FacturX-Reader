@@ -18,17 +18,28 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
   vue, zoom et position ; copie locale des imports sans chemin et signalement des fichiers manquants.
 - Scénario de test navigateur couvrant reprise, accueil, onglets, récents, fichier manquant
   et les deux portées de recherche, avec backend Tauri simulé.
+- Gestion des copies locales : plafond de 256 Mo, nettoyage automatique des copies
+  inutilisées, boutons de nettoyage et d'effacement de l'historique dans les paramètres.
+- Limite de 500 documents ouverts ; rafraîchissements groupés pour les imports volumineux.
+- Scripts npm pour les tests JavaScript, navigateur, Rust et natifs Windows ; configuration
+  Playwright et workflow CI. Facture de test synthétique avec deux pages PDF.
 
 ### Corrigé
 
 - Rendu de la vue Données lors du changement de document ; protection contre certains rendus
   asynchrones devenus obsolètes après navigation.
+- Position sauvegardée préservée pendant le rendu et la restauration, reprise du défilement
+  après changement de vue et zoom individuel. Session invalide et stockage indisponible signalés.
 
 ### Documentation et vérification
 
 - Roadmap reprenant les décisions, priorités, limites, pistes API/MCP et précautions normatives.
-- Syntaxe JavaScript et scénario navigateur vérifiés ; compilation et vérification dans
-  l'application native restent à faire. Aucune nouvelle version distribuée à ce stade.
+- Syntaxe JavaScript, neuf tests unitaires Rust et test des factures locales réussis.
+  Cinq scénarios navigateur Edge réussis, dont restauration de 500 documents et pannes
+  de stockage simulées. Exécutable natif Windows testé avec le vrai moteur et profil WebView2
+  jetable, fermeture de fenêtre et relance, PDF multipage, zoom/position, copie locale et fichier manquant.
+  Vérifications natives macOS/Linux et installation des paquets restantes.
+  Aucune nouvelle version distribuée à ce stade.
 
 ## [0.1.0] - 2026-10-02
 

@@ -184,7 +184,20 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::{collect_invoice_files, percent_decode};
+    use super::{collect_invoice_files, expand_paths, percent_decode, MAX_FOLDER_FILES};
+
+    #[test]
+    fn dossier_volumineux_limite() {
+        let root = std::env::temp_dir().join(format!("fx-reader-large-test-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        for i in 0..MAX_FOLDER_FILES + 5 {
+            std::fs::write(root.join(format!("invoice-{i:04}.xml")), b"<Invoice/>").unwrap();
+        }
+        let listing = expand_paths([root.clone()]);
+        std::fs::remove_dir_all(&root).unwrap();
+        assert_eq!(listing["files"].as_array().unwrap().len(), MAX_FOLDER_FILES);
+        assert_eq!(listing["truncated"], true);
+    }
 
     #[test]
     fn parcours_de_dossier() {
