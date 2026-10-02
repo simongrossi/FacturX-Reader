@@ -17,10 +17,15 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use xee_xpath::context::StaticContextBuilder;
 use xee_xpath::query::{ManyQuery, OneQuery};
+use tauri::Manager;
 use xee_xpath::{Documents, Item, Queries, Query};
+
+use crate::bibliotheque::Library;
 
 /// Version des regles embarquees.
 pub const RULES_VERSION: &str = "1.3.16";
+/// Un resultat garde d'une session a l'autre ne vaut que pour la version qui l'a calcule.
+const ENGINE_VERSION: &str = env!("CARGO_PKG_VERSION");
 const CII_RULES: &str = include_str!("../schematron/EN16931-CII-validation-preprocessed.sch");
 const UBL_RULES: &str = include_str!("../schematron/EN16931-UBL-validation-preprocessed.sch");
 
@@ -297,6 +302,15 @@ fn recognized(xml: &str, format: Format) -> bool {
     }
 }
 
+/// Cle d'un resultat : format et empreinte du XML.
+fn cache_key(xml: &str, format: Format) -> String {
+    format!(
+        "{}:{}",
+        if format == Format::Cii { "CII" } else { "UBL" },
+        Sha256::digest(xml.as_bytes()).iter().map(|b| format!("{b:02x}")).collect::<String>()
+    )
+}
+
 // ------------------------------------------------------------------ fils de travail
 
 struct Job {
@@ -355,7 +369,8 @@ impl Validator {
     }
 
     /// Valide un XML. Bloquant : a appeler hors du fil de l'interface.
-    pub fn validate(&self, xml: String, format: &str, priority: bool) -> Value {
+    /// Avec une bibliotheque, le resultat est repris d'une session precedente ou y est garde.
+    pub fn validate(&self, xml: String, format: &str, priority: bool, library: Option<&Library>) -> Value {
         let format = match format {
             "CII" => Format::Cii,
             "UBL" => Format::Ubl,
@@ -364,13 +379,14 @@ impl Validator {
         if !recognized(&xml, format) {
             return not_evaluated("Aucune règle officielle ne s'applique à ce document (racine ou espace de noms non reconnu)");
         }
-        let key = format!(
-            "{}:{}",
-            if format == Format::Cii { "CII" } else { "UBL" },
-            Sha256::digest(xml.as_bytes()).iter().map(|b| format!("{b:02x}")).collect::<String>()
-        );
+        let key = cache_key(&xml, format);
         if let Some(hit) = self.cache.lock().unwrap_or_else(|e| e.into_inner()).get(&key) {
             return hit.clone();
+        }
+        if let Some(mut hit) = library.and_then(|l| l.schematron_get(&key, RULES_VERSION, ENGINE_VERSION)) {
+            hit["depuis_cache"] = true.into();
+            self.cache.lock().unwrap_or_else(|e| e.into_inner()).insert(key, hit.clone());
+            return hit;
         }
         let (reply, result) = mpsc::channel();
         {
@@ -386,6 +402,9 @@ impl Validator {
         self.queue.ready.notify_one();
         let value = result.recv().unwrap_or_else(|_| not_evaluated("Le moteur de validation s'est arrêté"));
         if value["evalue"] == true {
+            if let Some(library) = library {
+                library.schematron_put(&key, RULES_VERSION, ENGINE_VERSION, &value);
+            }
             self.cache.lock().unwrap_or_else(|e| e.into_inner()).insert(key, value.clone());
         }
         value
@@ -393,17 +412,23 @@ impl Validator {
 }
 
 /// Schematron officiel EN 16931 sur le XML d'une facture CII ou UBL.
+/// `library: false` : bibliotheque desactivee, rien n'est lu ni garde sur le disque.
 #[tauri::command]
 pub async fn validate_schematron(
+    app: tauri::AppHandle,
     validator: tauri::State<'_, Arc<Validator>>,
     xml: String,
     format: String,
     priority: Option<bool>,
+    library: Option<bool>,
 ) -> Result<Value, String> {
     let validator = validator.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || validator.validate(xml, &format, priority.unwrap_or(false)))
-        .await
-        .map_err(|e| format!("Validation interrompue : {e}"))
+    tauri::async_runtime::spawn_blocking(move || {
+        let store = (library != Some(false)).then(|| app.state::<Library>());
+        validator.validate(xml, &format, priority.unwrap_or(false), store.as_deref())
+    })
+    .await
+    .map_err(|e| format!("Validation interrompue : {e}"))
 }
 
 #[cfg(test)]
@@ -493,7 +518,7 @@ mod tests {
     fn document_non_reconnu_jamais_respecte() {
         let validator = Validator::new();
         for (xml, format) in [("<Invoice>FAC-2026-123</Invoice>", "CII"), ("<a><b/></a>", "UBL"), (CII, "UBL"), ("pas du xml", "CII"), (CII, "XML")] {
-            let r = validator.validate(xml.to_string(), format, false);
+            let r = validator.validate(xml.to_string(), format, false, None);
             assert_eq!(r["evalue"], false, "{format}");
             assert_eq!(r["ok"], false);
             assert!(r["erreur_moteur"].as_str().is_some_and(|m| !m.is_empty()));
@@ -507,7 +532,7 @@ mod tests {
             .map(|i| {
                 let v = validator.clone();
                 // Six documents differents, valides en parallele.
-                std::thread::spawn(move || v.validate(CII.replace("F-1", &format!("F-{i}")), "CII", i == 5))
+                std::thread::spawn(move || v.validate(CII.replace("F-1", &format!("F-{i}")), "CII", i == 5, None))
             })
             .collect();
         for h in handles {
@@ -515,8 +540,34 @@ mod tests {
         }
         assert_eq!(validator.cache.lock().unwrap().len(), 6);
         // Meme XML : resultat repris du cache, identique.
-        let again = validator.validate(CII.replace("F-1", "F-0"), "CII", true);
+        let again = validator.validate(CII.replace("F-1", "F-0"), "CII", true, None);
         assert_eq!(again["ok"], true);
         assert_eq!(validator.cache.lock().unwrap().len(), 6);
+    }
+
+    #[test]
+    fn resultat_repris_de_la_bibliotheque_entre_sessions() {
+        let dir = std::env::temp_dir().join(format!("fx-schematron-cache-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let library = Library::new(dir.join("bibliotheque.sqlite"));
+        let stored = |xml: &str| library.schematron_get(&cache_key(xml, Format::Cii), RULES_VERSION, ENGINE_VERSION);
+        // Sans bibliotheque : rien n'est garde sur le disque.
+        Validator::new().validate(CII.to_string(), "CII", false, None);
+        assert!(stored(CII).is_none());
+        // Premiere session : calcule, puis garde.
+        let first = Validator::new().validate(CII.to_string(), "CII", false, Some(&library));
+        assert_eq!(first["ok"], true);
+        assert!(first.get("depuis_cache").is_none());
+        // Nouvelle session : meme verdict, repris sans calcul.
+        let second = Validator::new().validate(CII.to_string(), "CII", false, Some(&library));
+        assert_eq!(second["depuis_cache"], true);
+        assert_eq!(second["regles_declenchees"], first["regles_declenchees"]);
+        assert_eq!(second["erreurs"], first["erreurs"]);
+        // Un document non reconnu n'est jamais garde.
+        Validator::new().validate("<a/>".to_string(), "CII", false, Some(&library));
+        assert!(stored("<a/>").is_none());
+        drop(library);
+        std::fs::remove_dir_all(dir).unwrap();
     }
 }

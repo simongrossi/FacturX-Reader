@@ -28,8 +28,8 @@ Versions publiées (pré-versions, builds non signés) :
 
 1. **Signature des builds** (P3) : des installeurs sont désormais distribués sur GitHub. Demande
    un certificat de signature Windows et un compte développeur Apple.
-2. **Schematron** : le rendre plus rapide sur les grosses factures, garder ses résultats d'une
-   session à l'autre, et brancher la suite de tests officielle sur la CI.
+2. **Schematron** : le rendre plus rapide sur les grosses factures et brancher la suite de tests
+   officielle sur la CI. Ses résultats sont désormais gardés d'une session à l'autre.
 3. **Fin de P1** : provenance des valeurs, « Ouvrir avec » et instance unique, export Excel natif.
 
 ## P0 — Valider l'existant
@@ -142,8 +142,10 @@ Versions publiées (pré-versions, builds non signés) :
   annoncé comparé au XML). Ce n'est pas une validation ISO 19005-3.
 - [x] Verdicts séparés : lecture, calculs, règles EN 16931, Schematron officiel, conteneur, avec
   la mention de ce qui n'est pas contrôlé.
+- [x] Résultat Schematron gardé dans la bibliothèque, par empreinte du XML, et repris d'une
+  session à l'autre (mêmes règles, même version de l'application).
 - [ ] Schematron plus rapide : jusqu'à cinq secondes sur une facture de plus de cent lignes
-  (contextes et assertions réévalués sur tout le document) ; cache persistant par empreinte.
+  (contextes et assertions réévalués sur tout le document).
 - [ ] Intégrer la suite de tests officielle du dépôt de la Commission à la CI.
 - [ ] Schematron des profils Factur-X (MINIMUM, BASIC WL, BASIC, EXTENDED), pour ne plus évaluer
   ces profils avec les seules règles EN 16931.

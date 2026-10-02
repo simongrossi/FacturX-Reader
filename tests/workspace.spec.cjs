@@ -22,7 +22,7 @@ async function mockBackend(page, pdf = null, extra = {}) {
       if (command === 'parse_path' && args.path.includes('missing')) throw new Error('Fichier introuvable');
       if (command === 'save_text') { window.__saved = args; return true; }
       if (command === 'validate_schematron') {
-        window.__schematronCalls = [...(window.__schematronCalls || []), { format: args.format, priority: args.priority, xml: args.xml }];
+        window.__schematronCalls = [...(window.__schematronCalls || []), { format: args.format, priority: args.priority, library: args.library, xml: args.xml }];
         return JSON.parse(sessionStorage.getItem('mock-schematron') || '{}');
       }
       if (command === 'library_status') return window.__libraryBroken
@@ -730,7 +730,12 @@ test('Schematron officiel : verdicts respecté, non respecté, partiel et non é
   await expect(section).toContainText('EN 16931 v1.3.16');
   await expect(section).toContainText('42 contextes examinés en 120 ms');
   // Le moteur reçoit le XML du document et son format.
-  expect(await page.evaluate(() => window.__schematronCalls[0])).toMatchObject({ format: 'CII', xml: '<Invoice>FAC-2026-123</Invoice>' });
+  expect(await page.evaluate(() => window.__schematronCalls[0])).toMatchObject({ format: 'CII', library: true, xml: '<Invoice>FAC-2026-123</Invoice>' });
+
+  // Résultat gardé d'une session précédente : signalé comme tel, sans durée de calcul.
+  await open('repris.xml', { ...base, ok: true, depuis_cache: true });
+  await expect(section).toContainText('42 contextes examinés, résultat repris de la bibliothèque.');
+  await expect(section).not.toContainText('120 ms');
 
   await open('enfreint.xml', { ...base, ok: false, non_conformes: 1, avertissements: 1, erreurs: [
     { id: 'BR-CO-15', flag: 'fatal', texte: '[BR-CO-15]-Invoice total amount with VAT = Invoice total amount without VAT + Invoice total VAT amount.', location: '/rsm:CrossIndustryInvoice' },
@@ -759,6 +764,6 @@ test('Schematron officiel : verdicts respecté, non respecté, partiel et non é
 
   // Le tableau reprend les verdicts.
   await page.locator('#tab-batch').click();
-  await expect(page.locator('#batch-table tbody tr.batch-row')).toHaveCount(5);
+  await expect(page.locator('#batch-table tbody tr.batch-row')).toHaveCount(6);
   expect(errors).toEqual([]);
 });

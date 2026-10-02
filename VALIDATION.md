@@ -8,7 +8,7 @@ Les commandes sont décrites dans [README.md](README.md#tests).
 | Vérification | Résultat / portée |
 |---|---|
 | `npm run check:js` | Syntaxe de tous les scripts de l'interface |
-| `npm run test:rust` | 37 tests unitaires : Schematron officiel (compilation de toutes les règles, exemples officiels, règles enfreintes, file de travail), moteur UBL/CII, contrôles en décimaux exacts, règles EN 16931, conteneur PDF (déclarations lues, écarts), pointages et suivi (corruption, sauvegarde, restauration, fusion), bibliothèque SQLite |
+| `npm run test:rust` | 39 tests unitaires : Schematron officiel (compilation de toutes les règles, exemples officiels, règles enfreintes, file de travail, résultat repris de la bibliothèque entre deux sessions), moteur UBL/CII, contrôles en décimaux exacts, règles EN 16931, conteneur PDF (déclarations lues, écarts), pointages et suivi (corruption, sauvegarde, restauration, fusion), bibliothèque SQLite |
 | Test Rust `samples.rs` | Factures réelles locales, hors dépôt : toutes analysées, sauf celles marquées sans XML |
 | `npm run test:ui` | 13 scénarios navigateur sous Chromium et Edge, commandes Rust simulées, PDF.js réel |
 | `npm run test:native` | Vrai exécutable Windows, vraies commandes Rust, profil WebView2 et dossier de données jetables |

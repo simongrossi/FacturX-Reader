@@ -5,6 +5,21 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 
 ## [Non publié]
 
+### Ajouté
+
+- **Schematron gardé d'une session à l'autre** : le résultat est enregistré dans la bibliothèque,
+  par empreinte du XML, et repris à la réouverture au lieu d'être recalculé. Il n'est repris que
+  pour les mêmes règles et la même version de l'application ; « Vider la bibliothèque » l'efface.
+  Bibliothèque désactivée : rien n'est gardé.
+- **Liste des documents ouverts** : le chevron de la barre d'onglets ou `Ctrl+E` ouvre une liste
+  filtrable au clavier. La molette fait défiler les onglets.
+
+### Modifié
+
+- **Accueil** : cinq documents récents, « Plus… » pour la liste complète, croix pour en retirer un.
+- Compilation de développement allégée : dépendances sans informations de débogage et
+  bibliothèque liée une seule fois (cibles mobiles de Tauri abandonnées).
+
 ## [0.6.0] - 2026-10-02
 
 ### Ajouté

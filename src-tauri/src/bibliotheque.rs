@@ -30,6 +30,10 @@ CREATE TABLE IF NOT EXISTS lines (
     PRIMARY KEY (hash, idx)
 );
 CREATE INDEX IF NOT EXISTS lines_cle ON lines (cle);
+CREATE TABLE IF NOT EXISTS schematron (
+    cle TEXT PRIMARY KEY, regles TEXT NOT NULL, moteur TEXT NOT NULL,
+    resultat TEXT NOT NULL, calcule_le TEXT NOT NULL
+);
 ";
 
 /// Nombre maximal de lignes renvoyees par une recherche.
@@ -102,6 +106,35 @@ impl Library {
             Ok(conn) => f(conn).map_err(|e| format!("Bibliothèque : {e}.")),
             Err(e) => Err(e.clone()),
         }
+    }
+
+    /// Resultat Schematron garde pour ce XML, s'il vient des memes regles et de la meme
+    /// version de l'application. Base indisponible ou entree illisible : rien.
+    pub fn schematron_get(&self, cle: &str, regles: &str, moteur: &str) -> Option<Value> {
+        let text: Option<String> = self
+            .with(|conn| {
+                conn.query_row(
+                    "SELECT resultat FROM schematron WHERE cle = ?1 AND regles = ?2 AND moteur = ?3",
+                    params![cle, regles, moteur],
+                    |r| r.get(0),
+                )
+                .optional()
+            })
+            .ok()?;
+        serde_json::from_str(&text?).ok()
+    }
+
+    /// Garde un resultat Schematron ; ceux d'autres regles ou d'une autre version sont retires.
+    /// Un echec d'ecriture est sans consequence : le resultat sera recalcule.
+    pub fn schematron_put(&self, cle: &str, regles: &str, moteur: &str, resultat: &Value) {
+        let _ = self.with(|conn| {
+            conn.execute("DELETE FROM schematron WHERE regles <> ?1 OR moteur <> ?2", params![regles, moteur])?;
+            conn.execute(
+                "INSERT OR REPLACE INTO schematron (cle, regles, moteur, resultat, calcule_le) VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![cle, regles, moteur, resultat.to_string(), now()],
+            )
+            .map(|_| ())
+        });
     }
 
     /// Enregistre une facture analysee et retourne les constats tires de
@@ -340,6 +373,8 @@ pub fn annotate(library: &Library, result: &mut Value, path: Option<&str>) {
     }
 }
 
+const CLEAR: &str = "DELETE FROM lines; DELETE FROM invoices; DELETE FROM schematron; VACUUM;";
+
 #[tauri::command]
 pub fn library_status(library: State<'_, Library>) -> Value {
     library.status()
@@ -357,7 +392,7 @@ pub fn library_remove(library: State<'_, Library>, hash: String) -> Result<(), S
 
 #[tauri::command]
 pub fn library_clear(library: State<'_, Library>) -> Result<(), String> {
-    library.with(|conn| conn.execute_batch("DELETE FROM lines; DELETE FROM invoices; VACUUM;"))
+    library.with(|conn| conn.execute_batch(CLEAR))
 }
 
 #[tauri::command]
@@ -399,6 +434,30 @@ mod tests {
 
     fn rules(notes: &[Value]) -> Vec<&str> {
         notes.iter().map(|n| n["regle"].as_str().unwrap()).collect()
+    }
+
+    #[test]
+    fn resultats_schematron_gardes_par_version() {
+        let dir = temp("schematron");
+        let lib = Library::new(dir.join("bibliotheque.sqlite"));
+        let result = json!({ "evalue": true, "ok": true, "erreurs": [] });
+        lib.schematron_put("CII:abc", "1.3.16", "0.6.0", &result);
+        assert_eq!(lib.schematron_get("CII:abc", "1.3.16", "0.6.0"), Some(result.clone()));
+        assert_eq!(lib.schematron_get("CII:autre", "1.3.16", "0.6.0"), None);
+        // Autres regles ou autre version de l'application : resultat ignore, puis retire.
+        assert_eq!(lib.schematron_get("CII:abc", "1.3.17", "0.6.0"), None);
+        assert_eq!(lib.schematron_get("CII:abc", "1.3.16", "0.7.0"), None);
+        lib.schematron_put("CII:def", "1.3.16", "0.7.0", &result);
+        let count = |lib: &Library| -> i64 { lib.with(|c| c.query_row("SELECT COUNT(*) FROM schematron", [], |r| r.get(0))).unwrap() };
+        assert_eq!(count(&lib), 1);
+        // Une entree illisible vaut une absence.
+        lib.with(|c| c.execute("UPDATE schematron SET resultat = '{'", []).map(|_| ())).unwrap();
+        assert_eq!(lib.schematron_get("CII:def", "1.3.16", "0.7.0"), None);
+        // Vider la bibliotheque retire aussi ces resultats.
+        lib.with(|c| c.execute_batch(CLEAR)).unwrap();
+        assert_eq!(count(&lib), 0);
+        drop(lib);
+        std::fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]

@@ -1405,7 +1405,8 @@ function schematronSection(f) {
   const foot = document.createElement("p");
   foot.className = "verdict-note";
   foot.textContent = "Règles Schematron officielles EN 16931 v" + (sch.version_regles || "") + " de la Commission européenne (EUPL 1.2), évaluées sur ce poste" +
-    (sch.regles_declenchees ? " : " + sch.regles_declenchees + " contextes examinés" : "") + (sch.duree_ms != null ? " en " + sch.duree_ms + " ms" : "") + ".";
+    (sch.regles_declenchees ? " : " + sch.regles_declenchees + " contextes examinés" : "") +
+    (sch.depuis_cache ? ", résultat repris de la bibliothèque" : sch.duree_ms != null ? " en " + sch.duree_ms + " ms" : "") + ".";
   sec.appendChild(foot);
 
   return sec;

@@ -7,7 +7,9 @@ const SchematronValidator = (() => {
       return { evalue: false, non_conformes: 0, avertissements: 0, erreurs: [] };
     }
     try {
-      const res = await window.__TAURI__.core.invoke("validate_schematron", { xml: xmlString, format, priority: !!priority });
+      // Bibliothèque désactivée : le résultat n'est ni repris ni gardé d'une session à l'autre.
+      const library = settings.library !== "off";
+      const res = await window.__TAURI__.core.invoke("validate_schematron", { xml: xmlString, format, priority: !!priority, library });
       // Une réponse sans verdict explicite n'est jamais un succès.
       if (!res || typeof res.evalue !== "boolean") return { evalue: false, erreur_moteur: "Réponse du moteur de validation inattendue" };
       return res;
