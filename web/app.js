@@ -12,6 +12,7 @@ const state = {
   pdfSource: null,   // "pdf" | "xmlpdf" | null — source affichée dans le pane PDF partagé
   renderToken: 0,
   fit: false,        // PDF ajusté à la largeur à l'ouverture
+  batch: false,      // tableau multi-factures affiché (aucun document sélectionné)
 };
 let fileSeq = 0;
 
@@ -41,18 +42,8 @@ function fmtSize(n) {
 
 async function copyText(t, btn) {
   const old = btn.textContent;
-  try {
-    await navigator.clipboard.writeText(t);
-    btn.textContent = "Copié";
-  } catch {
-    const ta = document.createElement("textarea");
-    ta.value = t;
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand("copy");
-    ta.remove();
-    btn.textContent = "Copié";
-  }
+  await clipboardWrite(t);
+  btn.textContent = "Copié";
   setTimeout(() => { btn.textContent = old; }, 1200);
 }
 
@@ -296,6 +287,7 @@ function selectFile(id) {
   captureDocumentView();
   state.renderToken++;
   state.selected = id;
+  state.batch = false;
   state.tab = "pdf";
   state.pdfDoc = null;
   state.pdfSource = null;
@@ -307,6 +299,14 @@ function renderFileView() {
   state.renderToken++;
   document.querySelector(".layout").classList.toggle("workspace-home", !state.selected);
   const f = getFile(state.selected);
+  const showBatchView = state.batch && !state.selected && state.files.length > 0;
+  byId("batch-view").hidden = !showBatchView;
+  if (showBatchView) {
+    byId("empty-state").hidden = true;
+    byId("file-view").hidden = true;
+    renderBatch();
+    return;
+  }
   if (!f || f.status !== "ok") {
     byId("empty-state").hidden = false;
     byId("file-view").hidden = true;
@@ -1533,6 +1533,8 @@ window.addEventListener("DOMContentLoaded", async () => {
   wireDnD();
   wireUI();
   wireWorkspace();
+  wireBatch();
+  wireContextMenu();
   renderFileView();
   byId("quick-query").addEventListener("input", scheduleQuickSearch);
   byId("quick-regex").addEventListener("change", scheduleQuickSearch);

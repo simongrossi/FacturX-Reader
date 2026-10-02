@@ -1621,8 +1621,9 @@ pub fn parse_file(filename: &str, data: &[u8]) -> Result<Value, FacturXError> {
     let recognized = structured.get("header").and_then(Value::as_array).is_some_and(|h| !h.is_empty());
     if recognized && format != "XML" {
         let today = chrono::Local::now().date_naive();
-        let checks = controles::run(root, format, &paths, &structured, today);
+        let (checks, synthese) = controles::run(root, format, &paths, &structured, today);
         structured.insert("controles".into(), checks.into());
+        structured.insert("synthese".into(), synthese);
     }
 
     let mut result = Map::new();
@@ -1818,7 +1819,7 @@ mod tests {
             ("UBL", extract_ubl(root, &paths, &mut warnings))
         };
         let today = chrono::NaiveDate::from_ymd_opt(today.0, today.1, today.2).unwrap();
-        controles::run(root, format, &paths, &s, today)
+        controles::run(root, format, &paths, &s, today).0
     }
 
     fn controle<'a>(checks: &'a [Value], prefix: &str) -> &'a Value {
@@ -1888,6 +1889,27 @@ mod tests {
         assert_eq!(controle(&c, "Identification du vendeur")["etat"], "alerte");
         let r = parse_file("test-ubl.xml", UBL.as_bytes()).unwrap();
         assert!(!r["controles"].as_array().unwrap().is_empty());
+        assert_eq!(r["synthese"]["ht"], "115.00");
+        assert_eq!(r["synthese"]["ttc"], "");
+    }
+
+    #[test]
+    fn synthese_cii() {
+        let r = parse_file("test-cii.xml", CII.as_bytes()).unwrap();
+        let s = &r["synthese"];
+        assert_eq!(s["numero"], "4711");
+        assert_eq!(s["vendeur"], "Vendeur SAS");
+        assert_eq!(s["date"], "2026-09-10");
+        assert_eq!(s["echeance"], "2026-10-10");
+        assert_eq!(s["devise"], "EUR");
+        assert_eq!(s["ht"], "100.00");
+        assert_eq!(s["tva"], "20.00");
+        assert_eq!(s["ttc"], "120.00");
+        assert_eq!(s["a_payer"], "120.00");
+        assert_eq!(s["avoir"], false);
+        // 2026-09-10 est un jeudi.
+        assert_eq!(s["week_end"], false);
+        assert!(s["jours_echeance"].is_i64());
     }
 
     #[test]

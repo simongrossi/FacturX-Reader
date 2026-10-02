@@ -75,8 +75,8 @@ Les vérifications macOS/Linux et l'installation des paquets restent à faire su
 
 ## P2 — Traitement quotidien de lots de factures
 
-- [ ] Tableau multi-factures : fournisseur, numéro, date, HT, TVA, TTC, échéance et état de vérification.
-  Totaux séparés par devise ; prise en compte explicite des avoirs.
+- [x] Tableau multi-factures : fournisseur, numéro, date, HT, TVA, TTC, échéance et état de vérification.
+  Totaux séparés par devise, avoirs déduits ; filtres d'anomalies, export CSV. Menu contextuel de copie.
 - [ ] Recherche transversale dans les lignes et filtre de la liste des fichiers (fournisseur,
   numéro, montant), masquage optionnel des PDF sans XML.
 - [ ] Recherche dans le texte du PDF et surlignage à l'emplacement trouvé : extension distincte

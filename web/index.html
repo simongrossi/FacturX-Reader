@@ -91,6 +91,30 @@
       </div>
     </div>
 
+    <div id="batch-view" class="batch-view" hidden>
+      <div class="file-head">
+        <div class="file-head-left"><h2>Tableau des factures ouvertes</h2></div>
+      </div>
+      <div class="lines-tools batch-tools">
+        <input id="batch-search" class="lines-search" type="search" placeholder="Filtrer (fournisseur, numéro, date, montant…)" aria-label="Filtrer le tableau des factures">
+        <select id="batch-filter" class="zoom-select" aria-label="Filtre des anomalies">
+          <option value="all">Toutes</option>
+          <option value="ecart">Écart de calcul</option>
+          <option value="alerte">Alerte</option>
+          <option value="echue">Échéance dépassée</option>
+          <option value="sanstva">Sans TVA</option>
+          <option value="weekend">Émise un week-end</option>
+          <option value="doublon">Doublon</option>
+          <option value="avoir">Avoirs</option>
+          <option value="erreur">Non lues</option>
+        </select>
+        <span id="batch-count" class="lines-count"></span>
+        <button id="batch-export" class="btn btn-sm" type="button" title="Enregistrer le tableau affiché dans un fichier CSV (Excel)">Exporter CSV</button>
+        <button id="batch-copy" class="btn btn-sm" type="button" title="Copier le tableau affiché, à coller dans un tableur">Copier</button>
+      </div>
+      <div class="section"><div class="table-wrap"><table id="batch-table"></table></div></div>
+    </div>
+
     <div id="file-view" class="file-view" hidden>
       <div class="file-head">
         <div class="file-head-left">
@@ -250,5 +274,7 @@
 
 <script src="app.js"></script>
 <script src="workspace.js"></script>
+<script src="batch.js"></script>
+<script src="menu.js"></script>
 </body>
 </html>

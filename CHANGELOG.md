@@ -5,6 +5,23 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 
 ## [Non publié]
 
+### Ajouté
+
+- **Tableau multi-factures** (onglet « Tableau ») : une ligne par document ouvert avec vendeur,
+  numéro, type, dates, HT, TVA, TTC, à payer, devise et état des contrôles. Tri par colonne,
+  filtre texte, totaux par devise avec avoirs déduits, clic pour ouvrir la facture.
+- Filtres d'anomalies : écart de calcul, alerte, échéance dépassée, sans TVA, émise un
+  week-end, doublon, avoirs, documents non lus.
+- Export CSV et copie du tableau affiché, avec le détail des contrôles en écart ou en alerte.
+- **Menu contextuel** (clic droit) sur les cellules de tous les tableaux : copier la cellule,
+  la ligne (avec ou sans en-têtes), la colonne ou le tableau ; copie en CSV, JSON ou Markdown ;
+  copier le chemin XML, voir dans le XML, rechercher la valeur.
+
+### Corrigé
+
+- Session : l'état est enregistré à la fin d'une reprise ; un document ajouté pendant la
+  reprise n'était pas conservé. Le scénario navigateur correspondant échouait sous Chromium.
+
 ## [0.2.0] - 2026-10-02
 
 ### Ajouté

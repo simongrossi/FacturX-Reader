@@ -207,3 +207,75 @@ test('contrôles affichés, doublon signalé et export CSV des lignes visibles',
   await controls.locator('tr.ctl-ecart').click();
   await expect(page.locator('#tab-xml')).toHaveClass(/active/);
 });
+
+test('tableau multi-factures : totaux, filtres, export et menu contextuel', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await mockBackend(page, null, {
+    synthese: { numero: 'F-1', type: '380', avoir: false, date: '2026-10-03', echeance: '2026-09-01', jours_echeance: -31,
+      week_end: true, vendeur: 'Test Seller', acheteur: 'Buyer', devise: 'EUR', ht: '1000.00', tva: '200.00', ttc: '1200.00', a_payer: '1200.00' },
+    controles: [
+      { regle: 'Total TTC = total HT + total TVA', etat: 'ecart', attendu: '1200.00', constate: '1200.01', ecart: '0.01', path: 'Invoice/ID', detail: '' },
+    ],
+  });
+  await page.goto(url);
+  await expect(page.locator('#tab-batch')).toHaveCount(0);
+  await page.locator('#file-input').setInputFiles([
+    { name: 'one.xml', mimeType: 'text/xml', buffer: Buffer.from('<Invoice/>') },
+    { name: 'two.xml', mimeType: 'text/xml', buffer: Buffer.from('<Invoice/>') },
+  ]);
+  await expect(page.locator('#fv-name')).toHaveText('two.xml');
+  await page.evaluate(async () => { await addPaths({ files: ['C:/missing.xml'] }); });
+  await page.locator('#tab-batch').click();
+  await expect(page.locator('#batch-view')).toBeVisible();
+  await expect(page.locator('#file-view')).toBeHidden();
+  const rows = page.locator('#batch-table tbody tr.batch-row');
+  await expect(rows).toHaveCount(3);
+  await expect(page.locator('#batch-count')).toHaveText('3 documents');
+  await expect(rows.first()).toContainText('1 écart, doublon');
+  await expect(rows.first()).toContainText('échue depuis 31 j');
+  await expect(rows.last()).toContainText('Erreur de lecture');
+  await expect(page.locator('#batch-table tfoot tr')).toContainText('Total EUR — 2 documents');
+  await expect(page.locator('#batch-table tfoot tr')).toContainText('2 400,00');
+  await page.screenshot({ path: 'test-results/batch.png' });
+  await page.locator('#batch-filter').selectOption('erreur');
+  await expect(rows).toHaveCount(1);
+  await page.locator('#batch-filter').selectOption('avoir');
+  await expect(page.locator('.batch-empty')).toHaveText('Aucun document ne correspond au filtre.');
+  await page.locator('#batch-filter').selectOption('echue');
+  await expect(rows).toHaveCount(2);
+  await expect(page.locator('#batch-count')).toHaveText('2 / 3 documents');
+  await page.locator('#batch-export').click();
+  await expect.poll(() => page.evaluate(() => window.__saved?.filename)).toBe('factures.csv');
+  const csv = (await page.evaluate(() => window.__saved.content)).split('\r\n');
+  expect(csv[0]).toBe('\uFEFFFichier;Vendeur;N°;Type;Date;Échéance;HT;TVA;TTC;À payer;Devise;Contrôles;Jours avant échéance;Détail des contrôles');
+  expect(csv[1]).toBe('one.xml;Test Seller;F-1;Facture;2026-10-03;2026-09-01;1000,00;200,00;1200,00;1200,00;EUR;1 écart, doublon;-31;Total TTC = total HT + total TVA (0.01)');
+  expect(csv).toHaveLength(4);
+
+  await page.evaluate(() => { clipboardWrite = async text => { window.__clip = text; }; });
+  await rows.first().locator('td').nth(1).click({ button: 'right' });
+  const menu = page.locator('.ctx-menu');
+  await expect(menu).toBeVisible();
+  await page.screenshot({ path: 'test-results/context-menu.png' });
+  await menu.getByRole('menuitem', { name: 'Copier la cellule', exact: true }).click();
+  await expect(menu).toHaveCount(0);
+  await expect(page.locator('.toast')).toHaveText('Cellule copiée');
+  expect(await page.evaluate(() => window.__clip)).toBe('Test Seller');
+  await rows.first().locator('td').nth(6).click({ button: 'right' });
+  await menu.locator('.ctx-formats').first().getByRole('menuitem', { name: 'JSON' }).click();
+  expect(JSON.parse(await page.evaluate(() => window.__clip))).toMatchObject({ Fichier: 'one.xml', HT: '1000.00', Devise: 'EUR' });
+  await rows.first().locator('td').nth(6).click({ button: 'right' });
+  await menu.getByRole('menuitem', { name: 'Copier la colonne « HT »' }).click();
+  expect(await page.evaluate(() => window.__clip)).toBe('1000.00\n1000.00');
+  await rows.first().locator('td').nth(0).click({ button: 'right' });
+  await menu.locator('.ctx-formats').nth(1).getByRole('menuitem', { name: 'Markdown' }).click();
+  expect((await page.evaluate(() => window.__clip)).split('\n')[1]).toMatch(/^\| --- \| --- /);
+  await rows.first().locator('td').nth(0).click({ button: 'right' });
+  await page.keyboard.press('Escape');
+  await expect(menu).toHaveCount(0);
+
+  await rows.first().click();
+  await expect(page.locator('#fv-name')).toHaveText('one.xml');
+  await expect(page.locator('#batch-view')).toBeHidden();
+  expect(errors).toEqual([]);
+});

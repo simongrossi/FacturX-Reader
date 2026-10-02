@@ -180,6 +180,7 @@ async function resumeWorkspace() {
 function showWorkspaceHome() {
   captureDocumentView();
   state.selected = null;
+  state.batch = false;
   workspaceScrollTarget = null;
   state.renderToken++;
   state.pdfDoc = null; state.pdfSource = null;
@@ -189,11 +190,22 @@ function renderDocumentTabs() {
   const nav = byId("document-tabs");
   nav.replaceChildren();
   const home = document.createElement("button");
-  home.className = "document-tab" + (!state.selected ? " selected" : "");
+  const batchShown = state.batch && !state.selected && state.files.length > 0;
+  home.className = "document-tab" + (!state.selected && !batchShown ? " selected" : "");
   home.textContent = "Accueil";
-  home.setAttribute("aria-pressed", String(!state.selected));
+  home.setAttribute("aria-pressed", String(!state.selected && !batchShown));
   home.onclick = showWorkspaceHome;
   nav.appendChild(home);
+  if (state.files.length) {
+    const table = document.createElement("button");
+    table.id = "tab-batch";
+    table.className = "document-tab document-tab-batch" + (batchShown ? " selected" : "");
+    table.textContent = "Tableau";
+    table.title = "Tableau de toutes les factures ouvertes";
+    table.setAttribute("aria-pressed", String(batchShown));
+    table.onclick = showBatch;
+    nav.appendChild(table);
+  }
   for (const f of state.files) {
     const group = document.createElement("div");
     group.className = "document-tab-group" + (state.selected === f.id ? " selected" : "");

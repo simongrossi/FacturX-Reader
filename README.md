@@ -150,6 +150,29 @@ appel réseau : l'existence du SIREN ou la propriété de l'IBAN ne sont pas vé
 dans un fichier lisible par Excel : séparateur point-virgule, UTF-8, décimale française, devise
 dans sa propre colonne, colonne « Pointée ». **Copier** place le même tableau dans le presse-papiers.
 
+### Tableau multi-factures
+
+Dès qu'un document est ouvert, l'onglet **Tableau** (à côté d'Accueil) liste toutes les factures
+ouvertes : fichier, vendeur, numéro, type, date, échéance, HT, TVA, TTC, à payer, devise et état
+des contrôles. Un clic sur une ligne ouvre la facture.
+
+- **Tri** par clic sur un en-tête, **filtre** texte.
+- **Filtre d'anomalies** : écart de calcul, alerte, échéance dépassée, sans TVA, émise un
+  week-end, doublon, avoirs, documents non lus.
+- **Totaux par devise** sur les lignes affichées ; les avoirs sont déduits.
+- **Exporter CSV** / **Copier** : le tableau affiché, plus les jours avant échéance et le détail
+  des contrôles en écart ou en alerte.
+
+Les montants viennent du XML, sans recalcul. Le tableau porte sur les documents ouverts
+(500 au maximum), pas sur un historique.
+
+### Clic droit
+
+Un clic droit sur une cellule de n'importe quel tableau propose : copier la cellule, la ligne
+(avec ou sans en-têtes), la colonne ou le tableau affiché ; copier la ligne ou le tableau en
+**CSV**, **JSON** ou **Markdown** ; copier le chemin XML, voir l'élément dans « XML complet »,
+rechercher la valeur. Les champs de saisie gardent le menu du système (couper, copier, coller).
+
 ### Pointages
 
 Les lignes pointées sont enregistrées automatiquement et retrouvées à la réouverture de la même
@@ -192,6 +215,9 @@ npm run build    # exécutable + installeurs dans src-tauri/target/release/bundl
 ```
 web/                       interface (aucune étape de compilation)
   index.html, app.js, style.css
+  workspace.js             accueil, onglets, session
+  batch.js                 tableau multi-factures
+  menu.js                  menu contextuel des tableaux
   pdfjs/                   PDF.js embarqué
 src-tauri/
   src/facturx.rs           moteur : PDF Factur-X, ZIP, UBL, CII

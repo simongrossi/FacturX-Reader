@@ -550,13 +550,22 @@ fn plural(n: i64) -> &'static str {
     if n > 1 { "s" } else { "" }
 }
 
+/// Jours restants avant l'echeance (negatif = depassee). `None` pour un avoir,
+/// une facture soldee ou une echeance absente ou illisible.
+fn due_days(s: &Map<String, Value>, t: &Totals, is_credit_note: bool, today: NaiveDate) -> Option<i64> {
+    if is_credit_note || t.payable.as_ref().is_some_and(|p| p.v.0 <= 0) {
+        return None;
+    }
+    let (v, _) = field(s, None, &["Date d'echance"])?;
+    Some((parse_date(&v)? - today).num_days())
+}
+
 fn check_dates(out: &mut Vec<Value>, s: &Map<String, Value>, t: &Totals, is_credit_note: bool, today: NaiveDate) {
     if is_credit_note || t.payable.as_ref().is_some_and(|p| p.v.0 <= 0) {
         return;
     }
     if let Some((v, path)) = field(s, None, &["Date d'echance"]) {
-        if let Some(due) = parse_date(&v) {
-            let days = (due - today).num_days();
+        if let Some(days) = due_days(s, t, is_credit_note, today) {
             let note = "L'échéance ne préjuge pas du paiement effectif.";
             out.push(match days {
                 d if d < 0 => simple(
@@ -592,8 +601,46 @@ fn check_dates(out: &mut Vec<Value>, s: &Map<String, Value>, t: &Totals, is_cred
 
 // ------------------------------------------------------------------ point d'entree
 
-/// Controles d'une facture UBL ou CII deja extraite (`structured`).
-pub(super) fn run(root: N, format: &str, paths: &Paths, structured: &Map<String, Value>, today: NaiveDate) -> Vec<Value> {
+/// Synthese d'une facture pour le tableau multi-factures : montants en decimaux
+/// sans devise, tels que lus dans le XML (jamais reconstitues, sauf la TVA
+/// sommee par taux quand le total est absent).
+fn synthese(s: &Map<String, Value>, t: &Totals, type_code: &str, is_credit_note: bool, today: NaiveDate) -> Value {
+    let head = |titles: &[&str]| field(s, None, titles).map(|(v, _)| v).unwrap_or_default();
+    let party = |name: &str| {
+        field(s, Some(name), &["Raison sociale", "Denomination legale"]).map(|(v, _)| v).unwrap_or_default()
+    };
+    let money = |a: Option<&Amt>| a.map(|x| x.v.to_string()).unwrap_or_default();
+    let tva = t.tax.as_ref().map(|x| x.v).or_else(|| {
+        (!t.breakdown.is_empty() && t.breakdown.iter().all(|b| b.tax.is_some()))
+            .then(|| Dec(t.breakdown.iter().map(|b| val(&b.tax)).sum()))
+    });
+    json!({
+        "numero": head(&["N° de facture"]),
+        "type": type_code,
+        "avoir": is_credit_note,
+        "date": head(&["Date d'emission"]),
+        "echeance": head(&["Date d'echance"]),
+        "jours_echeance": due_days(s, t, is_credit_note, today),
+        "week_end": parse_date(&head(&["Date d'emission"]))
+            .is_some_and(|d| chrono::Datelike::weekday(&d).number_from_monday() >= 6),
+        "vendeur": party("Vendeur"),
+        "acheteur": party("Acheteur"),
+        "devise": head(&["Devise"]),
+        "ht": money(t.basis.as_ref().or(t.lines_sum.as_ref())),
+        "tva": tva.map(|v| v.to_string()).unwrap_or_default(),
+        "ttc": money(t.grand.as_ref()),
+        "a_payer": money(t.payable.as_ref()),
+    })
+}
+
+/// Controles et synthese d'une facture UBL ou CII deja extraite (`structured`).
+pub(super) fn run(
+    root: N,
+    format: &str,
+    paths: &Paths,
+    structured: &Map<String, Value>,
+    today: NaiveDate,
+) -> (Vec<Value>, Value) {
     let totals = if format == "UBL" { ubl_totals(root, paths) } else { cii_totals(root, paths) };
     let type_code = field(structured, None, &["Type de facture"]).map(|(v, _)| v).unwrap_or_default();
     let is_credit_note = root.tag_name().name() == "CreditNote" || type_code == "381";
@@ -602,7 +649,8 @@ pub(super) fn run(root: N, format: &str, paths: &Paths, structured: &Map<String,
     check_totals(&mut out, &totals);
     check_mentions(&mut out, structured);
     check_dates(&mut out, structured, &totals, is_credit_note, today);
-    out
+    let synthese = synthese(structured, &totals, &type_code, is_credit_note, today);
+    (out, synthese)
 }
 
 #[cfg(test)]
