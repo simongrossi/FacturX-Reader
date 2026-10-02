@@ -5,6 +5,8 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 
 ## [Non publié]
 
+## [0.3.0] - 2026-10-02
+
 ### Ajouté
 
 - **Tableau multi-factures** (onglet « Tableau ») : une ligne par document ouvert avec vendeur,
