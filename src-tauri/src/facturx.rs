@@ -563,10 +563,10 @@ fn ubl_line(line: N, paths: &Paths) -> Value {
 
     // --- PU HT = (Total ligne HT - frais/remises nets) / quantité ---
     // Deux conventions d'emetteurs coexistent :
-    //  - Konica Minolta : le LineExtensionAmount INCLUT les AllowanceCharge de la
+    //  - Émetteur A : le LineExtensionAmount INCLUT les AllowanceCharge de la
     //    ligne -> PU de base = (Total ligne HT - frais) / quantité, les frais
     //    restant visibles dans la colonne "Frais / Remises".
-    //  - EPMO / FEDEX : l'AllowanceCharge repete le montant de la ligne a titre
+    //  - Émetteur B : l'AllowanceCharge repete le montant de la ligne a titre
     //    informationnel (PU declare x quantité == LineExtensionAmount) -> on ne
     //    soustrait rien.
     // Test de distinction : si le PU declare est coherent avec le total ligne,
