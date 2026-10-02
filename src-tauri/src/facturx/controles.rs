@@ -106,6 +106,9 @@ fn amt(el: ON, paths: &Paths) -> Option<Amt> {
 struct Line {
     id: String,
     path: String,
+    /// Reference article et designation, pour la bibliotheque.
+    reference: String,
+    name: String,
     qty: Option<Amt>,
     price: Option<Amt>,
     base_qty: Option<Amt>,
@@ -184,9 +187,12 @@ fn ubl_totals(root: N, paths: &Paths) -> Totals {
             // ChargeIndicator absent = majoration, comme dans le moteur d'affichage.
             ac_net += if indicator.is_none() || is_true(indicator) { v } else { -v };
         }
+        let item = find(l, "Item");
         t.lines.push(Line {
             id: text(find(l, "ID")),
             path: paths.of(l),
+            reference: text(find(find(item, "SellersItemIdentification"), "ID")),
+            name: text(find(item, "Name")),
             qty: a(find_alt(l, &["InvoicedQuantity", "CreditedQuantity"])),
             price: a(find(price, "PriceAmount")),
             base_qty: a(find(price, "BaseQuantity")),
@@ -249,9 +255,12 @@ fn cii_totals(root: N, paths: &Paths) -> Totals {
             let v = a(find(ac, "ActualAmount")).map_or(0, |x| x.v.0);
             ac_net += if is_true(find(indicator, "Indicator").or(indicator)) { v } else { -v };
         }
+        let product = find_alt(l, &["SpecifiedTradeProduct", "DefinedTradeProduct"]);
         t.lines.push(Line {
             id: text(find(l, "LineID").or_else(|| find(find(l, "AssociatedDocumentLineDocument"), "LineID"))),
             path: paths.of(l),
+            reference: text(find(product, "SellerAssignedID")),
+            name: text(find(product, "Name")).chars().take(300).collect(),
             qty: a(find(tr, "InvoicedQuantity").or_else(|| find(dl, "BilledQuantity"))),
             price: a(find(price, "ChargeAmount")),
             base_qty: a(find(price, "BasisQuantity")),
@@ -614,7 +623,27 @@ fn synthese(s: &Map<String, Value>, t: &Totals, type_code: &str, is_credit_note:
         (!t.breakdown.is_empty() && t.breakdown.iter().all(|b| b.tax.is_some()))
             .then(|| Dec(t.breakdown.iter().map(|b| val(&b.tax)).sum()))
     });
+    let seller = |titles: &[&str]| field(s, Some("Vendeur"), titles).map(|(v, _)| v).unwrap_or_default();
+    let iban = field(s, Some("Paiement"), &["IBAN"]);
+    let lignes: Vec<Value> = t
+        .lines
+        .iter()
+        .map(|l| {
+            json!({
+                "ref": l.reference,
+                "nom": l.name,
+                "qte": money(l.qty.as_ref()),
+                "pu": l.price.as_ref().map(|x| x.v.to_string()).unwrap_or_default(),
+                "total": money(l.total.as_ref()),
+            })
+        })
+        .collect();
     json!({
+        "vendeur_tva": seller(&["N° de TVA"]),
+        "vendeur_id_legal": seller(&["SIREN / registre", "Identifiant légal"]),
+        "iban": iban.as_ref().map(|(v, _)| v.clone()).unwrap_or_default(),
+        "iban_path": iban.map(|(_, p)| p).unwrap_or_default(),
+        "lignes": lignes,
         "numero": head(&["N° de facture"]),
         "type": type_code,
         "avoir": is_credit_note,

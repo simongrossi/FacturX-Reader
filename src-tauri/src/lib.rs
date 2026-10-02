@@ -1,5 +1,6 @@
 //! Factur-X Reader — coquille Tauri : commandes exposees au front (`web/`).
 
+mod bibliotheque;
 pub mod facturx;
 mod pointages;
 mod tables;
@@ -79,7 +80,7 @@ fn percent_decode(s: &str) -> String {
 
 /// Analyse un fichier depose : corps = octets bruts, en-tete `x-filename` = nom.
 #[tauri::command]
-fn parse_file(request: Request<'_>) -> Result<Value, String> {
+fn parse_file(request: Request<'_>, library: tauri::State<'_, bibliotheque::Library>) -> Result<Value, String> {
     let InvokeBody::Raw(data) = request.body() else {
         return Err("Fichier vide.".into());
     };
@@ -95,7 +96,12 @@ fn parse_file(request: Request<'_>) -> Result<Value, String> {
         .and_then(|v| v.to_str().ok())
         .map(percent_decode)
         .unwrap_or_else(|| "fichier".into());
-    facturx::parse_file(&name, data).map_err(|e| e.to_string())
+    let mut result = facturx::parse_file(&name, data).map_err(|e| e.to_string())?;
+    // En-tete `x-library: 0` : l'utilisateur a desactive la bibliotheque.
+    if request.headers().get("x-library").and_then(|v| v.to_str().ok()) != Some("0") {
+        bibliotheque::annotate(&library, &mut result, None);
+    }
+    Ok(result)
 }
 
 /// Fichiers et dossiers passes en arguments de la ligne de commande (ou « Ouvrir avec »).
@@ -118,7 +124,7 @@ async fn pick_folder(app: tauri::AppHandle) -> Result<Value, String> {
 
 /// Analyse un fichier designe par son chemin sur le disque.
 #[tauri::command]
-async fn parse_path(path: String) -> Result<Value, String> {
+async fn parse_path(path: String, library: Option<bool>, store: tauri::State<'_, bibliotheque::Library>) -> Result<Value, String> {
     let path = PathBuf::from(path);
     let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
     let size = std::fs::metadata(&path).map_err(|e| format!("Lecture impossible : {e}"))?.len();
@@ -126,7 +132,11 @@ async fn parse_path(path: String) -> Result<Value, String> {
         return Err("Fichier trop volumineux (max 200 Mo).".into());
     }
     let data = std::fs::read(&path).map_err(|e| format!("Lecture impossible : {e}"))?;
-    facturx::parse_file(&name, &data).map_err(|e| e.to_string())
+    let mut result = facturx::parse_file(&name, &data).map_err(|e| e.to_string())?;
+    if library != Some(false) {
+        bibliotheque::annotate(&store, &mut result, Some(&path.to_string_lossy()));
+    }
+    Ok(result)
 }
 
 /// Boite « Enregistrer sous » native puis ecriture du PDF. Retourne false si annule.
@@ -217,6 +227,11 @@ pub fn run() {
             };
             app.manage(pointages::Pointages(store("pointages.json")));
             app.manage(pointages::Suivi(store("suivi.json")));
+            let library = match &forced {
+                Some(dir) => dir.join("bibliotheque.sqlite"),
+                None => data_dir.clone().unwrap_or_default().join("bibliotheque.sqlite"),
+            };
+            app.manage(bibliotheque::Library::new(library));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -238,6 +253,12 @@ pub fn run() {
             pointages::restore_backup,
             pointages::export_data,
             pointages::import_data,
+            bibliotheque::library_status,
+            bibliotheque::library_search,
+            bibliotheque::library_remove,
+            bibliotheque::library_clear,
+            bibliotheque::library_reset,
+            bibliotheque::library_prices,
         ])
         .run(tauri::generate_context!())
         .expect("erreur au lancement de Factur-X Reader");

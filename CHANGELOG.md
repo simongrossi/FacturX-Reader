@@ -13,6 +13,12 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
   (BR-S, BR-Z, BR-E, BR-AE, BR-IC, BR-G, BR-O). Bloc dédié dans l'onglet Données, pastille dans
   la liste, filtre et export dans le tableau, détail dans le rapport JSON. Implémentation
   native, hors Schematron officiel ; XSD, listes de codes, CIUS et PDF/A-3 non couverts.
+- **Bibliothèque locale** (SQLite) : chaque facture analysée est enregistrée et retrouvable entre
+  les sessions dans l'onglet Bibliothèque, avec recherche jusque dans les lignes et réouverture
+  depuis l'emplacement d'origine. Désactivable dans les Paramètres.
+- Constats tirés de l'historique, ajoutés aux contrôles : **IBAN différent des factures
+  précédentes du fournisseur**, **doublon probable** dans la bibliothèque, **prix unitaire
+  modifié**. Historique des prix d'un article dans le détail d'une ligne.
 - **Protection des pointages et du suivi** : sauvegarde quotidienne avant la première
   modification (sept conservées), restauration depuis les Paramètres, export et import fusionné
   dans un seul fichier.

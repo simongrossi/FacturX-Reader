@@ -28,7 +28,7 @@ const MENUBAR = [
     { label: "Exporter le rapport de contrôle (JSON)…", run: () => exportControlReport(menubarDoc(), document.createElement("button")),
       on: () => !!menubarDoc()?.result.controles?.length },
     { label: "Exporter le tableau des factures en CSV…", run: () => byId("batch-export").click(), on: () => state.files.length > 0 },
-    { label: "Imprimer…", keys: "Ctrl+P", run: () => printView(), on: () => !!menubarDoc() || (state.batch && state.files.length > 0) },
+    { label: "Imprimer…", keys: "Ctrl+P", run: () => printView(), on: () => !!menubarDoc() || state.library || (state.batch && state.files.length > 0) },
     null,
     { label: "Fermer le document", keys: "Ctrl+W", run: () => removeFile(state.selected), on: () => !!state.selected },
     { label: "Fermer tous les documents", run: () => clearAllFiles(), on: () => state.files.length > 0 },
@@ -44,9 +44,10 @@ const MENUBAR = [
       on: () => state.files.length > 0 },
   ] },
   { label: "Affichage", items: [
-    { label: "Accueil", run: () => showWorkspaceHome(), checked: () => !state.selected && !state.batch },
+    { label: "Accueil", run: () => showWorkspaceHome(), checked: () => !state.selected && !state.batch && !state.library },
     { label: "Tableau des factures", run: () => showBatch(), on: () => state.files.length > 0,
       checked: () => !state.selected && state.batch && state.files.length > 0 },
+    { label: "Bibliothèque", run: () => showLibrary(), checked: () => !state.selected && state.library },
     null,
     ...[["pdf", "PDF"], ["data", "Données"], ["dual", "PDF et données"], ["xml", "XML complet"], ["raw", "XML brut"]].map(([tab, label]) => (
       { label, run: () => setTab(tab), checked: () => !!menubarDoc() && state.tab === tab,

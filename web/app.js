@@ -13,6 +13,7 @@ const state = {
   renderToken: 0,
   fit: false,        // PDF ajusté à la largeur à l'ouverture
   batch: false,      // tableau multi-factures affiché (aucun document sélectionné)
+  library: false,    // bibliothèque affichée (aucun document sélectionné)
 };
 let fileSeq = 0;
 
@@ -55,10 +56,16 @@ const api = {
   async parse(file) {
     const bytes = new Uint8Array(await file.arrayBuffer());
     return invoke("parse_file", bytes, {
-      headers: { "x-filename": encodeURIComponent(file.name) },
+      headers: { "x-filename": encodeURIComponent(file.name), "x-library": settings.library === "off" ? "0" : "1" },
     });
   },
-  parsePath: (path) => invoke("parse_path", { path }),
+  parsePath: (path) => invoke("parse_path", { path, library: settings.library !== "off" }),
+  libraryStatus: () => invoke("library_status"),
+  librarySearch: (query) => invoke("library_search", { query }),
+  libraryRemove: (hash) => invoke("library_remove", { hash }),
+  libraryClear: () => invoke("library_clear"),
+  libraryReset: () => invoke("library_reset"),
+  libraryPrices: (hash, reference, name) => invoke("library_prices", { hash, reference, name }),
   pickFolder: () => invoke("pick_folder"),
   startupPaths: () => invoke("startup_paths"),
   getPointage: (hash) => invoke("get_pointage", { hash }),
@@ -123,6 +130,7 @@ async function addSources(sources) {
       }
       entry.result = await sources[i].load();
       entry.status = "ok";
+      libraryNotice(entry.result && entry.result.bibliotheque_erreur);
       rememberRecent(entry);
     } catch (e) {
       entry.status = "error";
@@ -299,6 +307,7 @@ function selectFile(id) {
   state.renderToken++;
   state.selected = id;
   state.batch = false;
+  state.library = false;
   state.tab = "pdf";
   state.pdfDoc = null;
   state.pdfSource = null;
@@ -310,6 +319,15 @@ function renderFileView() {
   state.renderToken++;
   document.querySelector(".layout").classList.toggle("workspace-home", !state.selected);
   const f = getFile(state.selected);
+  const showLibraryView = state.library && !state.selected;
+  byId("library-view").hidden = !showLibraryView;
+  if (showLibraryView) {
+    byId("batch-view").hidden = true;
+    byId("empty-state").hidden = true;
+    byId("file-view").hidden = true;
+    renderLibrary();
+    return;
+  }
   const showBatchView = state.batch && !state.selected && state.files.length > 0;
   byId("batch-view").hidden = !showBatchView;
   if (showBatchView) {
@@ -890,7 +908,7 @@ function linesTable(f) {
     dtr.dataset.detailFor = String(idx);
     const dtd = document.createElement("td");
     dtd.colSpan = cols.length + 1;
-    dtd.appendChild(detailBox(line));
+    dtd.appendChild(detailBox(line, f, idx));
     dtr.appendChild(dtd);
     tbody.appendChild(dtr);
   }
@@ -911,9 +929,17 @@ function toggleDetail(f, idx) {
   renderLinesOnly(f);
 }
 
-function detailBox(line) {
+function detailBox(line, f, idx) {
   const box = document.createElement("div");
   box.className = "line-detail-box";
+  if (f && f.result.synthese && settings.library !== "off") {
+    const history = Object.assign(document.createElement("button"), {
+      type: "button", className: "btn btn-sm price-history-btn", textContent: "Historique des prix",
+    });
+    history.title = "Prix de cet article sur les autres factures de ce fournisseur";
+    history.addEventListener("click", (e) => { e.stopPropagation(); showPriceHistory(f, idx, box, history); });
+    box.appendChild(history);
+  }
   const fields = (line && line.fields) || [];
   if (!fields.length) {
     const p = document.createElement("p");
@@ -1533,12 +1559,13 @@ function wireDnD() {
 
 const SETTINGS_KEY = "fx-settings";
 const THEME_KEY = "fx-theme";   // lu par index.html avant le premier rendu
-const SETTING_DEFAULTS = { theme: "jour", density: "normal", defaultTab: "pdf", pdfZoom: "1.25", startup: "restore" };
+const SETTING_DEFAULTS = { theme: "jour", density: "normal", defaultTab: "pdf", pdfZoom: "1.25", startup: "restore", library: "on" };
 const SETTING_CHOICES = {
   theme: ["jour", "nuit", "auto", "girl"],
   density: ["normal", "compact"],
   defaultTab: ["pdf", "data"],
   startup: ["restore", "home"],
+  library: ["on", "off"],
   pdfZoom: ["fit", "0.75", "1", "1.25", "1.5", "2"],
 };
 const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
@@ -1723,6 +1750,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   wireMenubar();
   wireReview();
   wireDataProtection();
+  wireLibrary();
   renderFileView();
   byId("quick-query").addEventListener("input", scheduleQuickSearch);
   byId("quick-regex").addEventListener("change", scheduleQuickSearch);
@@ -1742,6 +1770,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   renderList();
   await initReviews();
   await refreshDataStatus(true);
+  refreshLibraryStatus(true);
   try {
     const startup = await api.startupPaths();
     if (startup?.files?.length) { workspaceReady = true; await addPaths(startup); }

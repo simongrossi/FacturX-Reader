@@ -110,6 +110,19 @@ async function main() {
     await page.getByRole('button', { name: 'PDF et données', exact: true }).click();
     await expect(page.getByLabel('Commentaire de la facture', { exact: true })).toHaveValue('Test natif P2');
     await expect(page.locator('#tab-data').getByLabel('Vérification de deposited.pdf')).toHaveValue('Vérifiée');
+    // Bibliothèque : la facture analysée par le moteur y figure, une seule fois (même XML déposé deux fois).
+    await page.locator('#tab-library').click();
+    await expect(page.locator('#library-table tbody tr')).toHaveCount(1);
+    await expect(page.locator('#library-table tbody tr')).toContainText('TEST-P0');
+    await expect(page.locator('#library-table tbody tr')).toContainText('Test Seller');
+    await expect(page.locator('#library-table tbody tr')).toContainText('120,00');
+    await page.locator('#library-search').fill('introuvable');
+    await expect(page.locator('#library-table tbody tr')).toHaveCount(0);
+    await page.locator('#library-search').fill('test-p0');
+    await expect(page.locator('#library-table tbody tr')).toHaveCount(1);
+    await page.locator('#library-table tbody tr td').first().click();
+    await expect(page.locator('#fv-name')).toHaveText('deposited.pdf');
+    if (!fs.existsSync(path.join(dataDir, 'bibliotheque.sqlite'))) throw new Error('bibliotheque.sqlite absent du dossier de données.');
     // Le suivi est écrit dans suivi.json du dossier de données, pas dans la WebView.
     const suiviFile = path.join(dataDir, 'suivi.json');
     const suivi = Object.values(JSON.parse(fs.readFileSync(suiviFile, 'utf8')));

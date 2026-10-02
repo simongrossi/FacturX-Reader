@@ -21,6 +21,24 @@ async function mockBackend(page, pdf = null, extra = {}) {
       if (command === 'get_pointage') return { lines: [] };
       if (command === 'parse_path' && args.path.includes('missing')) throw new Error('Fichier introuvable');
       if (command === 'save_text') { window.__saved = args; return true; }
+      if (command === 'library_status') return window.__libraryBroken
+        ? { ok: false, erreur: 'La bibliothèque (bibliotheque.sqlite) est illisible : file is not a database.', factures: 0, chemin: 'bibliotheque.sqlite' }
+        : { ok: true, erreur: '', factures: 2, chemin: 'bibliotheque.sqlite' };
+      if (command === 'library_search') {
+        window.__libraryQueries = [...(window.__libraryQueries || []), args.query];
+        const all = [
+          { hash: 'h-old', fichier: 'ancienne.pdf', chemin: 'C:/archives/ancienne.pdf', format: 'CII', numero: 'F-2025-9', avoir: false, date: '2025-11-03', echeance: '', vendeur: 'Papeterie Durand SAS', acheteur: 'Buyer', devise: 'EUR', ht: '1000.00', tva: '200.00', ttc: '1200.00', a_payer: '1200.00', vue_le: '2026-09-30 10:00:00', revue_le: '2026-09-30 10:00:00', lignes: 4 },
+          { hash: 'h-drop', fichier: 'deposee.pdf', chemin: '', format: 'UBL', numero: 'AV-7', avoir: true, date: '2025-10-01', echeance: '', vendeur: 'Nordik Transport', acheteur: 'Buyer', devise: 'EUR', ht: '50.00', tva: '10.00', ttc: '60.00', a_payer: '60.00', vue_le: '2026-09-29 10:00:00', revue_le: '2026-09-29 10:00:00', lignes: 1 },
+        ].filter(row => !(window.__libraryRemoved || []).includes(row.hash));
+        const q = args.query.trim().toLowerCase();
+        return { factures: all.filter(row => !q || JSON.stringify(row).toLowerCase().includes(q)), total: all.length, tronque: false };
+      }
+      if (command === 'library_remove') { window.__libraryRemoved = [...(window.__libraryRemoved || []), args.hash]; return null; }
+      if (command === 'library_reset') { window.__libraryBroken = false; return null; }
+      if (command === 'library_prices') return [
+        { date: '2026-08-01', numero: 'F-1', pu: '50.00', qte: '2', devise: 'EUR', fichier: 'f1.pdf', courante: false },
+        { date: '2026-10-01', numero: 'F-9', pu: '52.50', qte: '2', devise: 'EUR', fichier: 'f9.pdf', courante: true },
+      ];
       if (window.__dataBroken && ['get_reviews', 'set_review', 'get_pointage', 'set_pointage'].includes(command))
         throw new Error('pointages.json est illisible : JSON invalide. Rien n\'a été enregistré. Restaurez une sauvegarde depuis les Paramètres.');
       if (command === 'get_reviews') return JSON.parse(localStorage.getItem('mock-suivi') || '{}');
@@ -516,5 +534,79 @@ test('pointages et suivi : fichier illisible signalé, restauration, export, imp
   await expect.poll(() => page.evaluate(() => window.__restored)).toBe('pointages');
   await expect(page.locator('#workspace-message')).toContainText('Sauvegarde restaurée : pointages.sauvegarde-2026-10-01.json');
   await expect(page.locator('#data-restore')).toBeHidden();
+  expect(errors).toEqual([]);
+});
+
+test('bibliothèque : recherche, ouverture, retrait, historique des prix, réglage et base illisible', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  page.on('dialog', dialog => dialog.accept());
+  const cell = (title, value) => ({ title, value, path: 'Invoice/x' });
+  await mockBackend(page, null, {
+    synthese: { numero: 'F-9', type: '380', avoir: false, date: '2026-10-01', echeance: '', jours_echeance: null, week_end: false,
+      vendeur: 'Papeterie Durand SAS', acheteur: 'Buyer', devise: 'EUR', ht: '100.00', tva: '20.00', ttc: '120.00', a_payer: '120.00',
+      lignes: [{ ref: 'PAP-A4', nom: 'Papier A4', qte: '2', pu: '52.50', total: '105.00' }] },
+    controles: [{ regle: 'IBAN différent des factures précédentes de ce fournisseur', etat: 'alerte', attendu: '', constate: '', ecart: '', path: 'Invoice/IBAN', detail: 'Cette facture : FR76… Précédemment : FR14…' }],
+    lines_columns: [{ key: 'name', title: 'Désignation', align: 'left' }, { key: 'detail', title: 'Détail', align: 'left' }],
+    lines: [{ fields: [{ title: 'Désignation', value: 'Papier A4', path: 'Invoice/x' }], cells: { name: cell('Désignation', 'Papier A4') } }],
+  });
+  await page.goto(url);
+  // L'onglet Bibliothèque est disponible sans aucun document ouvert.
+  await page.locator('#tab-library').click();
+  const rows = page.locator('#library-table tbody tr');
+  await expect(rows).toHaveCount(2);
+  await expect(page.locator('#library-count')).toHaveText('2 factures');
+  await expect(rows.first()).toContainText('Papeterie Durand SAS');
+  await expect(rows.first()).toContainText('1 200,00');
+  await expect(rows.nth(1)).toContainText('Avoir');
+  await page.locator('#library-search').fill('nordik');
+  await expect(rows).toHaveCount(1);
+  await expect(page.locator('#library-count')).toHaveText('1 / 2 factures');
+  await page.locator('#library-search').fill('introuvable');
+  await expect(page.locator('#library-empty')).toHaveText('Aucune facture ne correspond à la recherche.');
+  await page.locator('#library-search').fill('');
+  await expect(rows).toHaveCount(2);
+
+  // Fichier déposé : emplacement inconnu, on le dit. Fichier connu : il est rouvert par son chemin.
+  await rows.nth(1).locator('td').first().click();
+  await expect(page.locator('#workspace-message')).toContainText('son emplacement n\'est pas connu');
+  await rows.first().locator('td').first().click();
+  await expect(page.locator('#fv-name')).toHaveText('ancienne.pdf');
+  await expect(page.locator('#library-view')).toBeHidden();
+
+  // L'alerte tirée de l'historique apparaît dans les contrôles ; historique des prix dans le détail de ligne.
+  await page.getByRole('button', { name: 'Données', exact: true }).click();
+  await expect(page.locator('#controls')).toContainText('IBAN différent des factures précédentes');
+  await page.locator('.detail-btn').first().click();
+  await page.locator('.price-history-btn').first().click();
+  const history = page.locator('.price-history table tbody tr');
+  await expect(history).toHaveCount(2);
+  await expect(history.nth(1)).toContainText('F-9 (cette facture)');
+  await expect(history.nth(1).locator('.price-up')).toHaveText('+5,0 %');
+
+  // Retrait d'une entrée.
+  await page.locator('#menubar').getByRole('button', { name: 'Affichage' }).click();
+  await page.locator('.menubar-drop').getByRole('menuitem', { name: 'Bibliothèque' }).click();
+  await rows.nth(1).getByRole('button', { name: 'Retirer deposee.pdf de la bibliothèque' }).click();
+  await expect(rows).toHaveCount(1);
+
+  // Réglage : désactivée, les analyses ne sont plus enregistrées.
+  await page.locator('#btn-settings').click();
+  await expect(page.locator('#library-status-text')).toContainText('2 factures enregistrées');
+  await page.locator('#set-library').selectOption('off');
+  await page.locator('#settings-close').click();
+  expect(await page.evaluate(() => settings.library)).toBe('off');
+
+  // Base illisible : signalée au démarrage, réinitialisable, sans bloquer la lecture.
+  await page.addInitScript(() => { window.__libraryBroken = true; });
+  await page.reload();
+  await expect(page.locator('#workspace-message')).toContainText('est illisible');
+  await expect(page.locator('#workspace-message')).toContainText('Les factures restent lisibles');
+  await page.locator('#btn-settings').click();
+  await expect(page.locator('#library-status-text')).toHaveClass(/data-status-error/);
+  await expect(page.locator('#library-clear')).toBeHidden();
+  await page.locator('#library-reset').click();
+  await expect(page.locator('#workspace-message')).toContainText('Bibliothèque réinitialisée');
+  await expect(page.locator('#library-reset')).toBeHidden();
   expect(errors).toEqual([]);
 });

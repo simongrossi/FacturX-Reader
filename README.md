@@ -32,7 +32,8 @@ Application de bureau légère pour Factur-X, UBL et CII (EN 16931) — Windows,
 Déposez une facture, ou un dossier entier. Factur-X Reader affiche le PDF, traduit le XML en
 tableaux lisibles en français, **recalcule les montants** et signale ce qui ne colle pas.
 
-- **100 % local** : aucun serveur, aucun appel réseau, aucun compte.
+- **100 % local** : aucun serveur, aucun appel réseau, aucun compte. La bibliothèque est un
+  fichier sur votre poste, désactivable.
 - **Léger** : exécutable d'environ 7 Mo, installeur d'environ 2 Mo.
 - **Pensé pour vérifier**, pas seulement pour afficher : contrôles, pointage, suivi, exports.
 
@@ -47,6 +48,7 @@ tableaux lisibles en français, **recalcule les montants** et signale ce qui ne 
 | 📐 **Règles EN 16931** | Une soixantaine de règles métier de la norme évaluées sur chaque facture : mentions obligatoires, calculs, décimales, catégories de TVA. |
 | ✅ **Contrôles de cohérence** | Calculs en décimaux exacts : lignes, HT, TVA par taux, TTC, net à payer. Mentions essentielles, clés SIREN/SIRET, n° de TVA et IBAN, échéance, escompte. |
 | 📊 **Tableau multi-factures** | Toutes les factures ouvertes sur une page : totaux par devise, avoirs déduits, filtres d'anomalies, export CSV. |
+| 🗄️ **Bibliothèque locale** | Toutes les factures déjà ouvertes, retrouvables entre les sessions. Signale un IBAN nouveau pour un fournisseur, un doublon dans l'historique, une variation de prix unitaire. |
 | 🪟 **PDF et données côte à côte** | Vérifiez une ligne sans changer d'onglet. |
 | 🖊️ **Pointage et suivi** | Pointage des lignes, statut À vérifier / Vérifiée / Anomalie, commentaires par facture et par ligne. |
 | 🔎 **Recherche** | Texte ou regex, dans le document ou dans tous les documents ouverts, avec surlignage. |
@@ -89,6 +91,7 @@ une case est cochée des deux côtés, le niveau de détail peut différer.
 | Schematron officiel, XSD, PDF/A-3 | — *(prévu)* | ✅ en ligne | ✅ | — |
 | Tableau multi-factures avec totaux | ✅ | — | — | — |
 | Pointage, statuts et commentaires | ✅ | — | — | — |
+| Historique : alerte de changement d'IBAN, prix, doublons | ✅ | — | — | — |
 | Export CSV / rapport JSON | ✅ | — | — | — |
 | Conversion (CII ↔ UBL, ZUGFeRD 1 → 2) | — | — | ✅ | — |
 | Création de factures | — | — | ✅ | — |
@@ -117,7 +120,8 @@ Ils sont produits par le workflow GitHub à chaque tag `vX.Y.Z`, ou localement p
 ## Stack
 
 - **Tauri 2** — fenêtre native s'appuyant sur la WebView du système ;
-- **Rust** — moteur d'analyse, contrôles de cohérence et persistance des pointages ;
+- **Rust** — moteur d'analyse, contrôles de cohérence, persistance des pointages ;
+- **SQLite** embarqué — bibliothèque locale ;
 - **HTML / CSS / JS sans framework** — le front de `web/` est servi tel quel, sans étape de
   compilation ;
 - **PDF.js 3.11** — rendu des PDF.
@@ -296,6 +300,40 @@ des contrôles. Un clic sur une ligne ouvre la facture.
 Les montants viennent du XML, sans recalcul. Le tableau porte sur les documents ouverts
 (500 au maximum), pas sur un historique.
 
+### Bibliothèque locale
+
+Chaque facture analysée est enregistrée dans une base locale (`bibliotheque.sqlite`, dans le
+dossier de données de l'application) : numéro, dates, vendeur, acheteur, montants, IBAN et lignes
+(référence, désignation, quantité, prix unitaire). Le PDF et le XML n'y sont pas copiés.
+
+L'onglet **Bibliothèque**, à côté d'Accueil et de Tableau, liste ces factures entre les sessions :
+
+- **Recherche** par fournisseur, numéro, date, montant, nom de fichier, référence ou désignation
+  d'article (1000 résultats au plus) ;
+- un clic **rouvre la facture** depuis son emplacement d'origine. Un fichier ajouté par dépôt n'a
+  pas d'emplacement connu : l'application le dit et demande de rouvrir le fichier ;
+- **✕** retire une facture de la bibliothèque, sans toucher au fichier.
+
+À l'ouverture d'une facture, la bibliothèque ajoute trois constats aux contrôles :
+
+| Constat | Déclenchement |
+|---|---|
+| **IBAN différent des factures précédentes** (alerte) | Le fournisseur a déjà des factures avec un IBAN, et celui de cette facture n'y figure pas. À vérifier auprès du fournisseur par un canal connu avant de payer. |
+| **Doublon probable dans la bibliothèque** (alerte) | Même fournisseur et même numéro qu'une facture déjà vue, avec un contenu différent. |
+| **Prix unitaire modifié** (info) | Le prix d'un article diffère du dernier prix connu chez ce fournisseur, sur une facture antérieure. |
+
+Le fournisseur est reconnu par son n° de TVA, à défaut son identifiant légal, à défaut son nom.
+Un article est reconnu par sa référence, à défaut sa désignation. Dans le détail d'une ligne,
+**Historique des prix** montre le prix de l'article sur toutes les factures du fournisseur.
+
+Limites : la bibliothèque ne connaît que les factures ouvertes au moins une fois sur ce poste ;
+la première facture d'un fournisseur ne peut donc déclencher aucune alerte. Elle n'est pas
+incluse dans l'export des pointages et du suivi : rouvrir un dossier de factures la reconstitue,
+sauf les dates de première vue.
+
+*Paramètres → Données* permet de désactiver la bibliothèque, de la vider, ou de la réinitialiser
+si la base est illisible (elle est alors conservée à côté, jamais supprimée).
+
 ### Barre de menus
 
 La barre **Fichier / Édition / Affichage / Aide** regroupe les actions : ouvrir, exporter,
@@ -379,6 +417,7 @@ web/                       interface (aucune étape de compilation)
   workspace.js             accueil, onglets, session
   batch.js                 tableau multi-factures
   review.js                suivi de vérification, rapport de contrôle
+  library.js               bibliothèque locale, historique des prix
   menu.js                  menus contextuels (tableaux, onglets)
   menubar.js               barre de menus
   pdfjs/                   PDF.js embarqué
@@ -388,6 +427,7 @@ src-tauri/
   src/facturx/en16931.rs   règles métier EN 16931
   src/tables.rs            libellés français et tables de codes
   src/pointages.rs         pointages et suivi : persistance, sauvegardes, export/import
+  src/bibliotheque.rs      bibliothèque locale (SQLite) : historique, IBAN, doublons, prix
   src/lib.rs               commandes exposées au front
   examples/dump.rs         export JSON d'une facture
   tests/samples.rs         test sur les factures de samples/
@@ -471,6 +511,8 @@ cargo run --example dump -- ../samples/facture.pdf > facture.json
 | `get_reviews` / `set_review` | suivi de vérification |
 | `data_status` / `restore_backup` | état des fichiers de données, restauration d'une sauvegarde |
 | `export_data` / `import_data` | export et import des pointages et du suivi |
+| `library_search` / `library_prices` | recherche dans la bibliothèque, historique des prix d'un article |
+| `library_status` / `library_remove` / `library_clear` / `library_reset` | état et entretien de la bibliothèque |
 | `save_pdf` | boîte « Enregistrer sous » et écriture du PDF |
 | `save_text` | boîte « Enregistrer sous » et écriture d'un export CSV |
 | `save_control_report` | boîte « Enregistrer sous » et écriture du rapport de contrôle JSON |

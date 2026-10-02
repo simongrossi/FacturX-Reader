@@ -121,6 +121,18 @@
       <div class="section"><div class="table-wrap"><table id="batch-table"></table></div></div>
     </div>
 
+    <div id="library-view" class="batch-view" hidden>
+      <div class="file-head">
+        <div class="file-head-left"><h2>Bibliothèque</h2></div>
+      </div>
+      <div class="lines-tools batch-tools">
+        <input id="library-search" class="lines-search" type="search" placeholder="Rechercher (fournisseur, numéro, date, montant, référence ou désignation d'article…)" aria-label="Rechercher dans la bibliothèque">
+        <span id="library-count" class="lines-count"></span>
+      </div>
+      <div class="section"><div class="table-wrap"><table id="library-table"></table></div></div>
+      <p id="library-empty" class="notice" hidden></p>
+    </div>
+
     <div id="file-view" class="file-view" hidden>
       <div class="file-head">
         <div class="file-head-left">
@@ -277,6 +289,20 @@
           <span class="setting-help" id="data-status-text"></span>
         </span>
       </div>
+      <div class="setting">
+        <label class="setting-label" for="set-library">Bibliothèque locale
+          <span class="setting-help">Garde une trace des factures ouvertes pour les retrouver et signaler doublons, changements d'IBAN et variations de prix. Reste sur ce poste.</span>
+          <span class="setting-help" id="library-status-text"></span>
+        </label>
+        <select id="set-library" data-setting="library">
+          <option value="on">Activée</option>
+          <option value="off">Désactivée</option>
+        </select>
+      </div>
+      <div class="setting-actions">
+        <button type="button" id="library-clear" class="btn btn-sm">Vider la bibliothèque</button>
+        <button type="button" id="library-reset" class="btn btn-sm" hidden>Réinitialiser la bibliothèque</button>
+      </div>
       <div class="setting-actions">
         <button type="button" id="data-export" class="btn btn-sm" title="Enregistrer pointages et suivi dans un fichier">Exporter…</button>
         <button type="button" id="data-import" class="btn btn-sm" title="Fusionner un fichier exporté avec les données présentes">Importer…</button>
@@ -296,6 +322,7 @@
 <script src="workspace.js"></script>
 <script src="review.js"></script>
 <script src="batch.js"></script>
+<script src="library.js"></script>
 <script src="menu.js"></script>
 <script src="menubar.js"></script>
 </body>

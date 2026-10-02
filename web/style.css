@@ -1010,3 +1010,14 @@ tr.flash { animation: flash 1.8s ease-out; }
 .data-status-line { display: block; margin-top: 3px; }
 .data-status-error { color: var(--err); font-weight: 600; }
 .setting-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+
+/* ---------- bibliothèque ---------- */
+#library-table tbody td { white-space: nowrap; }
+#library-table tbody td:nth-child(2), #library-table tbody td:nth-child(11) { white-space: normal; }
+#library-table tbody tr { cursor: pointer; }
+.price-history-btn { margin-bottom: 8px; }
+.price-history { margin-top: 10px; color: var(--muted); font-size: 13px; }
+.price-history table { color: var(--text); }
+.price-current td { font-weight: 600; }
+.price-up { color: var(--err); }
+.price-down { color: var(--ok); }

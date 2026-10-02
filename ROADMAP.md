@@ -10,7 +10,7 @@ l'utilisation et [VALIDATION.md](VALIDATION.md) pour le bilan de vérification P
 |---|---|---|
 | P0 | Valider l'existant | Presque terminé : reste macOS, Linux et l'installation des paquets |
 | P1 | Confort et fiabilité du moteur | À moitié fait : le confort est livré, la fiabilité reste à faire |
-| P2 | Exploiter des lots de factures | Fait aux deux tiers : reste la recherche étendue et la bibliothèque |
+| P2 | Exploiter des lots de factures | Presque terminé : reste la recherche dans le PDF, le dossier surveillé, l'échéancier |
 | P3 | Conformité et distribution | Commencé : règles métier EN 16931 natives ; reste XSD, Schematron officiel, PDF/A, signature |
 | P4 | API, MCP et connecteurs | Pas commencé |
 
@@ -27,8 +27,7 @@ Versions publiées (pré-versions, builds non signés) :
 1. **Signature des builds** (P3) : des installeurs sont désormais distribués sur GitHub. Demande
    un certificat de signature Windows et un compte développeur Apple.
 2. **Fin de la fiabilité P1** : provenance des valeurs, puis « Ouvrir avec » et instance unique.
-3. **Bibliothèque locale** (P2) : elle débloque le registre IBAN par fournisseur, les doublons
-   sur l'historique et l'historique des prix unitaires.
+3. **Confort P1** : « Ouvrir avec », instance unique, export Excel natif.
 
 ## P0 — Valider l'existant
 
@@ -113,11 +112,13 @@ Versions publiées (pré-versions, builds non signés) :
 
 ### Bibliothèque locale et ce qui en dépend
 
-- [ ] Bibliothèque locale persistante de toutes les factures vues : recherche par fournisseur,
-  référence article, période, montant et commentaire, entre les sessions.
-- [ ] Registre IBAN par fournisseur et alerte de changement (anti-fraude au virement).
-- [ ] Doublons sur l'historique, au-delà des documents ouverts.
-- [ ] Historique des prix unitaires par article et par fournisseur, variations dans le temps.
+- [x] Bibliothèque locale persistante (SQLite) de toutes les factures vues : recherche par
+  fournisseur, numéro, date, montant, référence ou désignation d'article, entre les sessions.
+- [x] Alerte de changement d'IBAN par fournisseur (anti-fraude au virement).
+- [x] Doublons sur l'historique, au-delà des documents ouverts.
+- [x] Historique des prix unitaires par article et par fournisseur, variation signalée.
+- [ ] Bibliothèque : filtres par période et par fournisseur, recherche dans les commentaires,
+  graphique de prix, validation explicite d'un nouvel IBAN, sauvegarde et export de la base.
 - [ ] Grille de prix négociés importée et alerte de dépassement.
 
 ## P3 — Conformité et distribution
@@ -190,7 +191,9 @@ par projet. Ces deux derniers supposent plusieurs utilisateurs et un serveur : u
 - Les règles EN 16931 sont une implémentation native, pas le Schematron officiel ; ni le schéma
   XSD ni le conteneur PDF/A-3 ne sont contrôlés. Aucun appel réseau ne vérifie l'existence
   d'un SIREN ni le titulaire d'un IBAN.
-- Tableau, doublons et suivi portent sur les documents ouverts (500 au maximum), pas sur un historique.
+- Le tableau porte sur les documents ouverts (500 au maximum). La bibliothèque ne connaît que les
+  factures ouvertes au moins une fois sur ce poste : la première facture d'un fournisseur ne
+  déclenche aucune alerte d'IBAN.
 - Les copies locales des fichiers déposés ne suivent pas les modifications du fichier d'origine.
 - Les builds ne sont pas signés.
 

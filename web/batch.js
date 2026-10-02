@@ -209,6 +209,7 @@ function renderBatch() {
 function showBatch() {
   captureDocumentView();
   state.selected = null;
+  state.library = false;
   state.batch = true;
   workspaceScrollTarget = null;
   state.renderToken++;

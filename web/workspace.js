@@ -189,6 +189,7 @@ function showWorkspaceHome() {
   captureDocumentView();
   state.selected = null;
   state.batch = false;
+  state.library = false;
   workspaceScrollTarget = null;
   state.renderToken++;
   state.pdfDoc = null; state.pdfSource = null;
@@ -202,10 +203,12 @@ function renderDocumentTabs() {
   fixed.className = "document-tabs-fixed";
   nav.appendChild(fixed);
   const home = document.createElement("button");
-  const batchShown = state.batch && !state.selected && state.files.length > 0;
-  home.className = "document-tab" + (!state.selected && !batchShown ? " selected" : "");
+  const libraryShown = state.library && !state.selected;
+  const batchShown = !libraryShown && state.batch && !state.selected && state.files.length > 0;
+  const homeShown = !state.selected && !batchShown && !libraryShown;
+  home.className = "document-tab" + (homeShown ? " selected" : "");
   home.textContent = "Accueil";
-  home.setAttribute("aria-pressed", String(!state.selected && !batchShown));
+  home.setAttribute("aria-pressed", String(homeShown));
   home.onclick = showWorkspaceHome;
   fixed.appendChild(home);
   if (state.files.length) {
@@ -218,6 +221,14 @@ function renderDocumentTabs() {
     table.onclick = showBatch;
     fixed.appendChild(table);
   }
+  const shelf = document.createElement("button");
+  shelf.id = "tab-library";
+  shelf.className = "document-tab document-tab-batch" + (libraryShown ? " selected" : "");
+  shelf.textContent = "Bibliothèque";
+  shelf.title = "Toutes les factures déjà ouvertes, entre les sessions";
+  shelf.setAttribute("aria-pressed", String(libraryShown));
+  shelf.onclick = showLibrary;
+  fixed.appendChild(shelf);
   for (const f of state.files) {
     const group = document.createElement("div");
     group.className = "document-tab-group" + (state.selected === f.id ? " selected" : "");
