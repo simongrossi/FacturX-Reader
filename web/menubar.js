@@ -60,6 +60,7 @@ const MENUBAR = [
   ] },
   { label: "Aide", items: [
     { label: "À propos de Factur-X Reader", run: () => byId("btn-settings").click() },
+    { label: "Licences des composants tiers", run: () => showLicenses() },
   ] },
 ];
 
@@ -109,3 +110,34 @@ function wireMenubar() {
     bar.appendChild(button);
   }
 }
+
+/* Licences des composants embarqués : leurs textes font partie de l'application installée. */
+const THIRD_PARTY_LICENSES = [
+  { title: "SaxonJS 2 — moteur XSLT (© Saxonica Ltd), SaxonJS Public License", file: "schematron/LICENSE-SAXONJS.txt" },
+  { title: "Règles de validation EN 16931 (© Union européenne), licence EUPL 1.2", file: "schematron/NOTICE-EINVOICING.txt" },
+  { title: "Texte de la licence EUPL 1.2", file: "schematron/LICENSE-EUPL-1.2.txt" },
+];
+
+async function showLicenses() {
+  const dialog = byId("licenses-dialog");
+  const body = byId("licenses-body");
+  body.querySelectorAll(".license-block").forEach((el) => el.remove());
+  for (const item of THIRD_PARTY_LICENSES) {
+    let text;
+    try {
+      const response = await fetch(item.file);
+      if (!response.ok) continue;
+      text = await response.text();
+    } catch { continue; }
+    const block = document.createElement("section");
+    block.className = "license-block";
+    block.appendChild(Object.assign(document.createElement("h3"), { textContent: item.title }));
+    block.appendChild(Object.assign(document.createElement("pre"), { textContent: text.trim() }));
+    body.appendChild(block);
+  }
+  if (!dialog.open) dialog.showModal();
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  byId("licenses-close").addEventListener("click", () => byId("licenses-dialog").close());
+});

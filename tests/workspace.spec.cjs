@@ -374,6 +374,16 @@ test('barre de menus, onglets Accueil et Tableau fixes, menu d’onglet', async 
   await expect(drop).toHaveCount(0);
   await expect(menubar.locator('[aria-expanded="true"]')).toHaveCount(0);
 
+  // Les licences des composants embarqués sont consultables dans l'application.
+  await menubar.getByRole('button', { name: 'Aide' }).click();
+  await drop.getByRole('menuitem', { name: 'Licences des composants tiers' }).click();
+  await expect(page.locator('#licenses-dialog')).toBeVisible();
+  await expect(page.locator('#licenses-body')).toContainText('Saxonica Ltd');
+  await expect(page.locator('#licenses-body')).toContainText('Redistribution in binary form, without');
+  await expect(page.locator('#licenses-body')).toContainText('European Union Public Licence (EUPL) version 1.2');
+  await page.locator('#licenses-close').click();
+  await expect(page.locator('#licenses-dialog')).toBeHidden();
+
   await page.evaluate(async () => { await addPaths({ files: Array.from({ length: 30 }, (_, i) => `C:/facture-numero-${i}.xml`) }); });
   await expect(page.locator('.document-tab-group')).toHaveCount(30);
   // Le dernier onglet est sélectionné : la barre a défilé, Accueil et Tableau restent à gauche.
