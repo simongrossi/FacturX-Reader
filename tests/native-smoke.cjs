@@ -98,6 +98,9 @@ async function main() {
     await expect(page.locator('#verdicts .ctl-chip').first()).toHaveText('Lecture réussie');
     await expect(page.locator('#verdicts')).toContainText('Calculs cohérents');
     await expect(page.locator('#verdicts')).toContainText('EN 16931 non respectée');
+    // Le Schematron officiel s'exécute réellement dans la WebView (moteur XSLT embarqué, CSP de l'application).
+    await expect(page.locator('#verdicts')).toContainText(/Schematron officiel non respectée|règles? Schematron officiel non respectées?/, { timeout: 20000 });
+    await expect(page.locator('#schematron-rules')).toContainText('BR-', { timeout: 20000 });
     await expect(page.locator('#controls tr').filter({ hasText: 'Mentions essentielles' })).toContainText('Nom de l\'acheteur');
     await page.locator('#tab-data .review-panel summary span').click();
     await page.getByLabel('Commentaire de la facture', { exact: true }).fill('Test natif P2');

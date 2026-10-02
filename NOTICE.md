@@ -24,3 +24,21 @@ Mehault et Simon Grossi, ne sont pas limités par elle : ils restent libres d'ut
 logiciel à toutes fins, y compris commerciales, et d'accorder d'autres licences.
 
 Pour un usage commercial : simon.grossi@gmail.com
+
+## Composants tiers embarqués
+
+L'application embarque deux composants qui ne sont pas sous la licence PolyForm Noncommercial
+et gardent leur propre licence :
+
+- **SaxonJS 2** (`web/schematron/SaxonJS2.rt.js`) — © Saxonica Ltd. Gratuit, non open source,
+  redistribué sans modification sous la *SaxonJS Public License* v1.0 :
+  [web/schematron/LICENSE-SAXONJS.txt](web/schematron/LICENSE-SAXONJS.txt). Rétro-ingénierie
+  interdite.
+- **Règles de validation EN 16931** (`web/schematron/*-validation.sef.json`) — © Union européenne,
+  dépôt [ConnectingEurope/eInvoicing-EN16931](https://github.com/ConnectingEurope/eInvoicing-EN16931),
+  version 1.3.16, sous licence **EUPL 1.2**. Les fichiers embarqués sont les feuilles XSLT
+  officielles compilées au format SEF de SaxonJS, sans modification des règles :
+  [web/schematron/NOTICE-EINVOICING.txt](web/schematron/NOTICE-EINVOICING.txt).
+
+Les bibliothèques Rust et JavaScript (Tauri, PDF.js, SQLite, lopdf, etc.) restent sous leurs
+licences respectives.

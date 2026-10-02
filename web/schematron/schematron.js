@@ -26,6 +26,15 @@ const SchematronValidator = (() => {
   function parseSvrl(svrlText) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(svrlText, "application/xml");
+    if (doc.getElementsByTagName("parsererror").length) {
+      return { evalue: false, erreur_moteur: "Rapport Schematron illisible" };
+    }
+    // Sans aucune règle déclenchée, le Schematron n'a rien vérifié : ce n'est pas un succès.
+    const fired = doc.getElementsByTagNameNS("*", "fired-rule").length;
+    if (!fired) {
+      return { evalue: false, non_conformes: 0, avertissements: 0, erreurs: [], regles_declenchees: 0,
+        erreur_moteur: "Aucune règle officielle ne s'applique à ce document (structure non reconnue)" };
+    }
     const failedNodes = doc.querySelectorAll("failed-assert, *|failed-assert");
     const asserts = [];
     let fatals = 0;
@@ -52,6 +61,7 @@ const SchematronValidator = (() => {
 
     return {
       evalue: true,
+      regles_declenchees: fired,
       total: asserts.length,
       non_conformes: fatals,
       avertissements: warnings,
@@ -66,6 +76,22 @@ const SchematronValidator = (() => {
     if (typeof SaxonJS === "undefined") {
       console.warn("SaxonJS non disponible dans l'environnement.");
       return { evalue: false, erreur_moteur: "SaxonJS non chargé" };
+    }
+
+    // Les feuilles officielles ne valent que pour un document du bon type : sur une autre
+    // racine, des règles génériques se déclenchent sans rien vérifier d'utile.
+    const ROOTS = {
+      CII: [["urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100", "CrossIndustryInvoice"]],
+      UBL: [["urn:oasis:names:specification:ubl:schema:xsd:Invoice-2", "Invoice"],
+        ["urn:oasis:names:specification:ubl:schema:xsd:CreditNote-2", "CreditNote"]],
+    };
+    const source = new DOMParser().parseFromString(xmlString, "application/xml");
+    const top = source.documentElement;
+    const recognized = top && !source.getElementsByTagName("parsererror").length &&
+      ROOTS[format].some(([ns, name]) => top.namespaceURI === ns && top.localName === name);
+    if (!recognized) {
+      return { evalue: false, non_conformes: 0, avertissements: 0, erreurs: [], regles_declenchees: 0,
+        erreur_moteur: "Aucune règle officielle ne s'applique à ce document (racine ou espace de noms non reconnu)" };
     }
 
     const sef = await loadSef(format);
@@ -84,7 +110,7 @@ const SchematronValidator = (() => {
       const svrl = res.principalResult || "";
       const parsed = parseSvrl(svrl);
       parsed.duree_ms = Math.round(t1 - t0);
-      parsed.ok = parsed.non_conformes === 0;
+      parsed.ok = parsed.evalue && parsed.non_conformes === 0;
       return parsed;
     } catch (err) {
       console.error("Erreur lors de l'exécution du Schematron officiel :", err);

@@ -7,14 +7,39 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 
 ### Ajouté
 
-- **Validation officielle par Schematron** : exécution 100 % locale dans la WebView via le moteur SaxonJS des règles officielles CEN EN 16931 v1.3.16 (Commission européenne / ConnectingEurope, licence EUPL 1.2) précompilées au format SEF pour CII et UBL. Affichage des assertions non conformes, de leur chemin et de leur texte officiel dans l'onglet Données.
-- **Conteneur PDF et extraction robuste** : remplacement de l'extraction par expressions régulières par un vrai parseur PDF structurel (`lopdf`, avec repli de secours). Détection et contrôles de la conformité PDF/A-3, présence de la pièce jointe déclarée (`/AF` et `/EmbeddedFiles`), métadonnées XMP et concordance du profil annoncé.
-- **Filtres métier** : filtres par période (dates début et fin), plage de montants TTC (min et max) et fournisseur, intégrés au tableau multi-factures et à la bibliothèque locale avec bouton de réinitialisation.
+- **Schematron officiel EN 16931** : les règles publiées par la Commission européenne
+  (`eInvoicing-EN16931` v1.3.16, licence EUPL 1.2) sont exécutées localement dans la WebView par
+  le moteur SaxonJS, sur les factures CII et UBL. Verdict dédié et bloc listant chaque règle non
+  respectée ou avertissement, avec son identifiant et son emplacement.
+- **Conteneur PDF** : extraction par un vrai parseur PDF (`lopdf`), avec repli sur l'ancienne
+  méthode. Lecture des déclarations du fichier : PDF/A-3 annoncé dans les métadonnées XMP, pièce
+  jointe XML déclarée dans le catalogue (`/AF`, `/EmbeddedFiles`), relation, profil annoncé
+  comparé à celui du XML. Ce sont des déclarations lues, pas une validation ISO 19005-3.
+- **Filtres métier** dans le tableau multi-factures et la bibliothèque : période, plage de
+  montants TTC, fournisseur, avec remise à zéro.
 
 ### Modifié
 
-- **Verdicts enrichis et séparés** : lecture, calculs, règles EN 16931, Schematron officiel et conteneur PDF/A-3 disposent chacun de leur verdict dédié. Seul le schéma XSD reste mentionné comme non contrôlé.
-- Chaque contrôle porte sa famille (`calcul`, `mention`, `date`, `historique`, `conteneur`) ; la pastille rouge de la liste ne compte plus que les écarts de calcul.
+- **Verdicts séparés** : lecture, calculs, règles EN 16931, Schematron officiel et conteneur PDF
+  ont chacun leur verdict dans l'onglet Données, le tableau et le rapport JSON. Une mention
+  rappelle ce qui n'est pas contrôlé : schéma XSD, conformité PDF/A-3 réelle du fichier, règles
+  nationales. Aucun verdict ne vaut certification.
+- Chaque contrôle porte sa famille (`calcul`, `mention`, `date`, `historique`, `conteneur`) ; la
+  pastille rouge de la liste ne compte plus que les écarts de calcul.
+- La politique de sécurité de la fenêtre autorise désormais `unsafe-eval` pour les scripts,
+  nécessaire au moteur XSLT embarqué.
+
+### Corrigé
+
+- Schematron : un XML sans rapport avec une facture (autre racine ou autre espace de noms) était
+  déclaré « respecté », aucune règle ne s'y appliquant. Il est maintenant « non évalué ».
+- Conteneur : le verdict affirmait un conteneur « valide » dès qu'une version de PDF/A était
+  déclarée, y compris PDF/A-1. Il exige PDF/A-3 et parle de déclaration. Les valeurs absentes du
+  fichier (niveau de conformité, relation de la pièce jointe) ne sont plus remplacées par une
+  valeur par défaut.
+- Ouverture d'un dossier : la validation de chaque document relançait l'affichage de toute la
+  liste. Les validations passent par une file d'attente, document affiché en premier.
+- Le verdict Schematron ne se mettait pas à jour à la fin de la validation du document affiché.
 
 ## [0.5.0] - 2026-10-02
 

@@ -321,32 +321,58 @@ function getFile(id) {
   return state.files.find((f) => f.id === id);
 }
 
-async function triggerSchematronValidation(entry) {
-  if (!entry || !entry.result || entry.result._schematronRunning || entry.result.schematron) return;
-  if (typeof SchematronValidator === "undefined") return;
-  entry.result._schematronRunning = true;
-  try {
-    const res = await SchematronValidator.validate(entry.result.xml_pretty, entry.result.format);
-    entry.result.schematron = res;
-    if (state.selected === entry.id) {
-      const pane = byId("pane-data");
-      const oldVerdicts = byId("verdicts");
-      if (oldVerdicts && pane) {
-        oldVerdicts.replaceWith(verdictStrip(entry));
-      }
-      const oldSch = byId("schematron-rules");
-      if (oldSch) {
-        const newSch = schematronSection(entry);
-        if (newSch) oldSch.replaceWith(newSch);
-      }
-    }
-    renderList();
-    if (state.batch) renderBatch();
-  } catch (err) {
-    console.error("Erreur Schematron :", err);
-  } finally {
-    entry.result._schematronRunning = false;
+/* Schematron officiel : une file d'attente, un document à la fois, le document affiché en
+   premier. Chaque validation occupe le fil principal (jusqu'à une seconde et plus sur une
+   grosse facture) : entre deux documents, la main est rendue à l'interface, et la liste
+   n'est rafraîchie qu'une fois par lot, pas à chaque document. */
+const schematronQueue = [];
+let schematronBusy = false;
+let schematronRefreshTimer = null;
+
+function refreshSchematronViews(entry) {
+  if (state.selected === entry.id) {
+    const oldVerdicts = byId("verdicts");
+    if (oldVerdicts) oldVerdicts.replaceWith(verdictStrip(entry));
+    const oldSch = byId("schematron-rules");
+    const newSch = oldSch && schematronSection(entry);
+    if (newSch) oldSch.replaceWith(newSch);
   }
+  clearTimeout(schematronRefreshTimer);
+  schematronRefreshTimer = setTimeout(() => {
+    if (state.batch && !state.selected) renderBatch();
+  }, schematronQueue.length ? 1000 : 0);
+}
+
+async function pumpSchematron() {
+  if (schematronBusy) return;
+  schematronBusy = true;
+  while (schematronQueue.length) {
+    const entry = schematronQueue.shift();
+    if (!entry.result || entry.result.schematron || !state.files.includes(entry)) continue;
+    entry.result._schematronRunning = true;
+    try {
+      entry.result.schematron = await SchematronValidator.validate(entry.result.xml_pretty, entry.result.format);
+    } catch (err) {
+      entry.result.schematron = { evalue: false, erreur_moteur: String(err) };
+    } finally {
+      entry.result._schematronRunning = false;
+    }
+    refreshSchematronViews(entry);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  schematronBusy = false;
+}
+
+function triggerSchematronValidation(entry, first) {
+  if (!entry || !entry.result || entry.result.schematron || entry.result._schematronRunning) return;
+  if (typeof SchematronValidator === "undefined") return;
+  const queued = schematronQueue.indexOf(entry);
+  if (queued !== -1) {
+    if (!first) return;
+    schematronQueue.splice(queued, 1);
+  }
+  if (first) schematronQueue.unshift(entry); else schematronQueue.push(entry);
+  pumpSchematron();
 }
 
 function selectFile(id) {
@@ -359,9 +385,7 @@ function selectFile(id) {
   state.pdfDoc = null;
   state.pdfSource = null;
   const f = getFile(id);
-  if (f && f.result && !f.result.schematron && !f.result._schematronRunning) {
-    triggerSchematronValidation(f);
-  }
+  triggerSchematronValidation(f, true);
   renderList();
   renderFileView();
 }
@@ -1043,8 +1067,8 @@ function renderLinesOnly(f) {
 
 /* ---- verdicts : lecture, calculs et règles EN 16931 ne sont jamais confondus ---- */
 
-const NOT_CHECKED = ["schéma XSD"];
-const NOT_CHECKED_NOTE = "Non contrôlé : " + NOT_CHECKED.join(", ") + ". Schematron officiel CEN, conteneur PDF/A-3, calculs et règles métier contrôlés.";
+const NOT_CHECKED = ["schéma XSD", "conformité PDF/A-3 réelle du fichier (seules ses métadonnées déclarées sont lues)", "règles nationales (CIUS)"];
+const NOT_CHECKED_NOTE = "Non contrôlés : " + NOT_CHECKED.join(" ; ") + ". Le Schematron officiel EN 16931 est exécuté sur le XML ; aucun de ces verdicts ne vaut certification.";
 
 /* Verdicts indépendants d'un document, plus le nombre d'autres alertes. */
 function invoiceVerdicts(f, extraAlerts = 0) {
@@ -1076,7 +1100,10 @@ function invoiceVerdicts(f, extraAlerts = 0) {
     if (sch.evalue) {
       schematron = sch.non_conformes > 0
         ? { etat: "ecart", court: plural(sch.non_conformes, "non-conformité"), label: plural(sch.non_conformes, "règle") + " Schematron officiel non respectée" + (sch.non_conformes > 1 ? "s" : "") }
-        : { etat: "conforme", court: "Conforme", label: "Schematron officiel respecté" };
+        : { etat: "conforme", court: "Respecté", label: "Schematron officiel respecté" };
+    } else {
+      // Moteur indisponible ou document qu'aucune règle ne reconnaît : jamais présenté comme un succès.
+      schematron = { etat: "non_verifiable", court: "Non évalué", label: "Schematron officiel non évalué" };
     }
   } else if (r._schematronRunning) {
     schematron = { etat: "info", court: "En cours…", label: "Schematron officiel en cours…" };
@@ -1085,10 +1112,13 @@ function invoiceVerdicts(f, extraAlerts = 0) {
   let conteneur = null;
   if (r.conteneur && r.conteneur.est_pdf) {
     const c = r.conteneur;
-    if (c.est_pdfa && c.piece_jointe_declaree) {
-      conteneur = { etat: "conforme", court: c.pdfa_version || "PDF/A-3", label: "Conteneur " + (c.pdfa_version || "PDF/A-3") + " valide" };
+    // Ce sont des déclarations lues dans le PDF, pas une validation ISO 19005-3 du fichier.
+    if (c.est_pdfa && c.pdfa_part === 3 && c.piece_jointe_declaree) {
+      conteneur = { etat: "conforme", court: "PDF/A-3 déclaré", label: "PDF/A-3 déclaré, pièce jointe XML déclarée" };
+    } else if (!c.piece_jointe_declaree) {
+      conteneur = { etat: "alerte", court: "Pièce jointe", label: "Pièce jointe XML non déclarée dans le PDF" };
     } else {
-      conteneur = { etat: "alerte", court: "Conteneur", label: "Conteneur PDF non conforme PDF/A-3" };
+      conteneur = { etat: "alerte", court: "PDF/A-3", label: c.est_pdfa ? (c.pdfa_version || "PDF/A") + " déclaré, PDF/A-3 attendu" : "PDF/A-3 non déclaré dans le PDF" };
     }
   }
 

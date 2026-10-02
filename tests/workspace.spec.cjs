@@ -289,7 +289,7 @@ test('tableau multi-factures : totaux, filtres, export et menu contextuel', asyn
   await expect(rows.first()).toContainText('1 écart');
   await expect(rows.first()).toContainText('Non évaluées');
   await expect(rows.first()).toContainText('doublon');
-  await expect(page.locator('#batch-note')).toContainText('Non contrôlé : schéma XSD');
+  await expect(page.locator('#batch-note')).toContainText('Aucun verdict ne vaut certification');
   await expect(rows.first()).toContainText('échue depuis 31 j');
   await expect(rows.last()).toContainText('Non lue');
   await expect(page.locator('#batch-table tfoot tr')).toContainText('Total EUR — 2 documents');
@@ -494,8 +494,9 @@ test('règles EN 16931 affichées, filtrées dans le tableau, et impression', as
   await expect(rules).toHaveAttribute('open', '');
   // Verdicts séparés : des calculs cohérents n'effacent pas une règle non respectée.
   const verdicts = page.locator('#verdicts .ctl-chip');
-  await expect(verdicts).toHaveText(['Lecture réussie', 'Calculs cohérents', '1 règle EN 16931 non respectée', 'Schematron officiel respecté']);
-  await expect(page.locator('#verdicts .verdict-note')).toContainText('Non contrôlé : schéma XSD');
+  await expect(verdicts).toHaveText(['Lecture réussie', 'Calculs cohérents', '1 règle EN 16931 non respectée', 'Schematron officiel non évalué']);
+  await expect(page.locator('#verdicts .verdict-note')).toContainText('Non contrôlés : schéma XSD');
+  await expect(page.locator('#verdicts .verdict-note')).toContainText('ne vaut certification');
   await expect(rules.locator('summary')).toContainText('1 non respectée');
   await expect(rules.locator('summary')).toContainText('2 respectées');
   await expect(rules.locator('tbody tr').first()).toContainText('BR-07');
@@ -523,7 +524,7 @@ test('règles EN 16931 affichées, filtrées dans le tableau, et impression', as
   await page.locator('#btn-control-report').click();
   await expect.poll(() => page.evaluate(() => window.__report?.report.regles_en16931?.non_conformes)).toBe(1);
   expect(await page.evaluate(() => window.__report.report.verdicts)).toEqual({ lecture: 'Lecture réussie', calculs: 'Calculs cohérents',
-    regles_en16931: '1 règle EN 16931 non respectée', autres_alertes: 0, non_controle: ['schéma XSD'] });
+    regles_en16931: '1 règle EN 16931 non respectée', autres_alertes: 0, non_controle: ['schéma XSD', 'conformité PDF/A-3 réelle du fichier (seules ses métadonnées déclarées sont lues)', 'règles nationales (CIUS)'] });
   await page.locator('#tab-batch').click();
   await expect(page.locator('#batch-table tbody tr.batch-row')).toContainText('1 non respectée');
   await expect(page.locator('#batch-table tbody tr.batch-row')).toContainText('Cohérents');
@@ -656,5 +657,61 @@ test('bibliothèque : recherche, ouverture, retrait, historique des prix, régla
   await page.locator('#library-reset').click();
   await expect(page.locator('#workspace-message')).toContainText('Bibliothèque réinitialisée');
   await expect(page.locator('#library-reset')).toBeHidden();
+  expect(errors).toEqual([]);
+});
+
+// Facture CII fictive, aux espaces de noms réels : le Schematron officiel s'y applique.
+const CII_OFFICIEL = `<rsm:CrossIndustryInvoice xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100" xmlns:ram="urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100" xmlns:udt="urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100">
+<rsm:ExchangedDocumentContext><ram:GuidelineSpecifiedDocumentContextParameter><ram:ID>urn:cen.eu:en16931:2017</ram:ID></ram:GuidelineSpecifiedDocumentContextParameter></rsm:ExchangedDocumentContext>
+<rsm:ExchangedDocument><ram:ID>F-1</ram:ID><ram:TypeCode>380</ram:TypeCode><ram:IssueDateTime><udt:DateTimeString format="102">20260924</udt:DateTimeString></ram:IssueDateTime></rsm:ExchangedDocument>
+<rsm:SupplyChainTradeTransaction>
+<ram:IncludedSupplyChainTradeLineItem><ram:AssociatedDocumentLineDocument><ram:LineID>1</ram:LineID></ram:AssociatedDocumentLineDocument><ram:SpecifiedTradeProduct><ram:Name>Papier</ram:Name></ram:SpecifiedTradeProduct><ram:SpecifiedLineTradeAgreement><ram:NetPriceProductTradePrice><ram:ChargeAmount>50.00</ram:ChargeAmount></ram:NetPriceProductTradePrice></ram:SpecifiedLineTradeAgreement><ram:SpecifiedLineTradeDelivery><ram:BilledQuantity unitCode="C62">2</ram:BilledQuantity></ram:SpecifiedLineTradeDelivery><ram:SpecifiedLineTradeSettlement><ram:ApplicableTradeTax><ram:TypeCode>VAT</ram:TypeCode><ram:CategoryCode>S</ram:CategoryCode><ram:RateApplicablePercent>20.00</ram:RateApplicablePercent></ram:ApplicableTradeTax><ram:SpecifiedTradeSettlementLineMonetarySummation><ram:LineTotalAmount>100.00</ram:LineTotalAmount></ram:SpecifiedTradeSettlementLineMonetarySummation></ram:SpecifiedLineTradeSettlement></ram:IncludedSupplyChainTradeLineItem>
+<ram:ApplicableHeaderTradeAgreement>
+<ram:SellerTradeParty><ram:Name>Vendeur SAS</ram:Name><ram:PostalTradeAddress><ram:CountryID>FR</ram:CountryID></ram:PostalTradeAddress><ram:SpecifiedTaxRegistration><ram:ID schemeID="VA">FR11123456782</ram:ID></ram:SpecifiedTaxRegistration></ram:SellerTradeParty>
+<ram:BuyerTradeParty><ram:Name>Acheteur SARL</ram:Name><ram:PostalTradeAddress><ram:CountryID>FR</ram:CountryID></ram:PostalTradeAddress></ram:BuyerTradeParty>
+</ram:ApplicableHeaderTradeAgreement>
+<ram:ApplicableHeaderTradeDelivery/>
+<ram:ApplicableHeaderTradeSettlement><ram:InvoiceCurrencyCode>EUR</ram:InvoiceCurrencyCode>
+<ram:ApplicableTradeTax><ram:CalculatedAmount>20.00</ram:CalculatedAmount><ram:TypeCode>VAT</ram:TypeCode><ram:BasisAmount>100.00</ram:BasisAmount><ram:CategoryCode>S</ram:CategoryCode><ram:RateApplicablePercent>20.00</ram:RateApplicablePercent></ram:ApplicableTradeTax>
+<ram:SpecifiedTradePaymentTerms><ram:DueDateDateTime><udt:DateTimeString format="102">20261030</udt:DateTimeString></ram:DueDateDateTime></ram:SpecifiedTradePaymentTerms>
+<ram:SpecifiedTradeSettlementHeaderMonetarySummation><ram:LineTotalAmount>100.00</ram:LineTotalAmount><ram:TaxBasisTotalAmount>100.00</ram:TaxBasisTotalAmount><ram:TaxTotalAmount currencyID="EUR">20.00</ram:TaxTotalAmount><ram:GrandTotalAmount>120.00</ram:GrandTotalAmount><ram:DuePayableAmount>120.00</ram:DuePayableAmount></ram:SpecifiedTradeSettlementHeaderMonetarySummation>
+</ram:ApplicableHeaderTradeSettlement>
+</rsm:SupplyChainTradeTransaction></rsm:CrossIndustryInvoice>`;
+
+test('Schematron officiel : facture respectée, erreur de total détectée, document non reconnu jamais « respecté »', async ({ page }) => {
+  test.setTimeout(60000);
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await mockBackend(page, null, { synthese: { numero: 'X', vendeur: 'V', devise: 'EUR' },
+    sections: [{ name: 'Vendeur', rows: [{ title: 'Raison sociale', value: 'V', path: 'Invoice/x' }] }] });
+  await page.goto(url);
+  const run = (xml, format) => page.evaluate(async ({ xml, format }) => {
+    const res = await SchematronValidator.validate(xml, format);
+    return { evalue: res.evalue, ok: !!res.ok, fatals: [...new Set((res.erreurs || []).filter(e => e.flag === 'fatal').map(e => e.id))], fired: res.regles_declenchees || 0 };
+  }, { xml, format });
+
+  // Feuilles officielles réelles, exécutées dans la page.
+  const valid = await run(CII_OFFICIEL, 'CII');
+  expect(valid).toMatchObject({ evalue: true, ok: true, fatals: [] });
+  expect(valid.fired).toBeGreaterThan(5);
+  const wrong = await run(CII_OFFICIEL.replace('<ram:GrandTotalAmount>120.00', '<ram:GrandTotalAmount>120.01'), 'CII');
+  expect(wrong.ok).toBe(false);
+  expect(wrong.fatals).toContain('BR-CO-15');
+  const noBuyer = await run(CII_OFFICIEL.replace('<ram:Name>Acheteur SARL</ram:Name>', ''), 'CII');
+  expect(noBuyer.fatals).toContain('BR-07');
+
+  // Un XML que le Schematron ne reconnaît pas ne déclenche aucune règle : ce n'est pas un succès.
+  for (const [xml, format] of [['<Invoice>FAC-2026-123</Invoice>', 'CII'], ['<a><b/></a>', 'UBL'], [CII_OFFICIEL, 'UBL']]) {
+    const unknown = await run(xml, format);
+    expect(unknown).toMatchObject({ evalue: false, ok: false, fired: 0 });
+  }
+
+  // Dans l'interface : verdict et bloc dédiés, jamais « respecté » pour un document non reconnu.
+  await page.locator('#file-input').setInputFiles({ name: 'inconnu.xml', mimeType: 'text/xml', buffer: Buffer.from('<Invoice/>') });
+  await expect(page.locator('#fv-name')).toHaveText('inconnu.xml');
+  await page.getByRole('button', { name: 'Données', exact: true }).click();
+  await expect(page.locator('#verdicts')).toContainText('Schematron officiel non évalué');
+  await expect(page.locator('#verdicts')).not.toContainText('Schematron officiel respecté');
+  await expect(page.locator('#schematron-rules')).toContainText('Aucune règle officielle ne s\'applique');
   expect(errors).toEqual([]);
 });

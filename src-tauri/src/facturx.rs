@@ -2100,6 +2100,98 @@ mod tests {
         assert_eq!(r["conteneur"]["piece_jointe_declaree"], true);
     }
 
+    /// PDF minimal bien forme, construit avec lopdf : XML en piece jointe, avec ou
+    /// sans declaration /AF, et metadonnees XMP optionnelles.
+    fn pdf_factur_x(xmp: Option<&str>, declared: bool, relationship: Option<&str>) -> Vec<u8> {
+        use lopdf::{dictionary, Document, Object, Stream};
+        let mut doc = Document::with_version("1.7");
+        let pages = doc.new_object_id();
+        let page = doc.add_object(dictionary! { "Type" => "Page", "Parent" => pages, "MediaBox" => vec![0.into(), 0.into(), 595.into(), 842.into()] });
+        doc.objects.insert(pages, Object::Dictionary(dictionary! { "Type" => "Pages", "Kids" => vec![page.into()], "Count" => 1 }));
+        let embedded = doc.add_object(Stream::new(dictionary! { "Type" => "EmbeddedFile" }, CII.as_bytes().to_vec()));
+        let mut spec = dictionary! {
+            "Type" => "Filespec",
+            "F" => Object::string_literal("factur-x.xml"),
+            "UF" => Object::string_literal("factur-x.xml"),
+            "EF" => dictionary! { "F" => embedded },
+        };
+        if let Some(rel) = relationship {
+            spec.set("AFRelationship", Object::Name(rel.as_bytes().to_vec()));
+        }
+        let filespec = doc.add_object(spec);
+        let mut catalog = dictionary! { "Type" => "Catalog", "Pages" => pages };
+        if declared {
+            catalog.set("AF", vec![filespec.into()]);
+        }
+        if let Some(xmp) = xmp {
+            let meta = doc.add_object(Stream::new(dictionary! { "Type" => "Metadata", "Subtype" => "XML" }, xmp.as_bytes().to_vec()));
+            catalog.set("Metadata", meta);
+        }
+        let root = doc.add_object(catalog);
+        doc.trailer.set("Root", root);
+        let mut out = Vec::new();
+        doc.save_to(&mut out).unwrap();
+        out
+    }
+
+    fn xmp(part: &str, level: &str) -> String {
+        format!("<x:xmpmeta><rdf:RDF><rdf:Description><pdfaid:part>{part}</pdfaid:part><pdfaid:conformance>B</pdfaid:conformance><fx:ConformanceLevel>{level}</fx:ConformanceLevel></rdf:Description></rdf:RDF></x:xmpmeta>")
+    }
+
+    fn conteneur_checks(r: &Value) -> Vec<(String, String)> {
+        r["controles"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|c| c["famille"] == "conteneur")
+            .map(|c| (c["regle"].as_str().unwrap().to_string(), c["etat"].as_str().unwrap().to_string()))
+            .collect()
+    }
+
+    #[test]
+    fn conteneur_pdf_declarations_lues() {
+        // PDF/A-3 declare, piece jointe declaree dans /AF, profil coherent avec le XML.
+        let r = parse_file("f.pdf", &pdf_factur_x(Some(&xmp("3", "EN 16931")), true, Some("Alternative"))).unwrap();
+        assert_eq!(r["kind"], "pdf");
+        assert_eq!(r["format"], "CII");
+        let c = &r["conteneur"];
+        assert_eq!((c["est_pdfa"].clone(), c["pdfa_part"].clone(), c["pdfa_version"].clone()), (json!(true), json!(3), json!("PDF/A-3B")));
+        assert_eq!(c["piece_jointe_declaree"], true);
+        assert_eq!(c["af_relationship"], "Alternative");
+        assert_eq!(c["profil_xmp"], "EN 16931");
+        let checks = conteneur_checks(&r);
+        assert!(checks.iter().all(|(_, etat)| etat == "conforme"), "{checks:?}");
+        // Le libelle parle de declaration, pas de conformite du fichier.
+        assert_eq!(checks[0].0, "PDF/A-3 déclaré dans les métadonnées");
+        let detail = r["controles"].as_array().unwrap().iter().find(|x| x["famille"] == "conteneur").unwrap()["detail"].as_str().unwrap();
+        assert!(detail.contains("n'est pas vérifiée"));
+    }
+
+    #[test]
+    fn conteneur_pdf_ecarts() {
+        // PDF/A-1 : alerte. Aucune relation declaree : rien d'invente.
+        let r = parse_file("f.pdf", &pdf_factur_x(Some(&xmp("1", "EN 16931")), true, None)).unwrap();
+        let checks = conteneur_checks(&r);
+        assert_eq!(checks[0], ("PDF/A-3 déclaré dans les métadonnées".to_string(), "alerte".to_string()));
+        assert!(r["conteneur"]["af_relationship"].is_null());
+        let pj = r["controles"].as_array().unwrap().iter().find(|x| x["regle"] == "Pièce jointe XML déclarée").unwrap();
+        assert!(pj["constate"].as_str().unwrap().contains("relation : non précisée"), "{pj}");
+        // Sans metadonnees XMP ni declaration /AF : deux alertes, profil non renseigne.
+        let r = parse_file("f.pdf", &pdf_factur_x(None, false, None)).unwrap();
+        assert_eq!(r["conteneur"]["est_pdfa"], false);
+        assert_eq!(r["conteneur"]["piece_jointe_declaree"], false);
+        let states: Vec<String> = conteneur_checks(&r).into_iter().map(|(_, e)| e).collect();
+        assert_eq!(states, ["alerte", "alerte", "info"]);
+        // Profil annonce dans le PDF different de celui du XML : ecart.
+        let r = parse_file("f.pdf", &pdf_factur_x(Some(&xmp("3", "MINIMUM")), true, Some("Data"))).unwrap();
+        let profil = conteneur_checks(&r).into_iter().find(|(regle, _)| regle == "Profil Factur-X annoncé").unwrap();
+        assert_eq!(profil.1, "ecart");
+        // Un XML seul n'a pas de conteneur.
+        let r = parse_file("f.xml", CII.as_bytes()).unwrap();
+        assert!(r.get("conteneur").is_none());
+        assert!(conteneur_checks(&r).is_empty());
+    }
+
     #[test]
     fn fichiers_rejetes() {
         let e = parse_file("x.bin", b"\x00\x01\x02").unwrap_err();

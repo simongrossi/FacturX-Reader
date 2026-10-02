@@ -11,7 +11,7 @@ l'utilisation et [VALIDATION.md](VALIDATION.md) pour le bilan de vérification P
 | P0 | Valider l'existant | Presque terminé : reste macOS, Linux et l'installation des paquets |
 | P1 | Confort et fiabilité du moteur | Aux deux tiers : reste la provenance des valeurs, le parseur PDF, « Ouvrir avec », l'export Excel |
 | P2 | Exploiter des lots de factures | Presque terminé : reste la recherche dans le PDF, le dossier surveillé, l'échéancier |
-| P3 | Conformité et distribution | Commencé : règles métier EN 16931 natives ; reste XSD, Schematron officiel, PDF/A, signature |
+| P3 | Conformité et distribution | Bien avancé : Schematron officiel et déclarations du conteneur ; reste XSD, PDF/A réel, signature des builds |
 | P4 | API, MCP et connecteurs | Pas commencé |
 
 Versions publiées (pré-versions, builds non signés) :
@@ -133,12 +133,22 @@ Versions publiées (pré-versions, builds non signés) :
   TVA, reliées aux données concernées. Hors Schematron officiel.
 - [ ] Compléter les règles natives : listes de codes (pays, devises, unités, types de facture),
   remises et frais de ligne, règles nationales françaises (CIUS).
-- [x] Validation officielle par Schematron EN 16931 (CEN / Commission européenne v1.3.16)
-  exécutée 100 % localement dans la WebView via SaxonJS (SEF). Reste : validation schéma XSD.
-- [x] Validation du conteneur PDF/A-3, métadonnées XMP, pièces jointes déclarées (/AF) et
-  cohérence avec le profil XML annoncé.
-- [x] Verdicts séparés : lecture réussie, calculs cohérents, règles EN 16931 respectées, Schematron
-  officiel respecté, conteneur PDF/A-3 valide, avec mention de ce qui n'est pas contrôlé (schéma XSD).
+- [x] Schematron officiel EN 16931 (Commission européenne, v1.3.16) exécuté localement dans la
+  WebView par SaxonJS, sur CII et UBL.
+- [x] Conteneur PDF : déclarations lues (PDF/A-3 annoncé, pièce jointe déclarée, relation, profil
+  annoncé comparé au XML). Ce n'est pas une validation ISO 19005-3.
+- [x] Verdicts séparés : lecture, calculs, règles EN 16931, Schematron officiel, conteneur, avec
+  la mention de ce qui n'est pas contrôlé.
+- [ ] Schematron dans un fil séparé (Web Worker) : aujourd'hui chaque validation occupe
+  l'interface, jusqu'à plus d'une seconde sur une grosse facture.
+- [ ] Script reproductible pour régénérer les feuilles compilées (`*.sef.json`) à partir d'une
+  version donnée du dépôt officiel ; le dépôt ne contient aujourd'hui que le résultat.
+- [ ] Schematron des profils Factur-X (MINIMUM, BASIC WL, BASIC, EXTENDED), pour ne plus évaluer
+  ces profils avec les seules règles EN 16931.
+- [ ] Valider le XML d'origine plutôt que sa version réindentée.
+- [ ] Validation du schéma XSD.
+- [ ] Validation PDF/A-3 réelle du fichier (type veraPDF).
+- [ ] Réexaminer `unsafe-eval` dans la politique de sécurité, ajouté pour SaxonJS.
 - [ ] Comparaison PDF vs XML : montants clés recherchés dans le texte du PDF, écart mis en
   évidence (PDF texte uniquement). Puis synchronisation au clic XML ↔ PDF.
 - [ ] Signature électronique du PDF : détecter sa présence, puis vérifier l'intégrité.
@@ -193,9 +203,9 @@ par projet. Ces deux derniers supposent plusieurs utilisateurs et un serveur : u
 ## Limites connues
 
 - La recherche porte sur les données XML, pas sur le texte du PDF ni les contenus binaires.
-- Les règles EN 16931 sont une implémentation native, pas le Schematron officiel ; ni le schéma
-  XSD ni le conteneur PDF/A-3 ne sont contrôlés. Aucun appel réseau ne vérifie l'existence
-  d'un SIREN ni le titulaire d'un IBAN.
+- Le Schematron officiel EN 16931 est exécuté, mais ni le schéma XSD, ni la conformité PDF/A-3
+  réelle du fichier, ni les règles nationales ne sont contrôlés. Aucun appel réseau ne vérifie
+  l'existence d'un SIREN ni le titulaire d'un IBAN.
 - Le tableau porte sur les documents ouverts (500 au maximum). La bibliothèque ne connaît que les
   factures ouvertes au moins une fois sur ce poste : la première facture d'un fournisseur ne
   déclenche aucune alerte d'IBAN.

@@ -665,18 +665,18 @@ fn synthese(s: &Map<String, Value>, t: &Totals, type_code: &str, is_credit_note:
 fn check_container(out: &mut Vec<Value>, conteneur: &super::PdfContainerInfo, xml_profil: Option<&str>) {
     // 1. Conteneur PDF/A-3
     if conteneur.est_pdfa && conteneur.pdfa_part == Some(3) {
-        let conf = conteneur.pdfa_conformance.as_deref().unwrap_or("B");
+        let conf = conteneur.pdfa_conformance.as_deref().unwrap_or("");
         out.push(json!({
-            "regle": "Conteneur PDF/A-3",
+            "regle": "PDF/A-3 déclaré dans les métadonnées",
             "etat": "conforme",
             "attendu": "PDF/A-3 (ISO 19005-3)",
             "constate": format!("PDF/A-3{}", conf),
-            "detail": "Le fichier respecte le format de conteneur PDF/A-3 requis par Factur-X / ZUGFeRD.",
+            "detail": "Déclaration lue dans les métadonnées XMP. La conformité réelle du fichier à ISO 19005-3 n'est pas vérifiée.",
         }));
     } else if conteneur.est_pdfa {
         let part_str = conteneur.pdfa_part.map(|p| p.to_string()).unwrap_or_else(|| "?".into());
         out.push(json!({
-            "regle": "Conteneur PDF/A-3",
+            "regle": "PDF/A-3 déclaré dans les métadonnées",
             "etat": "alerte",
             "attendu": "PDF/A-3 (ISO 19005-3)",
             "constate": format!("PDF/A-{}", part_str),
@@ -684,7 +684,7 @@ fn check_container(out: &mut Vec<Value>, conteneur: &super::PdfContainerInfo, xm
         }));
     } else {
         out.push(json!({
-            "regle": "Conteneur PDF/A-3",
+            "regle": "PDF/A-3 déclaré dans les métadonnées",
             "etat": "alerte",
             "attendu": "PDF/A-3 (ISO 19005-3)",
             "constate": "Non déclaré PDF/A",
@@ -695,13 +695,13 @@ fn check_container(out: &mut Vec<Value>, conteneur: &super::PdfContainerInfo, xm
     // 2. Pièce jointe XML déclarée
     let pj_name = conteneur.nom_piece_jointe.as_deref().unwrap_or("factur-x.xml");
     if conteneur.piece_jointe_declaree {
-        let rel_txt = conteneur.af_relationship.as_deref().unwrap_or("Alternative");
+        let rel_txt = conteneur.af_relationship.as_deref().unwrap_or("non précisée");
         out.push(json!({
             "regle": "Pièce jointe XML déclarée",
             "etat": "conforme",
             "attendu": "Déclarée dans le catalogue PDF (/AF ou /EmbeddedFiles)",
             "constate": format!("{} (relation : {})", pj_name, rel_txt),
-            "detail": "La pièce jointe XML est formellement déclarée et rattachée selon les spécifications Factur-X.",
+            "detail": "La pièce jointe XML est déclarée dans le catalogue du PDF.",
         }));
     } else {
         out.push(json!({
