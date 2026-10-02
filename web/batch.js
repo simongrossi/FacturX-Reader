@@ -18,6 +18,7 @@ const BATCH_COLS = [
   { key: "a_payer", title: "À payer", num: true },
   { key: "devise", title: "Devise" },
   { key: "etat", title: "Contrôles" },
+  { key: "suivi", title: "Vérification" },
 ];
 const BATCH_MONEY = BATCH_COLS.filter((c) => c.num).map((c) => c.key);
 
@@ -61,6 +62,8 @@ function batchRows() {
       jours: s ? s.jours_echeance : null,
       ht: s ? s.ht : "", tva: s ? s.tva : "", ttc: s ? s.ttc : "", a_payer: s ? s.a_payer : "",
       devise: s ? s.devise : "",
+      suivi: f.status === "ok" ? readReview(f).status : "",
+      commentaire: f.status === "ok" ? readReview(f).comment : "",
     };
     const parts = [];
     if (f.status === "error") { row.etatKey = "erreur"; parts.push("Erreur de lecture"); }
@@ -82,8 +85,10 @@ function batchRows() {
 
 function batchVisibleRows() {
   const q = batch.query.trim().toLowerCase();
-  let rows = batchRows().filter(BATCH_FILTERS[batch.filter] || BATCH_FILTERS.all);
-  if (q) rows = rows.filter((r) => BATCH_COLS.map((c) => r[c.key]).join(" ").toLowerCase().includes(q));
+  const filter = batch.filter.startsWith("s:") ? (r) => r.suivi === batch.filter.slice(2)
+    : BATCH_FILTERS[batch.filter] || BATCH_FILTERS.all;
+  let rows = batchRows().filter(filter);
+  if (q) rows = rows.filter((r) => [...BATCH_COLS.map((c) => r[c.key]), r.commentaire].join(" ").toLowerCase().includes(q));
   const { key, dir } = batch.sort;
   const col = BATCH_COLS.find((c) => c.key === key);
   if (col) rows.sort((a, b) => {
@@ -110,11 +115,11 @@ function batchTotals(rows) {
 }
 
 function batchExportRows() {
-  const table = [[...BATCH_COLS.map((c) => c.title), "Jours avant échéance", "Détail des contrôles"]];
+  const table = [[...BATCH_COLS.map((c) => c.title), "Jours avant échéance", "Détail des contrôles", "Commentaire"]];
   for (const r of batchVisibleRows()) {
     table.push([
       ...BATCH_COLS.map((c) => c.num ? String(r[c.key]).replace(".", ",") : String(r[c.key] ?? "")),
-      r.jours == null ? "" : String(r.jours), r.detail || "",
+      r.jours == null ? "" : String(r.jours), r.detail || "", r.commentaire || "",
     ]);
   }
   return table;
@@ -152,7 +157,13 @@ function renderBatch() {
       const td = tr.insertCell();
       const v = r[col.key] ?? "";
       td.dataset.value = v;
-      if (col.key === "etat") {
+      if (col.key === "suivi") {
+        if (r.f.status !== "ok") continue;
+        const select = reviewSelect(r.f);
+        select.addEventListener("click", (e) => e.stopPropagation());
+        select.addEventListener("change", () => renderBatch());
+        td.appendChild(select);
+      } else if (col.key === "etat") {
         td.appendChild(Object.assign(document.createElement("span"), { className: "ctl-chip ctl-" + r.etatKey, textContent: v }));
       } else if (col.num) {
         td.classList.add("num");
@@ -186,6 +197,7 @@ function renderBatch() {
       td.textContent = batchMoney.format(t[k] / 100);
     }
     tr.insertCell().textContent = devise;
+    tr.insertCell();
     tr.insertCell();
   }
 }

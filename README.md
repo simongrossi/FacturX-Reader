@@ -109,6 +109,8 @@ Le surlignage jaune porte sur la ligne de l'élément trouvé.
 
 - **PDF** — rendu du PDF (pages, ajuster, zoom, enregistrer).
 - **PDF du XML** — présent quand le XML embarque un PDF distinct du fichier déposé.
+- **PDF et données** — les deux côte à côte, chacun avec son défilement (présent quand la
+  facture a un PDF).
 - **Données** — synthèse (n°, dates, vendeur, acheteur, totaux), lignes de facture, puis détail
   vendeur / acheteur / livraison / paiement / totaux. Chaque cellule est cliquable : valeur,
   chemin XML, copie, saut vers la ligne correspondante dans « XML complet ».
@@ -143,6 +145,16 @@ Une facture avec écart porte une pastille rouge dans la liste des fichiers.
 
 Ces contrôles ne sont pas une validation EN 16931 (XSD / Schematron) : voir la roadmap. Aucun
 appel réseau : l'existence du SIREN ou la propriété de l'IBAN ne sont pas vérifiées.
+
+### Suivi de vérification et rapport
+
+Sous les contrôles, le bloc **Suivi de vérification** porte un statut manuel (*À vérifier*,
+*Vérifiée*, *Anomalie*), un commentaire de facture, des commentaires par ligne et le bouton
+**Pointer toutes les lignes**. Ce suivi est enregistré localement, associé à l'empreinte du XML ;
+il ne dit rien du paiement. Le statut se retrouve dans le tableau multi-factures.
+
+**Rapport JSON** (en-tête du bloc Contrôles, ou menu Fichier) enregistre la synthèse de la
+facture, tous les contrôles et le suivi de vérification.
 
 ### Export des lignes
 
@@ -227,6 +239,7 @@ web/                       interface (aucune étape de compilation)
   index.html, app.js, style.css
   workspace.js             accueil, onglets, session
   batch.js                 tableau multi-factures
+  review.js                suivi de vérification, rapport de contrôle
   menu.js                  menus contextuels (tableaux, onglets)
   menubar.js               barre de menus
   pdfjs/                   PDF.js embarqué
@@ -315,6 +328,7 @@ cargo run --example dump -- ../samples/facture.pdf > facture.json
 | `get_pointage` / `set_pointage` / `clear_pointage` | pointages d'une facture |
 | `save_pdf` | boîte « Enregistrer sous » et écriture du PDF |
 | `save_text` | boîte « Enregistrer sous » et écriture d'un export CSV |
+| `save_control_report` | boîte « Enregistrer sous » et écriture du rapport de contrôle JSON |
 | `app_info` | version et emplacement des pointages |
 
 ## Auteurs et licence

@@ -109,6 +109,9 @@
           <option value="doublon">Doublon</option>
           <option value="avoir">Avoirs</option>
           <option value="erreur">Non lues</option>
+          <option value="s:À vérifier">Suivi : à vérifier</option>
+          <option value="s:Vérifiée">Suivi : vérifiée</option>
+          <option value="s:Anomalie">Suivi : anomalie</option>
         </select>
         <span id="batch-count" class="lines-count"></span>
         <button id="batch-export" class="btn btn-sm" type="button" title="Enregistrer le tableau affiché dans un fichier CSV (Excel)">Exporter CSV</button>
@@ -130,12 +133,14 @@
 
       <nav class="tabs" id="tabs">
         <button class="tab active" data-tab="pdf">PDF</button>
-        <button class="tab" data-tab="xmlpdf" hidden title="PDF embarque dans le XML de la facture">PDF du XML</button>
+        <button class="tab" data-tab="xmlpdf" hidden title="PDF embarqué dans le XML de la facture">PDF du XML</button>
         <button class="tab" data-tab="data">Données</button>
+        <button class="tab" data-tab="dual" hidden title="PDF et données côte à côte">PDF et données</button>
         <button class="tab" data-tab="xml">XML complet</button>
         <button class="tab" data-tab="raw">XML brut</button>
       </nav>
 
+      <div id="reading-panes">
       <section id="tab-pdf" class="tabpane active">
         <div class="pdf-toolbar">
           <button id="pdf-prev" class="btn" title="Page précédente">‹</button>
@@ -184,6 +189,7 @@
         </div>
         <pre id="raw-xml" class="raw-xml"></pre>
       </section>
+      </div>
     </div>
   </main>
 </div>
@@ -276,6 +282,7 @@
 
 <script src="app.js"></script>
 <script src="workspace.js"></script>
+<script src="review.js"></script>
 <script src="batch.js"></script>
 <script src="menu.js"></script>
 <script src="menubar.js"></script>

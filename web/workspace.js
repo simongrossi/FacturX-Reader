@@ -110,13 +110,19 @@ function captureDocumentView() {
   const f = getFile(state.selected);
   if (!f || workspaceRestoring || workspaceScrollTarget || byId("file-view").hidden) return;
   f.view = { ...f.view, tab: state.tab, zoom: state.zoom, fit: state.fit,
+    dualScroll: state.tab === "dual" ? { pdf: byId("tab-pdf").scrollTop, data: byId("tab-data").scrollTop } : f.view?.dualScroll,
     scroll: { ...f.view?.scroll, [state.tab]: document.querySelector(".main").scrollTop },
     linesQuery: f.linesQuery, sort: f.sort };
 }
 function restoreDocumentScroll(f) {
   const tab = state.tab;
+  if (tab === "dual" && (!f.rendered.pdf || !f.rendered.data)) return;
   requestAnimationFrame(() => {
     if (state.selected === f.id && state.tab === tab) {
+      if (tab === "dual") {
+        byId("tab-pdf").scrollTop = f.view?.dualScroll?.pdf || 0;
+        byId("tab-data").scrollTop = f.view?.dualScroll?.data || 0;
+      }
       document.querySelector(".main").scrollTop = f.view?.scroll?.[tab] || 0;
       workspaceScrollTarget = null;
     }
@@ -128,6 +134,7 @@ function saveWorkspace() {
     localStorage.setItem("fx-workspace", JSON.stringify({
       files: state.files.filter(f => f.source).map(f => ({ source: f.source, view: f.view || {} })),
       selected: getFile(state.selected)?.source?.key || null,
+      batch: !!state.batch && !state.selected,
     }));
   } catch { workspaceNotice("La session n’a pas pu être enregistrée sur cet appareil."); }
 }
@@ -169,6 +176,7 @@ async function resumeWorkspace() {
     await openWorkspaceSources(saved.files || []);
     const selected = state.files.find(f => f.source?.key === saved.selected);
     if (selected) selectFile(selected.id);
+    else if (saved.batch && state.files.length) showBatch();
     else if (!saved.selected) showWorkspaceHome();
     const failed = state.files.filter(f => f.status === "error");
     if (failed.length) workspaceNotice(`${failed.length} document(s) n’ont pas pu être rouverts. Leurs onglets indiquent l’erreur ; les autres restent disponibles.`);

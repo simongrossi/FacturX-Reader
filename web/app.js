@@ -70,6 +70,7 @@ const api = {
     base64: pdfObj.base64,
   }),
   saveText: (filename, content) => invoke("save_text", { filename, content }),
+  saveReport: (filename, report) => invoke("save_control_report", { filename, report }),
 };
 
 /* ---------------- chargement / analyse des fichiers ---------------- */
@@ -333,7 +334,7 @@ function renderFileView() {
   for (const c of r.header || []) {
     if ((c.title === "N° de facture" || c.title === "N° d'avoir") && c.value)
       badges.push('<span class="badge">' + esc(c.title) + " : " + esc(c.value) + "</span>");
-    if (c.title === "Date d'emission" && c.value)
+    if (c.title === "Date d'émission" && c.value)
       badges.push('<span class="badge">' + esc(c.value) + "</span>");
     if (c.title === "Profil" && c.value)
       badges.push('<span class="badge">' + esc(c.value) + (c.note ? " — " + esc(c.note) : "") + "</span>");
@@ -349,8 +350,10 @@ function renderFileView() {
 
   const dl = byId("btn-download-pdf");
   dl.disabled = !(r.pdf || r.xml_pdf);
+  document.querySelector('.tab[data-tab="dual"]').hidden = !(r.pdf || r.xml_pdf);
 
-  if (f.view?.tab) setTab(f.view.tab === "xmlpdf" && !r.xml_pdf ? "pdf" : f.view.tab, true);
+  if (f.view?.tab === "dual" && !(r.pdf || r.xml_pdf)) setTab("data", true);
+  else if (f.view?.tab) setTab(f.view.tab === "xmlpdf" && !r.xml_pdf ? "pdf" : f.view.tab, true);
   else if (settings.defaultTab === "data") setTab("data", true);
   else setTab(r.xml_pdf ? "xmlpdf" : "pdf", true);
 }
@@ -362,12 +365,19 @@ function setTab(name, force) {
   document.querySelectorAll(".tab").forEach((t) =>
     t.classList.toggle("active", t.dataset.tab === name));
   const paneId = (name === "xmlpdf") ? "tab-pdf" : "tab-" + name;
+  byId("reading-panes").classList.toggle("dual-reading", name === "dual");
   document.querySelectorAll(".tabpane").forEach((p) =>
-    p.classList.toggle("active", p.id === paneId));
+    p.classList.toggle("active", p.id === paneId || (name === "dual" && ["tab-pdf", "tab-data"].includes(p.id))));
   hidePopover();
   const f = getFile(state.selected);
   if (!f) return;
-  if (name === "pdf" || name === "xmlpdf") {
+  if (name === "dual") {
+    loadPointage(f).then(() => {
+      if (state.selected !== f.id || state.tab !== "dual") return;
+      renderData(f); f.rendered.data = true; restoreDocumentScroll(f);
+    });
+    renderPdf(f, f.result.pdf ? "pdf" : "xmlpdf");
+  } else if (name === "pdf" || name === "xmlpdf") {
     if (force || state.pdfSource !== name) renderPdf(f, name);
   } else if (name === "data") {
     requestAnimationFrame(() => syncStickyOffsets());
@@ -439,8 +449,10 @@ async function renderPdf(f, src) {
     if (state.fit) await fitWidth();
     else await renderAllPages(doc);
   } catch (e) {
-    if (state.selected === f.id && state.pdfSource === src)
+    if (state.selected === f.id && state.pdfSource === src) {
       pane.innerHTML = '<div class="notice error">Impossible d’afficher le PDF : ' + esc(String(e)) + "</div>";
+      f.rendered.pdf = true;
+    }
     if (state.selected === f.id) restoreDocumentScroll(f);
   }
 }
@@ -450,7 +462,7 @@ async function renderAllPages(doc) {
   const renderingFile = getFile(state.selected);
   if (renderingFile) {
     renderingFile.rendered.pdf = false;
-    if (state.tab === state.pdfSource) workspaceScrollTarget = { id: renderingFile.id, tab: state.tab };
+    if (state.tab === state.pdfSource || state.tab === "dual") workspaceScrollTarget = { id: renderingFile.id, tab: state.tab };
   }
   const pane = byId("pdf-pages");
   pane.innerHTML = "";
@@ -922,6 +934,12 @@ function controlsSection(f) {
       textContent: counts[etat] + " " + CONTROL_STATES[etat].toLowerCase() + (counts[etat] > 1 && etat !== "info" ? "s" : ""),
     }));
   }
+  const report = Object.assign(document.createElement("button"), {
+    id: "btn-control-report", type: "button", className: "btn btn-sm controls-report", textContent: "Rapport JSON",
+    title: "Enregistrer le rapport de contrôle : synthèse, contrôles et suivi de vérification",
+  });
+  report.addEventListener("click", (e) => { e.preventDefault(); exportControlReport(f, report); });
+  head.appendChild(report);
   sec.appendChild(head);
 
   const wrap = document.createElement("div");
@@ -987,6 +1005,7 @@ function renderData(f) {
 
   const controls = controlsSection(f);
   if (controls) pane.appendChild(controls);
+  pane.appendChild(reviewPanel(f));
 
   if (r.lines && r.lines.length) {
     const sec = document.createElement("div");
@@ -1093,6 +1112,7 @@ function renderData(f) {
 
   if (!r.lines?.length && !(r.sections || []).some((s) => s.rows?.length)) {
     pane.innerHTML = '<div class="notice">Aucune donnée structurée reconnue — consultez les onglets « XML complet » et « XML brut ».</div>';
+    pane.appendChild(reviewPanel(f));
   }
 }
 
@@ -1537,6 +1557,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   wireBatch();
   wireContextMenu();
   wireMenubar();
+  wireReview();
   renderFileView();
   byId("quick-query").addEventListener("input", scheduleQuickSearch);
   byId("quick-regex").addEventListener("change", scheduleQuickSearch);

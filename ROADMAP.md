@@ -50,8 +50,8 @@ Les vérifications macOS/Linux et l'installation des paquets restent à faire su
 
 ### Confort et exploitation
 
-- [ ] Corriger les libellés accentués dans `tables.rs` et le moteur : Désignation, Quantité,
-  Date d'échéance, etc. Vérifier les comparaisons de titres et les tests concernés.
+- [x] Libellés accentués dans `tables.rs` et le moteur : Désignation, Quantité,
+  Date d'échéance, etc. ; modes de paiement UNCL 4461.
 - [x] Export CSV des lignes visibles ou pointées ; copie du tableau dans le presse-papiers (0.2.0).
 - [ ] Export Excel natif (.xlsx).
 - [ ] Associations de fichiers, « Ouvrir avec » et instance unique.
@@ -81,15 +81,15 @@ Les vérifications macOS/Linux et l'installation des paquets restent à faire su
   numéro, montant), masquage optionnel des PDF sans XML.
 - [ ] Recherche dans le texte du PDF et surlignage à l'emplacement trouvé : extension distincte
   de la recherche XML actuelle ; décider séparément du besoin d'OCR pour les scans.
-- [ ] Vue PDF et données côte à côte, positions et zoom indépendants.
-- [ ] Statuts « À vérifier », « Vérifiée », « Anomalie », commentaires par facture et par ligne,
-  pointage de la facture entière. Distinguer vérification et paiement confirmé.
+- [x] Vue PDF et données côte à côte, défilements indépendants.
+- [x] Statuts « À vérifier », « Vérifiée », « Anomalie », commentaires par facture et par ligne,
+  pointage de la facture entière. Distinct d'un paiement confirmé.
 - [x] Contrôles arithmétiques : lignes, remises/frais globaux, TVA par taux, HT/TTC,
   acomptes, arrondis, net à payer ; échéance dépassée comme alerte distincte,
   sans déduire qu'une facture est impayée ; mentions essentielles, clés SIREN/SIRET, TVA, IBAN (0.2.0).
 - [x] Résultats de contrôle : conforme, écart, alerte, info, non vérifiable ; une règle sans objet
   (pas de lignes) n'est pas émise (0.2.0).
-- [ ] Rapport de contrôle exportable : règle, attendu, constaté, écart et chemin XML.
+- [x] Rapport de contrôle exportable (JSON) : règle, attendu, constaté, écart et chemin XML.
 - [ ] Impression / export PDF de la vue Données.
 - [ ] Bibliothèque locale persistante : recherche fournisseur, référence article, période,
   montant et commentaires entre les sessions, au-delà des seuls documents ouverts.

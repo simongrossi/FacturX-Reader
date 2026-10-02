@@ -171,6 +171,21 @@ async fn save_text(app: tauri::AppHandle, filename: String, content: String) -> 
     Ok(true)
 }
 
+/// Rapport JSON enregistré par la boîte native « Enregistrer sous ».
+#[tauri::command]
+async fn save_control_report(app: tauri::AppHandle, filename: String, report: Value) -> Result<bool, String> {
+    let bytes = serde_json::to_vec_pretty(&report).map_err(|e| format!("Rapport invalide : {e}"))?;
+    if bytes.len() > 20 * 1024 * 1024 {
+        return Err("Rapport trop volumineux (max 20 Mo).".into());
+    }
+    let Some(dest) = app.dialog().file().set_file_name(filename).add_filter("Rapport JSON", &["json"]).blocking_save_file() else {
+        return Ok(false);
+    };
+    let path = dest.into_path().map_err(|e| e.to_string())?;
+    std::fs::write(&path, bytes).map_err(|e| format!("Écriture du rapport impossible : {e}"))?;
+    Ok(true)
+}
+
 /// Informations affichees dans la fenetre Parametres.
 #[tauri::command]
 fn app_info(app: tauri::AppHandle, store: tauri::State<'_, pointages::Store>) -> Value {
@@ -196,6 +211,7 @@ pub fn run() {
             parse_path,
             save_pdf,
             save_text,
+            save_control_report,
             app_info,
             pointages::get_pointage,
             pointages::set_pointage,

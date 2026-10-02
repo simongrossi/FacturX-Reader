@@ -479,11 +479,11 @@ fn iban_valid(iban: &str) -> Option<bool> {
 fn check_mentions(out: &mut Vec<Value>, s: &Map<String, Value>) {
     let required: [(&str, Option<&str>, &[&str]); 6] = [
         ("Numéro de facture", None, &["N° de facture"]),
-        ("Date d'émission", None, &["Date d'emission"]),
+        ("Date d'émission", None, &["Date d'émission"]),
         ("Type de facture", None, &["Type de facture"]),
         ("Devise", None, &["Devise"]),
-        ("Nom du vendeur", Some("Vendeur"), &["Raison sociale", "Denomination legale"]),
-        ("Nom de l'acheteur", Some("Acheteur"), &["Raison sociale", "Denomination legale"]),
+        ("Nom du vendeur", Some("Vendeur"), &["Raison sociale", "Dénomination légale"]),
+        ("Nom de l'acheteur", Some("Acheteur"), &["Raison sociale", "Dénomination légale"]),
     ];
     let missing: Vec<&str> =
         required.iter().filter(|(_, sec, titles)| field(s, *sec, titles).is_none()).map(|(n, _, _)| *n).collect();
@@ -494,7 +494,7 @@ fn check_mentions(out: &mut Vec<Value>, s: &Map<String, Value>) {
         out.push(simple(regle, "ecart", "", &format!("Absent du XML : {}", missing.join(", "))));
     }
 
-    let legal = field(s, Some("Vendeur"), &["SIREN / registre", "Identifiant legal"]);
+    let legal = field(s, Some("Vendeur"), &["SIREN / registre", "Identifiant légal"]);
     let vat = field(s, Some("Vendeur"), &["N° de TVA"]);
     if legal.is_none() && vat.is_none() {
         out.push(simple(
@@ -556,7 +556,7 @@ fn due_days(s: &Map<String, Value>, t: &Totals, is_credit_note: bool, today: Nai
     if is_credit_note || t.payable.as_ref().is_some_and(|p| p.v.0 <= 0) {
         return None;
     }
-    let (v, _) = field(s, None, &["Date d'echance"])?;
+    let (v, _) = field(s, None, &["Date d'échéance"])?;
     Some((parse_date(&v)? - today).num_days())
 }
 
@@ -564,7 +564,7 @@ fn check_dates(out: &mut Vec<Value>, s: &Map<String, Value>, t: &Totals, is_cred
     if is_credit_note || t.payable.as_ref().is_some_and(|p| p.v.0 <= 0) {
         return;
     }
-    if let Some((v, path)) = field(s, None, &["Date d'echance"]) {
+    if let Some((v, path)) = field(s, None, &["Date d'échéance"]) {
         if let Some(days) = due_days(s, t, is_credit_note, today) {
             let note = "L'échéance ne préjuge pas du paiement effectif.";
             out.push(match days {
@@ -607,7 +607,7 @@ fn check_dates(out: &mut Vec<Value>, s: &Map<String, Value>, t: &Totals, is_cred
 fn synthese(s: &Map<String, Value>, t: &Totals, type_code: &str, is_credit_note: bool, today: NaiveDate) -> Value {
     let head = |titles: &[&str]| field(s, None, titles).map(|(v, _)| v).unwrap_or_default();
     let party = |name: &str| {
-        field(s, Some(name), &["Raison sociale", "Denomination legale"]).map(|(v, _)| v).unwrap_or_default()
+        field(s, Some(name), &["Raison sociale", "Dénomination légale"]).map(|(v, _)| v).unwrap_or_default()
     };
     let money = |a: Option<&Amt>| a.map(|x| x.v.to_string()).unwrap_or_default();
     let tva = t.tax.as_ref().map(|x| x.v).or_else(|| {
@@ -618,10 +618,10 @@ fn synthese(s: &Map<String, Value>, t: &Totals, type_code: &str, is_credit_note:
         "numero": head(&["N° de facture"]),
         "type": type_code,
         "avoir": is_credit_note,
-        "date": head(&["Date d'emission"]),
-        "echeance": head(&["Date d'echance"]),
+        "date": head(&["Date d'émission"]),
+        "echeance": head(&["Date d'échéance"]),
         "jours_echeance": due_days(s, t, is_credit_note, today),
-        "week_end": parse_date(&head(&["Date d'emission"]))
+        "week_end": parse_date(&head(&["Date d'émission"]))
             .is_some_and(|d| chrono::Datelike::weekday(&d).number_from_monday() >= 6),
         "vendeur": party("Vendeur"),
         "acheteur": party("Acheteur"),

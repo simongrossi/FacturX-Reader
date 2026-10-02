@@ -25,6 +25,8 @@ const MENUBAR = [
       on: () => !!menubarDoc() && !byId("btn-download-pdf").disabled },
     { label: "Exporter les lignes en CSV…", run: () => exportLinesCsv(menubarDoc(), document.createElement("button")),
       on: () => !!menubarDoc()?.result.lines?.length },
+    { label: "Exporter le rapport de contrôle (JSON)…", run: () => exportControlReport(menubarDoc(), document.createElement("button")),
+      on: () => !!menubarDoc()?.result.controles?.length },
     { label: "Exporter le tableau des factures en CSV…", run: () => byId("batch-export").click(), on: () => state.files.length > 0 },
     null,
     { label: "Fermer le document", keys: "Ctrl+W", run: () => removeFile(state.selected), on: () => !!state.selected },
@@ -45,8 +47,9 @@ const MENUBAR = [
     { label: "Tableau des factures", run: () => showBatch(), on: () => state.files.length > 0,
       checked: () => !state.selected && state.batch && state.files.length > 0 },
     null,
-    ...[["pdf", "PDF"], ["data", "Données"], ["xml", "XML complet"], ["raw", "XML brut"]].map(([tab, label]) => (
-      { label, run: () => setTab(tab), on: () => !!menubarDoc(), checked: () => !!menubarDoc() && state.tab === tab })),
+    ...[["pdf", "PDF"], ["data", "Données"], ["dual", "PDF et données"], ["xml", "XML complet"], ["raw", "XML brut"]].map(([tab, label]) => (
+      { label, run: () => setTab(tab), checked: () => !!menubarDoc() && state.tab === tab,
+        on: () => !!menubarDoc() && (tab !== "dual" || !!(menubarDoc().result.pdf || menubarDoc().result.xml_pdf)) })),
     null,
     { label: "Document suivant", keys: "Ctrl+Tab", run: () => menubarStep(1), on: () => state.files.length > 0 },
     { label: "Document précédent", keys: "Ctrl+Maj+Tab", run: () => menubarStep(-1), on: () => state.files.length > 0 },

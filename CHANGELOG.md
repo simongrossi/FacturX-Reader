@@ -10,9 +10,20 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 - **Barre de menus** Fichier, Édition, Affichage, Aide, avec les raccourcis clavier.
 - Clic droit sur un onglet ou un fichier de la liste : ouvrir, fermer, fermer les autres,
   fermer les documents en erreur, copier le nom ou le chemin.
+- **Suivi de vérification** : statut manuel À vérifier / Vérifiée / Anomalie, commentaires par
+  facture et par ligne, enregistrés localement par empreinte du XML ; pointage de toutes les
+  lignes en une commande. Le statut apparaît dans le tableau, avec son filtre et son export.
+- **Vue « PDF et données »** côte à côte, défilements séparés repris entre sessions.
+- **Rapport de contrôle JSON** : synthèse, contrôles du moteur et suivi de vérification.
+- Le tableau des factures est rouvert à la reprise de session s'il était affiché.
 
 ### Modifié
 
+- **Libellés français accentués** dans tout le moteur : Désignation, Quantité, Date d'émission,
+  Date d'échéance, À payer, messages et notes de calcul.
+- Modes de paiement traduits selon UNCL 4461 : virement SEPA (58), prélèvement SEPA (59),
+  carte (48), paiement en ligne (68), prélèvement (49), codes 42 et 45. Les codes et chemins XML
+  sont conservés.
 - Les onglets **Accueil** et **Tableau** restent fixes à gauche quand les onglets de
   documents défilent ; l'onglet sélectionné n'est plus masqué derrière eux.
 

@@ -21,6 +21,7 @@ async function mockBackend(page, pdf = null, extra = {}) {
       if (command === 'get_pointage') return { lines: [] };
       if (command === 'parse_path' && args.path.includes('missing')) throw new Error('Fichier introuvable');
       if (command === 'save_text') { window.__saved = args; return true; }
+      if (command === 'save_control_report') { window.__report = args; return true; }
       if (command === 'parse_file' || command === 'parse_path') return {
         format: 'CII', root: 'CrossIndustryInvoice', doc_hash: 'fixture', header: [], lines: [],
         rows: [{ title: 'Référence', tag: 'ID', value: 'FAC-2026-123', path: 'Invoice/ID' }],
@@ -248,8 +249,8 @@ test('tableau multi-factures : totaux, filtres, export et menu contextuel', asyn
   await page.locator('#batch-export').click();
   await expect.poll(() => page.evaluate(() => window.__saved?.filename)).toBe('factures.csv');
   const csv = (await page.evaluate(() => window.__saved.content)).split('\r\n');
-  expect(csv[0]).toBe('\uFEFFFichier;Vendeur;N°;Type;Date;Échéance;HT;TVA;TTC;À payer;Devise;Contrôles;Jours avant échéance;Détail des contrôles');
-  expect(csv[1]).toBe('one.xml;Test Seller;F-1;Facture;2026-10-03;2026-09-01;1000,00;200,00;1200,00;1200,00;EUR;1 écart, doublon;-31;Total TTC = total HT + total TVA (0.01)');
+  expect(csv[0]).toBe('\uFEFFFichier;Vendeur;N°;Type;Date;Échéance;HT;TVA;TTC;À payer;Devise;Contrôles;Vérification;Jours avant échéance;Détail des contrôles;Commentaire');
+  expect(csv[1]).toBe('one.xml;Test Seller;F-1;Facture;2026-10-03;2026-09-01;1000,00;200,00;1200,00;1200,00;EUR;1 écart, doublon;À vérifier;-31;Total TTC = total HT + total TVA (0.01);');
   expect(csv).toHaveLength(4);
 
   await page.evaluate(() => { clipboardWrite = async text => { window.__clip = text; }; });
@@ -327,5 +328,70 @@ test('barre de menus, onglets Accueil et Tableau fixes, menu d’onglet', async 
   await page.locator('.ctx-menu').getByRole('menuitem', { name: 'Fermer les autres' }).click();
   await expect(page.locator('.document-tab-group')).toHaveCount(1);
   await expect(page.locator('#fv-name')).toHaveText('facture-numero-0.xml');
+  expect(errors).toEqual([]);
+});
+
+test('suivi de vérification, rapport JSON, vue PDF et données, tableau persistant', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  const cell = (title, value) => ({ title, value, path: 'Invoice/x' });
+  await mockBackend(page, require('./fixtures.cjs').invoicePdf().toString('base64'), {
+    synthese: { numero: 'F-1', type: '380', avoir: false, date: '2026-10-01', echeance: '', jours_echeance: null,
+      week_end: false, vendeur: 'Test Seller', acheteur: 'Buyer', devise: 'EUR', ht: '100.00', tva: '20.00', ttc: '120.00', a_payer: '120.00' },
+    controles: [{ regle: 'Total TTC = total HT + total TVA', etat: 'conforme', attendu: '120.00', constate: '120.00', ecart: '', path: 'Invoice/ID', detail: '' }],
+    lines_columns: [{ key: 'name', title: 'Désignation', align: 'left' }],
+    lines: [{ fields: [], cells: { name: cell('Désignation', 'Toner') } }],
+  });
+  await page.goto(url);
+  await page.locator('#file-input').setInputFiles({ name: 'suivi.pdf', mimeType: 'application/pdf', buffer: Buffer.from('test') });
+  await expect(page.locator('.pdf-page')).toHaveCount(2);
+
+  // Vue côte à côte : les deux volets sont visibles en même temps.
+  await page.getByRole('button', { name: 'PDF et données', exact: true }).click();
+  await expect(page.locator('#reading-panes')).toHaveClass('dual-reading');
+  await expect(page.locator('#tab-pdf')).toBeVisible();
+  await expect(page.locator('#tab-data #controls')).toBeVisible();
+  await expect(page.locator('.pdf-page')).toHaveCount(2);
+
+  // Suivi : statut et commentaires, enregistrés par empreinte du XML.
+  const panel = page.locator('#tab-data .review-panel');
+  await panel.locator('summary span').click();
+  await page.getByLabel('Commentaire de la facture', { exact: true }).fill('À revoir avec le fournisseur');
+  await page.getByLabel('Commentaire de la ligne', { exact: true }).fill('Quantité à confirmer');
+  await panel.getByLabel('Vérification de suivi.pdf').selectOption('Anomalie');
+  await panel.getByRole('button', { name: 'Pointer toutes les lignes' }).click();
+  await expect(page.locator('#lines-pointed-count')).toHaveText('1 ligne pointée');
+
+  await page.locator('#controls summary span').first().click();
+  await page.locator('#btn-control-report').click();
+  await expect.poll(() => page.evaluate(() => window.__report?.filename)).toBe('suivi-controles.json');
+  const report = await page.evaluate(() => window.__report.report);
+  expect(report).toMatchObject({ fichier: 'suivi.pdf', empreinte_xml: 'fixture', synthese: { ttc: '120.00' },
+    suivi: { statut: 'Anomalie', commentaire: 'À revoir avec le fournisseur', lignes: { 0: 'Quantité à confirmer' } } });
+  expect(report.controles).toHaveLength(1);
+
+  // Le tableau reprend le statut, le filtre et l'export ; il est rouvert après rechargement.
+  await page.locator('#tab-batch').click();
+  const rows = page.locator('#batch-table tbody tr.batch-row');
+  await expect(rows.first().getByLabel('Vérification de suivi.pdf')).toHaveValue('Anomalie');
+  await page.locator('#batch-filter').selectOption('s:Vérifiée');
+  await expect(rows).toHaveCount(0);
+  await page.locator('#batch-filter').selectOption('s:Anomalie');
+  await expect(rows).toHaveCount(1);
+  await page.locator('#batch-search').fill('fournisseur');
+  await expect(rows).toHaveCount(1);
+  await page.locator('#batch-export').click();
+  await expect.poll(() => page.evaluate(() => window.__saved?.content.split('\r\n')[1])).toContain(';Anomalie;;;À revoir avec le fournisseur');
+  await rows.first().getByLabel('Vérification de suivi.pdf').selectOption('Vérifiée');
+  await expect(rows).toHaveCount(0);
+  await expect(page.locator('#batch-view')).toBeVisible();
+  await page.reload();
+  await expect(page.locator('#batch-view')).toBeVisible();
+  await page.locator('#batch-filter').selectOption('all');
+  await page.locator('#batch-table tbody tr.batch-row td').first().click();
+  await expect(page.locator('#reading-panes')).toHaveClass('dual-reading');
+  await expect(page.getByLabel('Commentaire de la facture', { exact: true })).toHaveValue('À revoir avec le fournisseur');
+  await expect(page.locator('#tab-data').getByLabel('Vérification de suivi.pdf')).toHaveValue('Vérifiée');
+  await page.screenshot({ path: 'test-results/dual.png' });
   expect(errors).toEqual([]);
 });

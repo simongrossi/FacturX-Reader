@@ -1,10 +1,10 @@
 //! Moteur d'analyse des factures electroniques (Factur-X / UBL / CII).
 //!
 //! Supporte :
-//!   - PDF Factur-X : PDF avec piece jointe XML (UBL/CII) integree
+//!   - PDF Factur-X : PDF avec pièce jointe XML (UBL/CII) intégrée
 //!   - Factur-X (CII) : archive ZIP contenant un XML (+ PDF)
-//!   - XML UBL 2.x (EN 16931) avec PDF integre en base64
-//!   - XML CII (EN 16931) avec PDF integre en base64
+//!   - XML UBL 2.x (EN 16931) avec PDF intégré en base64
+//!   - XML CII (EN 16931) avec PDF intégré en base64
 
 use std::collections::HashMap;
 use std::fmt;
@@ -138,7 +138,7 @@ fn title_for(el: N) -> String {
         .to_string()
 }
 
-/// Note explicative (traduction de codes, unite de mesure...).
+/// Note explicative (traduction de codes, unité de mesure...).
 fn note_for(el: ON) -> Option<String> {
     let el = el?;
     let t = local(el);
@@ -468,12 +468,12 @@ fn ubl_columns() -> Value {
     columns(&[
         ("id", "N°", "left"),
         ("orderline", "Ligne cde", "left"),
-        ("orderref", "Ref. cde", "left"),
-        ("customerref", "Ref. client", "left"),
-        ("name", "Designation", "left"),
+        ("orderref", "Réf. cde", "left"),
+        ("customerref", "Réf. client", "left"),
+        ("name", "Désignation", "left"),
         ("desc", "Description", "left"),
-        ("itemid", "Ref. article", "left"),
-        ("qty", "Quantite", "right"),
+        ("itemid", "Réf. article", "left"),
+        ("qty", "Quantité", "right"),
         ("price", "P.U. HT", "right"),
         ("taxrate", "TVA", "right"),
         ("taxamt", "TVA ligne", "right"),
@@ -488,23 +488,23 @@ fn ubl_party_block(name: &str, party: ON, paths: &Paths, include_id: bool) -> Va
     if party.is_some() {
         let legal = find(party, "PartyLegalEntity");
         paths.add(&mut rows, "Raison sociale", find(find(party, "PartyName"), "Name"), None);
-        paths.add(&mut rows, "Identifiant emetteur", find(party, "EndpointID"), None);
+        paths.add(&mut rows, "Identifiant émetteur", find(party, "EndpointID"), None);
         if include_id {
             paths.add(&mut rows, "Identifiant client", find(find(party, "PartyIdentification"), "ID"), None);
         }
-        paths.add(&mut rows, "Denomination legale", find(legal, "RegistrationName"), None);
+        paths.add(&mut rows, "Dénomination légale", find(legal, "RegistrationName"), None);
         paths.add(&mut rows, "SIREN / registre", find(legal, "CompanyID"), None);
         paths.add(&mut rows, "N° de TVA", find(find(party, "PartyTaxScheme"), "CompanyID"), None);
         let addr = find(party, "PostalAddress");
         paths.add(&mut rows, "Rue", find(addr, "StreetName"), None);
-        paths.add(&mut rows, "Complement d'adresse", find(addr, "AdditionalStreetName"), None);
+        paths.add(&mut rows, "Complément d'adresse", find(addr, "AdditionalStreetName"), None);
         paths.add(&mut rows, "Ville", find(addr, "CityName"), None);
         paths.add(&mut rows, "Code postal", find(addr, "PostalZone"), None);
-        paths.add(&mut rows, "Departement / Region", find(addr, "CountrySubentity"), None);
+        paths.add(&mut rows, "Département / Région", find(addr, "CountrySubentity"), None);
         paths.add(&mut rows, "Pays", find(find(addr, "Country"), "IdentificationCode"), None);
         let contact = find(party, "Contact");
         paths.add(&mut rows, "Contact", find(contact, "Name"), None);
-        paths.add(&mut rows, "Telephone", find(contact, "Telephone"), None);
+        paths.add(&mut rows, "Téléphone", find(contact, "Telephone"), None);
         paths.add(&mut rows, "E-mail", find(contact, "ElectronicMail"), None);
     }
     section(name, rows)
@@ -551,7 +551,7 @@ fn ubl_line(line: N, paths: &Paths) -> Value {
     } else if price_el.is_some() && qty.is_some() {
         match (num(&text(price_el)), num(&text(qty))) {
             (Some(p), Some(q)) => {
-                total_note = Some("Calcule : P.U. x quantite".to_string());
+                total_note = Some("Calculé : P.U. x quantité".to_string());
                 Some(p * q)
             }
             _ => None,
@@ -561,13 +561,13 @@ fn ubl_line(line: N, paths: &Paths) -> Value {
     };
     let total_value = money_num(total_num, tot_cur);
 
-    // --- PU HT = (Total ligne HT - frais/remises nets) / quantite ---
+    // --- PU HT = (Total ligne HT - frais/remises nets) / quantité ---
     // Deux conventions d'emetteurs coexistent :
     //  - Konica Minolta : le LineExtensionAmount INCLUT les AllowanceCharge de la
-    //    ligne -> PU de base = (Total ligne HT - frais) / quantite, les frais
+    //    ligne -> PU de base = (Total ligne HT - frais) / quantité, les frais
     //    restant visibles dans la colonne "Frais / Remises".
     //  - EPMO / FEDEX : l'AllowanceCharge repete le montant de la ligne a titre
-    //    informationnel (PU declare x quantite == LineExtensionAmount) -> on ne
+    //    informationnel (PU declare x quantité == LineExtensionAmount) -> on ne
     //    soustrait rien.
     // Test de distinction : si le PU declare est coherent avec le total ligne,
     // les frais sont informationnels ; sinon on les retire.
@@ -584,16 +584,16 @@ fn ubl_line(line: N, paths: &Paths) -> Value {
             }
             let note = if pu_base != total && ac.net > 0.0 {
                 format!(
-                    "PU de base : (Total ligne HT - frais) / quantite : ({total:.2} - {:.2}) / {qty_text}",
+                    "PU de base : (Total ligne HT - frais) / quantité : ({total:.2} - {:.2}) / {qty_text}",
                     ac.net
                 )
             } else if pu_base != total && ac.net < 0.0 {
                 format!(
-                    "PU de base : (Total ligne HT + remise) / quantite : ({total:.2} + {:.2}) / {qty_text}",
+                    "PU de base : (Total ligne HT + remise) / quantité : ({total:.2} + {:.2}) / {qty_text}",
                     -ac.net
                 )
             } else {
-                format!("Total ligne HT / quantite : {total:.2} / {qty_text}")
+                format!("Total ligne HT / quantité : {total:.2} / {qty_text}")
             };
             (Some(money_num(Some(pu_base / qty_f), tot_cur)), Some(note))
         }
@@ -610,7 +610,7 @@ fn ubl_line(line: N, paths: &Paths) -> Value {
                 Some(c) => format!("{t} {c}"),
                 None => t,
             });
-            tax_note = Some(format!("Calculee : total ligne HT x {} %", text(pct)));
+            tax_note = Some(format!("Calculée : total ligne HT x {} %", text(pct)));
         }
     }
 
@@ -644,25 +644,25 @@ fn ubl_line(line: N, paths: &Paths) -> Value {
     cells.insert(
         "orderref".into(),
         if orefer.is_some() {
-            paths.cell("Ref. de commande", find(orefer, "ID"), None, None)
+            paths.cell("Réf. de commande", find(orefer, "ID"), None, None)
         } else {
-            empty("Ref. de commande")
+            empty("Réf. de commande")
         },
     );
     cells.insert(
         "customerref".into(),
         if orefer.is_some() {
-            paths.cell("Ref. client", find(orefer, "SalesOrderID"), None, None)
+            paths.cell("Réf. client", find(orefer, "SalesOrderID"), None, None)
         } else {
-            empty("Ref. client")
+            empty("Réf. client")
         },
     );
-    cells.insert("name".into(), paths.cell_or_empty("Designation", name_el));
+    cells.insert("name".into(), paths.cell_or_empty("Désignation", name_el));
     cells.insert("desc".into(), paths.cell_or_empty("Description", desc_el));
-    cells.insert("itemid".into(), paths.cell_or_empty("Reference article", itemid_el));
+    cells.insert("itemid".into(), paths.cell_or_empty("Référence article", itemid_el));
     cells.insert(
         "qty".into(),
-        if qty.is_some() { paths.cell("Quantite", qty, note_for(qty), None) } else { empty("Quantite") },
+        if qty.is_some() { paths.cell("Quantité", qty, note_for(qty), None) } else { empty("Quantité") },
     );
     cells.insert(
         "price".into(),
@@ -719,8 +719,8 @@ fn extract_ubl(root: N, paths: &Paths, warnings: &mut Vec<String>) -> Map<String
         None,
         None,
     );
-    paths.addh(&mut h, "Date d'emission", find(root, "IssueDate"), None, None);
-    paths.addh(&mut h, "Date d'echance", find(root, "DueDate"), None, None);
+    paths.addh(&mut h, "Date d'émission", find(root, "IssueDate"), None, None);
+    paths.addh(&mut h, "Date d'échéance", find(root, "DueDate"), None, None);
     let profile = find(root, "ProfileID");
     paths.addh(
         &mut h,
@@ -731,10 +731,10 @@ fn extract_ubl(root: N, paths: &Paths, warnings: &mut Vec<String>) -> Map<String
     );
     paths.addh(&mut h, "Norme", find(root, "CustomizationID"), None, None);
     paths.addh(&mut h, "Devise", find(root, "DocumentCurrencyCode"), None, None);
-    paths.addh(&mut h, "Ref. comptable interne", find(root, "AccountingCost"), None, None);
-    paths.addh(&mut h, "Ref. acheteur", find(root, "BuyerReference"), None, None);
-    paths.addh(&mut h, "Ref. commande vendeur", find(root, "SellerOrderReferencedDocumentID"), None, None);
-    paths.addh(&mut h, "Ref. commande acheteur", find(root, "BuyerOrderReferencedDocumentID"), None, None);
+    paths.addh(&mut h, "Réf. comptable interne", find(root, "AccountingCost"), None, None);
+    paths.addh(&mut h, "Réf. acheteur", find(root, "BuyerReference"), None, None);
+    paths.addh(&mut h, "Réf. commande vendeur", find(root, "SellerOrderReferencedDocumentID"), None, None);
+    paths.addh(&mut h, "Réf. commande acheteur", find(root, "BuyerOrderReferencedDocumentID"), None, None);
 
     let period = find(root, "InvoicePeriod");
     if period.is_some() {
@@ -742,11 +742,11 @@ fn extract_ubl(root: N, paths: &Paths, warnings: &mut Vec<String>) -> Map<String
         let e = text(find(period, "EndDate"));
         if !s.is_empty() || !e.is_empty() {
             let v = format!("{s}  →  {e}").trim_matches(|c| c == ' ' || c == '→').to_string();
-            paths.addh(&mut h, "Periode de facturation", period, None, Some(v));
+            paths.addh(&mut h, "Période de facturation", period, None, Some(v));
         } else {
             let code = text(find(period, "DescriptionCode"));
             if !code.is_empty() {
-                paths.addh(&mut h, "Periode de facturation", period, None, Some(format!("code {code}")));
+                paths.addh(&mut h, "Période de facturation", period, None, Some(format!("code {code}")));
             }
         }
     }
@@ -755,11 +755,11 @@ fn extract_ubl(root: N, paths: &Paths, warnings: &mut Vec<String>) -> Map<String
     }
     let orderref = find(root, "OrderReference");
     paths.addh(&mut h, "N° de commande", find(orderref, "ID"), None, None);
-    paths.addh(&mut h, "Ref. commande client", find(orderref, "SalesOrderID"), None, None);
+    paths.addh(&mut h, "Réf. commande client", find(orderref, "SalesOrderID"), None, None);
     paths.addh(&mut h, "Date de la commande", find(orderref, "IssueDate"), None, None);
-    paths.addh(&mut h, "Ref. contrat", find(find(root, "ContractDocumentReference"), "ID"), None, None);
+    paths.addh(&mut h, "Réf. contrat", find(find(root, "ContractDocumentReference"), "ID"), None, None);
     for a in findall(root, "AdditionalDocumentReference") {
-        paths.addh(&mut h, "Document complementaire", find(Some(a), "ID"), None, None);
+        paths.addh(&mut h, "Document complémentaire", find(Some(a), "ID"), None, None);
     }
 
     let mut sections = Vec::new();
@@ -777,7 +777,7 @@ fn extract_ubl(root: N, paths: &Paths, warnings: &mut Vec<String>) -> Map<String
         paths.add(&mut rows, "Rue", find(addr, "StreetName"), None);
         paths.add(&mut rows, "Ville", find(addr, "CityName"), None);
         paths.add(&mut rows, "Code postal", find(addr, "PostalZone"), None);
-        paths.add(&mut rows, "Departement", find(addr, "CountrySubentity"), None);
+        paths.add(&mut rows, "Département", find(addr, "CountrySubentity"), None);
         paths.add(&mut rows, "Pays", find(find(addr, "Country"), "IdentificationCode"), None);
         paths.add(
             &mut rows,
@@ -795,13 +795,13 @@ fn extract_ubl(root: N, paths: &Paths, warnings: &mut Vec<String>) -> Map<String
         let account = find(pmeans, "PayeeFinancialAccount");
         let branch = find(account, "FinancialInstitutionBranch");
         paths.add(&mut rows, "Mode de paiement", find(pmeans, "PaymentMeansCode"), None);
-        paths.add(&mut rows, "Reference de paiement", find(pmeans, "PaymentID"), None);
+        paths.add(&mut rows, "Référence de paiement", find(pmeans, "PaymentID"), None);
         paths.add(&mut rows, "IBAN", find(account, "ID"), None);
         paths.add(&mut rows, "BIC", find(branch, "ID"), None);
         paths.add(&mut rows, "Banque", find(branch, "Name"), None);
     }
     let terms = find(root, "PaymentTerms");
-    for (title, tag) in [("Conditions de paiement", "Note"), ("Date d'echance", "DueDate")] {
+    for (title, tag) in [("Conditions de paiement", "Note"), ("Date d'échéance", "DueDate")] {
         let el = find(terms, tag);
         let v = text(el);
         if !v.is_empty() {
@@ -858,8 +858,8 @@ fn extract_ubl(root: N, paths: &Paths, warnings: &mut Vec<String>) -> Map<String
         ("Total HT", "TaxExclusiveAmount"),
         ("Total lignes", "LineExtensionAmount"),
         ("Total TTC", "TaxInclusiveAmount"),
-        ("A payer", "PayableAmount"),
-        ("Prepaye", "PrepaidAmount"),
+        ("À payer", "PayableAmount"),
+        ("Prépayé", "PrepaidAmount"),
     ] {
         let el = find(lmt, tag);
         if !text(el).is_empty() {
@@ -875,21 +875,21 @@ fn extract_ubl(root: N, paths: &Paths, warnings: &mut Vec<String>) -> Map<String
         None => Vec::new(),
     };
     if lines.is_empty() {
-        warnings.push("Aucune ligne de facture detectee.".into());
+        warnings.push("Aucune ligne de facture détectée.".into());
     }
 
     // resume
     let totals = sections.last().unwrap();
     let summary = summary(vec![
         ("N° de facture", value_of(&h, "N° de facture")),
-        ("Date d'emission", value_of(&h, "Date d'emission")),
-        ("Echeance", value_of(&h, "Date d'echance")),
+        ("Date d'émission", value_of(&h, "Date d'émission")),
+        ("Échéance", value_of(&h, "Date d'échéance")),
         ("Vendeur", section_value(&sections[0], "Raison sociale")),
         ("Acheteur", section_value(&sections[1], "Raison sociale")),
         ("Total HT", section_value(totals, "Total HT")),
         ("Total TVA", section_value(totals, "Total TVA")),
         ("Total TTC", section_value(totals, "Total TTC")),
-        ("A payer", section_value(totals, "A payer")),
+        ("À payer", section_value(totals, "À payer")),
     ]);
     structured(h, sections, summary, ubl_columns(), lines)
 }
@@ -899,10 +899,10 @@ fn extract_ubl(root: N, paths: &Paths, warnings: &mut Vec<String>) -> Map<String
 fn cii_columns() -> Value {
     columns(&[
         ("id", "N°", "left"),
-        ("name", "Designation", "left"),
+        ("name", "Désignation", "left"),
         ("desc", "Description", "left"),
-        ("itemid", "Ref. article", "left"),
-        ("qty", "Quantite", "right"),
+        ("itemid", "Réf. article", "left"),
+        ("qty", "Quantité", "right"),
         ("price", "P.U. HT", "right"),
         ("taxrate", "TVA", "right"),
         ("taxamt", "TVA ligne", "right"),
@@ -917,17 +917,17 @@ fn cii_party_block(name: &str, party: ON, paths: &Paths) -> Value {
         let reg = find(party, "SpecifiedTaxRegistration");
         paths.add(&mut rows, "Raison sociale", find(party, "Name"), None);
         paths.add(&mut rows, "N° de TVA", find(reg, "ID"), attr(reg, "schemeID"));
-        paths.add(&mut rows, "Identifiant legal", find(find(party, "SpecifiedLegalOrganization"), "ID"), None);
+        paths.add(&mut rows, "Identifiant légal", find(find(party, "SpecifiedLegalOrganization"), "ID"), None);
         let addr = find(party, "PostalTradeAddress");
         paths.add(&mut rows, "Rue", find(addr, "LineOne"), None);
-        paths.add(&mut rows, "Complement d'adresse", find(addr, "LineTwo"), None);
+        paths.add(&mut rows, "Complément d'adresse", find(addr, "LineTwo"), None);
         paths.add(&mut rows, "Ville", find(addr, "CityName"), None);
         paths.add(&mut rows, "Code postal", find_alt(addr, &["Postcode", "PostcodeCode"]), None);
-        paths.add(&mut rows, "Departement", find(addr, "CountrySubentity"), None);
+        paths.add(&mut rows, "Département", find(addr, "CountrySubentity"), None);
         paths.add(&mut rows, "Pays", find(addr, "CountryID"), None);
         let contact = find(party, "DefinedTradeContact");
         paths.add(&mut rows, "Contact", find(contact, "PersonName"), None);
-        paths.add(&mut rows, "Telephone", find(contact, "TelephoneNumber"), None);
+        paths.add(&mut rows, "Téléphone", find(contact, "TelephoneNumber"), None);
         paths.add(&mut rows, "E-mail", find(contact, "ElectronicMail"), None);
     }
     section(name, rows)
@@ -952,7 +952,7 @@ fn cii_line(li: N, paths: &Paths) -> Value {
     let name_el = find(li, "Name").or_else(|| find(product, "Name"));
     let desc_el = find(li, "Description").or_else(|| find(product, "Description"));
 
-    // PU HT : LineExtensionAmount / quantite si possible, sinon NetPrice.
+    // PU HT : LineExtensionAmount / quantité si possible, sinon NetPrice.
     let mut pu_value = price_el.map(|_| cii_money(price_el));
     let mut pu_note = None;
     let total_value = cii_money(total_el);
@@ -961,7 +961,7 @@ fn cii_line(li: N, paths: &Paths) -> Value {
             if tq > 0.0 {
                 let cur = attr(total_el, "currencyID").or_else(|| attr(price_el, "currencyID"));
                 pu_value = Some(money_num(Some(tv / tq), cur.as_deref()));
-                pu_note = Some(format!("Total ligne HT / quantite : {} / {}", text(total_el), text(qty)));
+                pu_note = Some(format!("Total ligne HT / quantité : {} / {}", text(total_el), text(qty)));
             }
         }
     }
@@ -993,12 +993,12 @@ fn cii_line(li: N, paths: &Paths) -> Value {
 
     let mut cells = Map::new();
     cells.insert("id".into(), paths.cell_or_empty("N° de ligne", lineid_el));
-    cells.insert("name".into(), paths.cell_or_empty("Designation", name_el));
+    cells.insert("name".into(), paths.cell_or_empty("Désignation", name_el));
     cells.insert("desc".into(), paths.cell_or_empty("Description", desc_el));
-    cells.insert("itemid".into(), paths.cell_or_empty("Reference article", itemid_el));
+    cells.insert("itemid".into(), paths.cell_or_empty("Référence article", itemid_el));
     cells.insert(
         "qty".into(),
-        if qty.is_some() { paths.cell("Quantite", qty, note_for(qty), None) } else { empty("Quantite") },
+        if qty.is_some() { paths.cell("Quantité", qty, note_for(qty), None) } else { empty("Quantité") },
     );
     cells.insert(
         "price".into(),
@@ -1039,7 +1039,7 @@ fn extract_cii(root: N, paths: &Paths, warnings: &mut Vec<String>) -> Map<String
     let ctx = find(root, "ExchangedDocumentContext");
     let txn = find(root, "SupplyChainTradeTransaction");
     if doc.is_none() || txn.is_none() {
-        warnings.push("Structure CII inattendue, seules les donnees brutes sont disponibles.".into());
+        warnings.push("Structure CII inattendue, seules les données brutes sont disponibles.".into());
         let mut out = structured(Vec::new(), Vec::new(), Vec::new(), cii_columns(), Vec::new());
         out.shift_remove("note_columns");
         return out;
@@ -1059,10 +1059,10 @@ fn extract_cii(root: N, paths: &Paths, warnings: &mut Vec<String>) -> Map<String
 
     paths.addh(&mut h, "N° de facture", find(doc, "ID"), None, None);
     paths.addh(&mut h, "Type de facture", find(doc, "TypeCode"), None, None);
-    addh_date(&mut h, "Date d'emission", find(doc, "IssueDateTime"));
+    addh_date(&mut h, "Date d'émission", find(doc, "IssueDateTime"));
     addh_date(
         &mut h,
-        "Date d'echance",
+        "Date d'échéance",
         find(doc, "DueDateDateTime").or_else(|| find(terms, "DueDateDateTime")),
     );
     paths.addh(
@@ -1088,11 +1088,11 @@ fn extract_cii(root: N, paths: &Paths, warnings: &mut Vec<String>) -> Map<String
         paths.addh(&mut h, "Profil", gp, Some(profile.to_string()), None);
     }
     for line in findall(find(doc, "BuyerReference"), "Line") {
-        paths.addh(&mut h, "Reference acheteur / commande", find(Some(line), "ID"), None, None);
+        paths.addh(&mut h, "Référence acheteur / commande", find(Some(line), "ID"), None, None);
     }
     let order_ref = find(find(agreement, "BuyerOrderReferencedDocument"), "IssuerAssignedID");
     if !text(order_ref).is_empty() {
-        paths.addh(&mut h, "Reference acheteur / commande", order_ref, None, None);
+        paths.addh(&mut h, "Référence acheteur / commande", order_ref, None, None);
     }
     let period = find(doc, "IncludedPeriod").or_else(|| find(settlement, "BillingSpecifiedPeriod"));
     if period.is_some() {
@@ -1100,7 +1100,7 @@ fn extract_cii(root: N, paths: &Paths, warnings: &mut Vec<String>) -> Map<String
         let e = date_text(find(period, "EndDateTime"));
         if !s.is_empty() || !e.is_empty() {
             let v = format!("{s}  →  {e}").trim_matches(|c| c == ' ' || c == '→').to_string();
-            paths.addh(&mut h, "Periode", period, None, Some(v));
+            paths.addh(&mut h, "Période", period, None, Some(v));
         }
     }
 
@@ -1171,7 +1171,7 @@ fn extract_cii(root: N, paths: &Paths, warnings: &mut Vec<String>) -> Map<String
         for (title, keys) in [
             ("Total HT", ["LineTotalAmount", "TaxBasisTotalAmount"]),
             ("Total TTC", ["TotalAmount", "GrandTotalAmount"]),
-            ("A payer", ["DuePayableAmount", "NetPayableAmount"]),
+            ("À payer", ["DuePayableAmount", "NetPayableAmount"]),
         ] {
             let el = keys.iter().find_map(|k| {
                 find(settlement, k).or_else(|| find(summation, k)).filter(|c| !text(Some(*c)).is_empty())
@@ -1188,19 +1188,19 @@ fn extract_cii(root: N, paths: &Paths, warnings: &mut Vec<String>) -> Map<String
         .map(|li| cii_line(li, paths))
         .collect();
     if lines.is_empty() {
-        warnings.push("Aucune ligne de facture detectee.".into());
+        warnings.push("Aucune ligne de facture détectée.".into());
     }
 
     let totals = sections.last().unwrap();
     let summary = summary(vec![
         ("N° de facture", value_of(&h, "N° de facture")),
-        ("Date d'emission", value_of(&h, "Date d'emission")),
-        ("Echeance", value_of(&h, "Date d'echance")),
+        ("Date d'émission", value_of(&h, "Date d'émission")),
+        ("Échéance", value_of(&h, "Date d'échéance")),
         ("Vendeur", section_value(&sections[0], "Raison sociale")),
         ("Acheteur", section_value(&sections[1], "Raison sociale")),
         ("Total HT", section_value(totals, "Total HT")),
         ("Total TTC", section_value(totals, "Total TTC")),
-        ("A payer", section_value(totals, "A payer")),
+        ("À payer", section_value(totals, "À payer")),
     ]);
     structured(h, sections, summary, cii_columns(), lines)
 }
@@ -1245,7 +1245,7 @@ fn build_rows(root: N, paths: &Paths) -> Vec<Value> {
             r.insert("binary".into(), true.into());
             r.insert(
                 "value".into(),
-                format!("Document binaire integre ({} octets)", thousands(size)).into(),
+                format!("Document binaire intégré ({} octets)", thousands(size)).into(),
             );
             r.insert("size".into(), size.into());
             r.insert("truncated".into(), true.into());
@@ -1323,12 +1323,12 @@ fn write_element(el: N, source: &str, depth: usize, out: &mut String) {
     out.push_str(&tag);
 
     let mut body = el.text().unwrap_or("").to_string();
-    // Les gros blocs base64 (PDF integre) sont abreges.
+    // Les gros blocs base64 (PDF intégré) sont abreges.
     if body.chars().count() > 500 {
         let s = body.trim();
         if BASE64_TEXT.is_match(s) {
             body = format!(
-                "{} … [{} caracteres de donnees binaires (base64)]",
+                "{} … [{} caractères de données binaires (base64)]",
                 &s[..80],
                 s.chars().count()
             );
@@ -1371,7 +1371,7 @@ fn pretty_xml(root: N, source: &str) -> String {
     out
 }
 
-// ------------------------------------------------------------------ PDF integre au XML
+// ------------------------------------------------------------------ PDF intégré au XML
 
 fn extract_pdf(root: N) -> Option<(Vec<u8>, Option<String>)> {
     for el in root.descendants().filter(|n| n.is_element()) {
@@ -1452,7 +1452,7 @@ fn parse_zip(data: &[u8]) -> Result<Extracted, FacturXError> {
             xml_name = Some(n);
         }
     }
-    let xml_name = xml_name.ok_or_else(|| FacturXError("Aucun fichier XML trouve dans l'archive ZIP.".into()))?;
+    let xml_name = xml_name.ok_or_else(|| FacturXError("Aucun fichier XML trouvé dans l'archive ZIP.".into()))?;
     let mut read = |name: &str| -> Result<Vec<u8>, FacturXError> {
         let mut buf = Vec::new();
         zf.by_name(name)
@@ -1523,10 +1523,10 @@ fn pdf_object_stream(data: &[u8], n: &[u8]) -> Option<Vec<u8>> {
     PDF_STREAM.captures(&data[pos..]).map(|c| c[1].to_vec())
 }
 
-/// Extrait le XML de facture embarque dans un PDF Factur-X.
+/// Extrait le XML de facture embarqué dans un PDF Factur-X.
 ///
-/// Chemin principal : piece jointe declaree dans l'objet /Filespec (champ /UF
-/// et reference /EF). Repli : scan de tous les flux du PDF.
+/// Chemin principal : pièce jointe declaree dans l'objet /Filespec (champ /UF
+/// et référence /EF). Repli : scan de tous les flux du PDF.
 fn extract_pdf_xml(data: &[u8]) -> Result<(Vec<u8>, String), FacturXError> {
     let xml_name: Option<String> = PDF_FILESPEC_NAME
         .captures(data)
@@ -1552,7 +1552,7 @@ fn extract_pdf_xml(data: &[u8]) -> Result<(Vec<u8>, String), FacturXError> {
     }
 
     Err(FacturXError(
-        "PDF sans XML de facture integre : aucune piece jointe UBL/CII trouvee (ce n'est pas une facture Factur-X ?)"
+        "PDF sans XML de facture intégré : aucune pièce jointe UBL/CII trouvée (ce n'est pas une facture Factur-X ?)"
             .into(),
     ))
 }
@@ -1564,7 +1564,7 @@ fn pdf_entry(bytes: &[u8], filename: &str) -> Value {
 }
 
 /// Analyse un fichier (PDF Factur-X, ZIP Factur-X ou XML UBL/CII) et retourne
-/// un objet JSON : donnees structurees + PDF en base64 + XML complet.
+/// un objet JSON : données structurees + PDF en base64 + XML complet.
 pub fn parse_file(filename: &str, data: &[u8]) -> Result<Value, FacturXError> {
     let mut warnings: Vec<String> = Vec::new();
     let (kind, extracted) = if data.starts_with(b"PK\x03\x04") {
@@ -1576,7 +1576,7 @@ pub fn parse_file(filename: &str, data: &[u8]) -> Result<Value, FacturXError> {
         ("zip", extracted)
     } else if data.starts_with(b"%PDF-") {
         let (xml, xml_name) = extract_pdf_xml(data)?;
-        warnings.push(format!("XML extrait de la piece jointe du PDF : {xml_name}"));
+        warnings.push(format!("XML extrait de la pièce jointe du PDF : {xml_name}"));
         ("pdf", Extracted { xml, xml_name: Some(xml_name), pdf: Some((data.to_vec(), filename.to_string())) })
     } else if looks_like_xml(data) {
         ("xml", Extracted { xml: lstrip(data).to_vec(), xml_name: None, pdf: None })
@@ -1591,7 +1591,7 @@ pub fn parse_file(filename: &str, data: &[u8]) -> Result<Value, FacturXError> {
     let root = doc.root_element();
     let paths = Paths::build(root);
     let xml_pdf = extract_pdf(root);
-    // Pour un XML seul, le PDF principal est celui embarque dans le XML.
+    // Pour un XML seul, le PDF principal est celui embarqué dans le XML.
     let main_pdf: Option<(Vec<u8>, String)> = match (kind, extracted.pdf) {
         ("xml", _) => xml_pdf.clone().map(|(raw, name)| (raw, name.unwrap_or_else(|| "facture.pdf".into()))),
         (_, pdf) => pdf,
@@ -1614,7 +1614,7 @@ pub fn parse_file(filename: &str, data: &[u8]) -> Result<Value, FacturXError> {
     };
 
     if main_pdf.is_none() {
-        warnings.push("Aucun PDF integre trouve dans ce fichier.".into());
+        warnings.push("Aucun PDF intégré trouvé dans ce fichier.".into());
     }
 
     // Controles de coherence, seulement si la structure de la facture a ete reconnue.
@@ -1641,7 +1641,7 @@ pub fn parse_file(filename: &str, data: &[u8]) -> Result<Value, FacturXError> {
     );
     result.insert("warnings".into(), warnings.into());
     result.insert("rows".into(), build_rows(root, &paths).into());
-    // PDF embarque dans le XML : expose a part quand il est distinct du PDF principal.
+    // PDF embarqué dans le XML : expose a part quand il est distinct du PDF principal.
     if let Some((raw, name)) = &xml_pdf {
         let distinct = main_pdf.as_ref().is_none_or(|(main, _)| main != raw);
         result.insert(
@@ -1718,11 +1718,14 @@ mod tests {
         assert_eq!(r["kind"], "xml");
         assert_eq!(r["lines"].as_array().unwrap().len(), 1);
         assert_eq!(summary_value(&r, "N° de facture"), "4711");
+        assert_eq!(summary_value(&r, "Date d'émission"), "2026-09-10");
+        assert_eq!(summary_value(&r, "Échéance"), "2026-10-10");
+        assert_eq!(summary_value(&r, "À payer"), "120.00 EUR");
         assert_eq!(summary_value(&r, "Vendeur"), "Vendeur SAS");
         assert_eq!(summary_value(&r, "Total TTC"), "120.00 EUR");
         let cells = &r["lines"][0]["cells"];
         assert_eq!(cells["qty"]["value"], "2.00");
-        assert_eq!(cells["qty"]["note"], "H87 — piece");
+        assert_eq!(cells["qty"]["note"], "H87 — pièce");
         assert_eq!(cells["name"]["value"], "Article test");
         assert_eq!(cells["price"]["value"], "50.00 EUR");
         assert_eq!(cells["taxrate"]["value"], "20.0");
@@ -1733,7 +1736,7 @@ mod tests {
         let names: Vec<&str> = r["sections"].as_array().unwrap().iter().map(|s| s["name"].as_str().unwrap()).collect();
         assert_eq!(names, ["Vendeur", "Acheteur", "Livraison", "Paiement", "Totaux"]);
         assert_eq!(r["sections"][4]["rows"][0]["title"], "TVA 20.0 % — TVA standard");
-        assert_eq!(r["warnings"], json!(["Aucun PDF integre trouve dans ce fichier."]));
+        assert_eq!(r["warnings"], json!(["Aucun PDF intégré trouvé dans ce fichier."]));
         assert!(r["xml_pretty"].as_str().unwrap().starts_with("<rsm:CrossIndustryInvoice xmlns:rsm="));
     }
 
@@ -1760,6 +1763,33 @@ mod tests {
         let pretty = r["xml_pretty"].as_str().unwrap();
         assert!(pretty.contains("\n    <cbc:Note>Compteur : 1234 | Site : Tours ; libre</cbc:Note>"));
         assert!(pretty.contains("<cbc:Name>Vendeur &amp; Fils</cbc:Name>"));
+    }
+
+    #[test]
+    fn modes_de_paiement_traduits_sans_modifier_les_codes() {
+        for (code, label) in [
+            ("20", "Chèque"), ("42", "Paiement sur compte bancaire"),
+            ("45", "Virement bancaire référencé"), ("48", "Carte bancaire"),
+            ("49", "Prélèvement"), ("58", "Virement SEPA"),
+            ("59", "Prélèvement SEPA"), ("68", "Paiement en ligne"),
+        ] {
+            let ubl = UBL.replace("<cac:LegalMonetaryTotal>", &format!(
+                "<cac:PaymentMeans><cbc:PaymentMeansCode>{code}</cbc:PaymentMeansCode></cac:PaymentMeans><cac:LegalMonetaryTotal>"
+            ));
+            let cii = CII.replace("<ram:TypeCode>30</ram:TypeCode>", &format!("<ram:TypeCode>{code}</ram:TypeCode>"));
+            for xml in [ubl, cii] {
+                let r = parse_file("paiement.xml", xml.as_bytes()).unwrap();
+                let payment = r["sections"].as_array().unwrap().iter().find(|s| s["name"] == "Paiement").unwrap();
+                let row = payment["rows"].as_array().unwrap().iter().find(|row| row["title"] == "Mode de paiement").unwrap();
+                assert_eq!(row["value"], code);
+                assert_eq!(row["note"], label);
+            }
+        }
+        let unknown = CII.replace("<ram:TypeCode>30</ram:TypeCode>", "<ram:TypeCode>999</ram:TypeCode>");
+        let r = parse_file("paiement.xml", unknown.as_bytes()).unwrap();
+        let row = &r["sections"][3]["rows"][0];
+        assert_eq!(row["value"], "999");
+        assert!(row.get("note").is_none());
     }
 
     #[test]
@@ -1795,7 +1825,7 @@ mod tests {
         assert_eq!(r["kind"], "pdf");
         assert_eq!(r["format"], "CII");
         assert_eq!(r["pdf"]["size"], pdf.len());
-        assert_eq!(r["warnings"][0], "XML extrait de la piece jointe du PDF : factur-x.xml");
+        assert_eq!(r["warnings"][0], "XML extrait de la pièce jointe du PDF : factur-x.xml");
     }
 
     #[test]
