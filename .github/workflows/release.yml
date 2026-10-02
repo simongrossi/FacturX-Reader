@@ -56,4 +56,6 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: "Factur-X Reader ${{ github.ref_name }}"
           releaseDraft: true
+          # 0.y.z = developpement initial (SemVer) : publie comme pre-version
+          prerelease: ${{ startsWith(github.ref_name, 'v0.') }}
           args: ${{ matrix.args }}

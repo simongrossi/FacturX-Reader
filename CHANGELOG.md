@@ -1,8 +1,39 @@
 # Changelog
 
-## 2.0.0 — 2026-10-02
+Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Versions : [SemVer](https://semver.org/lang/fr/).
+Tant que la version est en `0.y.z`, l'application est en développement initial : tout peut changer.
 
-Réécriture en application de bureau **Tauri 2 + Rust** (Windows, macOS, Linux). L'ancienne
+## [Non publié]
+
+### Ajouté
+
+- Recherche rapide (`Ctrl+F`) : texte ou regex, document sélectionné par défaut ou tous
+  les documents ouverts. Navigation précédent/suivant et surlignage jaune de l'élément
+  trouvé dans XML complet. Recherche des données XML uniquement, hors contenus binaires.
+- Exécution des regex dans un worker avec interruption des recherches trop longues.
+- Accueil avec ouverture, paramètres, douze documents récents et reprise de session.
+- Onglets par document et Accueil permanent ; fermeture par croix, clic central ou `Ctrl+W`,
+  navigation `Ctrl+Tab` / `Ctrl+Maj+Tab`.
+- Reprise automatique de session, désactivable dans les paramètres : documents, sélection,
+  vue, zoom et position ; copie locale des imports sans chemin et signalement des fichiers manquants.
+- Scénario de test navigateur couvrant reprise, accueil, onglets, récents, fichier manquant
+  et les deux portées de recherche, avec backend Tauri simulé.
+
+### Corrigé
+
+- Rendu de la vue Données lors du changement de document ; protection contre certains rendus
+  asynchrones devenus obsolètes après navigation.
+
+### Documentation et vérification
+
+- Roadmap reprenant les décisions, priorités, limites, pistes API/MCP et précautions normatives.
+- Syntaxe JavaScript et scénario navigateur vérifiés ; compilation et vérification dans
+  l'application native restent à faire. Aucune nouvelle version distribuée à ce stade.
+
+## [0.1.0] - 2026-10-02
+
+Première version alpha de l'application de bureau **Tauri 2 + Rust** (Windows, macOS, Linux),
+réécriture du prototype Python. L'ancienne
 version Python (serveur local + navigateur, exécutable PyInstaller) est retirée.
 
 ### Ajouté

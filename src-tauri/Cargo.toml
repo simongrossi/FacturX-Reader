@@ -1,6 +1,6 @@
 [package]
 name = "facturx-reader"
-version = "2.0.0"
+version = "0.1.0"
 description = "Visualiseur local de factures electroniques (Factur-X, UBL, CII)"
 authors = ["Simon Grossi"]
 edition = "2021"
