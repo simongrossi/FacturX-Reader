@@ -2,7 +2,8 @@
 name = "facturx-reader"
 version = "0.1.0"
 description = "Visualiseur local de factures electroniques (Factur-X, UBL, CII)"
-authors = ["Simon Grossi"]
+authors = ["Christophe Mehault", "Simon Grossi"]
+license = "PolyForm-Noncommercial-1.0.0"
 edition = "2021"
 
 [lib]
