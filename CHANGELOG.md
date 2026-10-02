@@ -5,6 +5,8 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 
 ## [Non publié]
 
+## [0.6.0] - 2026-10-02
+
 ### Ajouté
 
 - **Schematron officiel EN 16931** : les règles publiées par la Commission européenne

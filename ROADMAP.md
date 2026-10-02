@@ -1,6 +1,6 @@
 # Roadmap
 
-Mise à jour : 2 octobre 2026, après la version 0.5.0.
+Mise à jour : 2 octobre 2026, après la version 0.6.0.
 Voir [CHANGELOG.md](CHANGELOG.md) pour le détail des versions, [README.md](README.md) pour
 l'utilisation et [VALIDATION.md](VALIDATION.md) pour le bilan de vérification P0.
 
@@ -22,6 +22,7 @@ Versions publiées (pré-versions, builds non signés) :
 | 0.3.0 | Tableau multi-factures, filtres d'anomalies, menu clic droit sur les tableaux |
 | 0.4.0 | Libellés accentués, suivi de vérification, vue PDF et données, rapport JSON, barre de menus, onglets fixes |
 | 0.5.0 | Bibliothèque locale (alerte IBAN, doublons, prix), règles métier EN 16931, impression, protection des pointages et du suivi, en-tête compact |
+| 0.6.0 | Schematron officiel EN 16931 évalué en Rust, déclarations du conteneur PDF, verdicts séparés, filtres métier |
 
 ## Prochaines étapes proposées
 

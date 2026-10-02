@@ -1,7 +1,4 @@
-# Validation — après la version 0.5.0, 2 octobre 2026
-
-État de la branche `main`, qui contient le Schematron officiel, le conteneur PDF et les filtres
-métier, non encore publiés.
+# Validation — version 0.6.0, 2 octobre 2026
 
 Bilan de ce qui a été vérifié avant la publication, et de ce qui ne l'a pas été.
 Les commandes sont décrites dans [README.md](README.md#tests).
