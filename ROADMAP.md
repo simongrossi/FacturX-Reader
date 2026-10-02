@@ -1,109 +1,138 @@
 # Roadmap
 
-Mise à jour : 2 octobre 2026. Synthèse des échanges et ordre de développement proposé.
-Les éléments cochés existent dans le code local ; ils ne constituent pas une version publiée.
-Voir CHANGELOG.md pour les changements et README.md pour l'utilisation.
-Le bilan de vérification P0 est dans [VALIDATION.md](VALIDATION.md).
+Mise à jour : 2 octobre 2026, après la version 0.4.0.
+Voir [CHANGELOG.md](CHANGELOG.md) pour le détail des versions, [README.md](README.md) pour
+l'utilisation et [VALIDATION.md](VALIDATION.md) pour le bilan de vérification P0.
 
-## Développé localement — validé sous Windows
+## Où on en est
 
-- [x] Recherche rapide (`Ctrl+F`) : texte, numéros, regex sans distinction de casse.
-- [x] Portée explicite : **document sélectionné** par défaut, ou **tous les documents ouverts**.
-- [x] Résultats sur les champs, valeurs, attributs et chemins XML ; un résultat par élément.
-- [x] Navigation précédent/suivant, `Entrée` / `Maj+Entrée`, ouverture de la bonne facture
-  dans XML complet et surlignage jaune de la ligne. `Échap` efface la recherche.
-- [x] Regex exécutées dans un worker, erreurs expliquées, interruption après deux secondes.
-- [x] Accueil inspiré de SmoothCSV : ouvrir, ouvrir un dossier, paramètres, douze documents récents.
-- [x] Onglet Accueil permanent et un onglet par document, inspirés de MD-Workshop.
-- [x] Fermeture individuelle (croix, clic central, `Ctrl+W`), navigation `Ctrl+Tab` / `Ctrl+Maj+Tab`.
-- [x] Reprise automatique de session par défaut, option de démarrage sur l'accueil et reprise manuelle.
-- [x] Conservation des documents, document actif, vue, position et zoom ; les pointages restent séparés.
-- [x] Relecture des fichiers connus par chemin ; copie locale IndexedDB des imports sans chemin.
-- [x] Signalement des fichiers indisponibles sans bloquer les autres documents.
+| Priorité | Thème | État |
+|---|---|---|
+| P0 | Valider l'existant | Presque terminé : reste macOS, Linux et l'installation des paquets |
+| P1 | Confort et fiabilité du moteur | À moitié fait : le confort est livré, la fiabilité reste à faire |
+| P2 | Exploiter des lots de factures | Fait aux deux tiers : reste la recherche étendue et la bibliothèque |
+| P3 | Conformité et distribution | Pas commencé |
+| P4 | API, MCP et connecteurs | Pas commencé |
 
-Limites : recherche dans les données XML uniquement, pas dans le texte du PDF ni les contenus
-binaires. Le jaune couvre l'élément XML, pas chaque occurrence du terme. Les récents portent
-sur les documents, pas encore les dossiers. Les copies locales ne suivent pas les modifications
-du fichier original. La session n'est pas une bibliothèque indexée de toutes les factures.
+Versions publiées (pré-versions, builds non signés) :
 
-Vérification P0 : neuf tests unitaires Rust et test sur les factures locales réussis ; cinq
-scénarios navigateur Edge (dont PDF multipage, quota, cache manquant et session de 500 documents).
-Test Windows natif avec le vrai moteur Rust et un profil WebView2 jetable : fermeture de la
-fenêtre et relance, reprise du PDF de deux pages, zoom/position, copie IndexedDB,
-fichier manquant et recherche. Les quotas navigateur sont simulés dans les tests de panne.
-Les vérifications macOS/Linux et l'installation des paquets restent à faire sur ces systèmes.
+| Version | Contenu principal |
+|---|---|
+| 0.2.0 | Contrôles de cohérence en décimaux exacts, export CSV des lignes, doublons, recherche, accueil, onglets, reprise de session |
+| 0.3.0 | Tableau multi-factures, filtres d'anomalies, menu clic droit sur les tableaux |
+| 0.4.0 | Libellés accentués, suivi de vérification, vue PDF et données, rapport JSON, barre de menus, onglets fixes |
 
-## P0 — Terminer et valider les changements actuels
+## Prochaines étapes proposées
 
-- [x] Recompiler et vérifier l'application native Windows, reprise PDF et persistance réelle.
-- [x] Tester stockage plein (panne simulée), copie manquante et session de 500 documents.
-- [x] Limiter les copies locales à 256 Mo, supprimer les copies inutilisées, proposer
-  nettoyage et effacement de l'historique dans les paramètres. Préserver la session et les pointages.
-- [x] Corriger la capture de position pendant le rendu/restauration et regrouper les mises
-  à jour de l'interface et le nettoyage lors des imports volumineux.
-- [x] Tests navigateur reproductibles dans le projet, dépendance Playwright verrouillée,
-  scripts npm et workflow CI ajoutés (exécution distante à constater au prochain push).
-- [ ] Vérification native macOS/Linux sur machines correspondantes ; installation et lancement
-  des installeurs Windows produits, hors du test de l'exécutable.
+1. **Signature des builds** (P3) : des installeurs sont désormais distribués sur GitHub. Demande
+   un certificat de signature Windows et un compte développeur Apple.
+2. **Fin de la fiabilité P1** : protection des pointages, provenance des valeurs, puis
+   « Ouvrir avec » et instance unique.
+3. **Bibliothèque locale** (P2) : elle débloque le registre IBAN par fournisseur, les doublons
+   sur l'historique et l'historique des prix unitaires.
 
-## P1 — Gains immédiats et fiabilité du moteur
+## P0 — Valider l'existant
+
+- [x] Application native Windows recompilée et vérifiée : reprise PDF, persistance réelle.
+- [x] Stockage plein (panne simulée), copie manquante et session de 500 documents testés.
+- [x] Copies locales limitées à 256 Mo, nettoyage automatique et manuel, effacement de l'historique.
+- [x] Capture de position corrigée pendant le rendu et la restauration ; imports volumineux groupés.
+- [x] Tests navigateur reproductibles, Playwright verrouillé, scripts npm et workflow CI.
+  CI verte sur `main` depuis la correction de la reprise de session (0.3.0).
+- [x] Test natif Windows sur le vrai exécutable : tableau, contrôles, vue côte à côte, suivi (0.4.0).
+- [ ] Vérification native macOS et Linux sur les machines correspondantes.
+- [ ] Installation et lancement réels des installeurs produits (`.exe`, `.msi`, `.dmg`, paquets Linux).
+
+## P1 — Confort et fiabilité du moteur
 
 ### Confort et exploitation
 
-- [x] Libellés accentués dans `tables.rs` et le moteur : Désignation, Quantité,
-  Date d'échéance, etc. ; modes de paiement UNCL 4461.
-- [x] Export CSV des lignes visibles ou pointées ; copie du tableau dans le presse-papiers (0.2.0).
+- [x] Recherche rapide (`Ctrl+F`) : texte ou regex, document sélectionné ou tous les documents
+  ouverts, navigation et surlignage dans XML complet.
+- [x] Accueil, onglets par document, reprise de session, douze documents récents.
+- [x] Libellés accentués dans `tables.rs` et le moteur ; modes de paiement UNCL 4461 (0.4.0).
+- [x] Export CSV des lignes visibles ou pointées ; copie dans le presse-papiers (0.2.0).
+- [x] Barre de menus Fichier / Édition / Affichage / Aide (0.4.0).
+- [x] Onglets Accueil et Tableau fixes quand les onglets de documents défilent (0.4.0).
+- [x] Menu clic droit : copie de cellule, ligne, colonne ou tableau en TSV, CSV, JSON ou Markdown
+  (0.3.0) ; actions sur les onglets et la liste des fichiers (0.4.0).
 - [ ] Export Excel natif (.xlsx).
 - [ ] Associations de fichiers, « Ouvrir avec » et instance unique.
-- [ ] Compléter les récents avec les dossiers.
+- [ ] Dossiers dans les récents.
 
-### Socle de fiabilité, avant les contrôles et connecteurs
+### Socle de fiabilité
 
-- [ ] Calculs monétaires décimaux à la place des `f64`, avec règles d'arrondi explicites.
-  Fait pour les contrôles (0.2.0) ; l'affichage (P.U. et TVA de ligne reconstitués) reste en `f64`.
-- [ ] Distinguer les valeurs extraites du XML des valeurs reconstituées : provenance, formule,
-  valeur d'origine et chemin XML consultables. Ne pas présenter un calcul comme une donnée source.
-- [ ] Extraction PDF avec un vrai parseur, au-delà des expressions régulières actuelles :
-  structures PDF complexes, pièces jointes multiples, sélection du XML pertinent.
+- [x] Doublons exacts (empreinte XML) et probables (vendeur + numéro) parmi les documents
+  ouverts (0.2.0). Reste : comparer aussi le montant, et l'historique entre sessions (bibliothèque).
+- [ ] Calculs monétaires décimaux partout. Fait pour les contrôles (0.2.0) ; l'affichage du P.U.
+  et de la TVA de ligne reconstitués reste en `f64`.
+- [ ] Provenance des valeurs : distinguer ce qui est extrait du XML de ce qui est reconstitué,
+  avec formule, valeur d'origine et chemin consultables.
+- [ ] Extraction PDF avec un vrai parseur, au-delà des expressions régulières : structures
+  complexes, pièces jointes multiples, choix du XML pertinent.
 - [ ] Protection des pointages : sauvegarde, restauration, export/import, erreur visible si le
   fichier est illisible ; ne pas traiter une corruption comme un historique vide.
-- [x] Détection des doublons exacts (empreinte XML) et probables (vendeur + numéro) parmi les
-  documents ouverts (0.2.0), sans fusion automatique. Reste : historique entre sessions (bibliothèque).
 - [ ] Jeu de tests anonymisé et versionnable pour la CI : profils sans lignes, avoirs, remises,
   frais, acomptes, plusieurs taux de TVA, arrondis, devises, PDF/ZIP et variantes UBL/CII.
-- [ ] Mise à jour de PDF.js (3.11 embarqué actuellement) et déclaration explicite du worker.
+- [ ] Mise à jour de PDF.js (3.11 embarqué) et déclaration explicite du worker.
+- [ ] Mettre à jour VALIDATION.md, resté au bilan P0 d'avant la 0.2.0.
 
-## P2 — Traitement quotidien de lots de factures
+## P2 — Exploiter des lots de factures
 
-- [x] Tableau multi-factures : fournisseur, numéro, date, HT, TVA, TTC, échéance et état de vérification.
-  Totaux séparés par devise, avoirs déduits ; filtres d'anomalies, export CSV. Menu contextuel de copie.
-- [ ] Recherche transversale dans les lignes et filtre de la liste des fichiers (fournisseur,
-  numéro, montant), masquage optionnel des PDF sans XML.
-- [ ] Recherche dans le texte du PDF et surlignage à l'emplacement trouvé : extension distincte
-  de la recherche XML actuelle ; décider séparément du besoin d'OCR pour les scans.
-- [x] Vue PDF et données côte à côte, défilements indépendants.
+### Fait
+
+- [x] Contrôles arithmétiques : lignes, remises et frais globaux, TVA par taux, HT/TTC, acomptes,
+  arrondis, net à payer (0.2.0).
+- [x] Mentions essentielles ; clés de contrôle SIREN/SIRET, n° de TVA français, IBAN (0.2.0).
+- [x] Dates clés : échéance dépassée ou à venir, gain d'escompte décrit dans le XML (0.2.0).
+- [x] États de contrôle : conforme, écart, alerte, info, non vérifiable ; une règle sans objet
+  n'est pas émise (0.2.0).
+- [x] Tableau multi-factures : totaux par devise, avoirs déduits, tri, filtre, export CSV (0.3.0).
+- [x] Filtres d'anomalies : écart, alerte, échue, sans TVA, émise un week-end, doublon, avoirs,
+  non lues (0.3.0) ; filtre par statut de vérification (0.4.0).
+- [x] Vue PDF et données côte à côte, défilements indépendants (0.4.0).
 - [x] Statuts « À vérifier », « Vérifiée », « Anomalie », commentaires par facture et par ligne,
-  pointage de la facture entière. Distinct d'un paiement confirmé.
-- [x] Contrôles arithmétiques : lignes, remises/frais globaux, TVA par taux, HT/TTC,
-  acomptes, arrondis, net à payer ; échéance dépassée comme alerte distincte,
-  sans déduire qu'une facture est impayée ; mentions essentielles, clés SIREN/SIRET, TVA, IBAN (0.2.0).
-- [x] Résultats de contrôle : conforme, écart, alerte, info, non vérifiable ; une règle sans objet
-  (pas de lignes) n'est pas émise (0.2.0).
-- [x] Rapport de contrôle exportable (JSON) : règle, attendu, constaté, écart et chemin XML.
+  pointage de la facture entière ; distinct d'un paiement confirmé (0.4.0).
+- [x] Rapport de contrôle exportable en JSON : règle, attendu, constaté, écart, chemin XML (0.4.0).
+
+### Prévu
+
+- [ ] Mentions adaptées au profil (MINIMUM, BASIC WL, BASIC, EN 16931, EXTENDED) et contrôle
+  des taux de TVA légaux.
+- [ ] Règle de ligne : décider du traitement des émetteurs dont le prix unitaire et les frais de
+  ligne ne redonnent pas le total (plusieurs écarts par facture sur certains fournisseurs).
+- [ ] Recherche dans les lignes de toutes les factures et filtres dans la liste latérale
+  (fournisseur, numéro, montant, statut), masquage des PDF sans XML.
+- [ ] Recherche dans le texte du PDF et surlignage ; décider séparément du besoin d'OCR.
+- [ ] Rapport de contrôle lisible (PDF ou HTML) et rapport consolidé sur plusieurs factures.
 - [ ] Impression / export PDF de la vue Données.
-- [ ] Bibliothèque locale persistante : recherche fournisseur, référence article, période,
-  montant et commentaires entre les sessions, au-delà des seuls documents ouverts.
-- [ ] Dossier surveillé, progression/annulation des imports et analyse lourde hors du fil principal.
+- [ ] Renommage et classement des fichiers depuis les métadonnées (`Fournisseur_Date_N°.pdf`),
+  avec confirmation avant toute écriture.
+- [ ] Échéancier de décaissements à partir des échéances du tableau.
+- [ ] Dossier surveillé, progression et annulation des imports, analyse lourde hors du fil principal.
 
-## P3 — Validation normative et distribution
+### Bibliothèque locale et ce qui en dépend
 
-- [ ] Validation XML XSD puis Schematron, selon le profil et la version ; versions des jeux
-  de règles traçables et erreurs reliées aux données concernées.
-- [ ] Validation du conteneur PDF/A, métadonnées XMP, association et cohérence avec le XML.
+- [ ] Bibliothèque locale persistante de toutes les factures vues : recherche par fournisseur,
+  référence article, période, montant et commentaire, entre les sessions.
+- [ ] Registre IBAN par fournisseur et alerte de changement (anti-fraude au virement).
+- [ ] Doublons sur l'historique, au-delà des documents ouverts.
+- [ ] Historique des prix unitaires par article et par fournisseur, variations dans le temps.
+- [ ] Grille de prix négociés importée et alerte de dépassement.
+
+## P3 — Conformité et distribution
+
+- [ ] **Signature Windows, notarisation macOS**, puis mise à jour automatique Tauri. À traiter en
+  premier : des installeurs non signés sont déjà distribués.
+- [ ] Validation XML XSD puis Schematron EN 16931, selon le profil et la version ; versions des
+  jeux de règles traçables et erreurs reliées aux données concernées.
+- [ ] Validation du conteneur PDF/A-3, métadonnées XMP, association et cohérence avec le XML.
 - [ ] Présenter séparément : lecture réussie, contrôles arithmétiques, validation XML et validation
   du conteneur. Un fichier lisible n'est pas nécessairement un Factur-X conforme.
-- [ ] Signature Windows, notarisation macOS, puis mise à jour automatique Tauri.
-  **Faire remonter la signature en priorité dès la distribution à d'autres utilisateurs.**
+- [ ] Comparaison PDF vs XML : montants clés recherchés dans le texte du PDF, écart mis en
+  évidence (PDF texte uniquement). Puis synchronisation au clic XML ↔ PDF.
+- [ ] Signature électronique du PDF : détecter sa présence, puis vérifier l'intégrité.
+- [ ] Conversion CII ↔ UBL.
 - [ ] Distribution portable Windows en ZIP ; le mode portable des pointages existe déjà.
 - [ ] Interface en anglais.
 
@@ -119,6 +148,8 @@ l'exposition à des assistants ou l'import automatique à grande échelle.
 - [ ] Connexions optionnelles et désactivées par défaut ; application utilisable hors ligne.
 - [ ] Identifiants et jetons dans le trousseau système ; permissions/CSP limitées par connecteur.
 - [ ] Appels réseau déclenchés explicitement et import local avec provenance.
+- [ ] Annuaire SIREN/SIRET (entreprise active, procédure en cours, code APE) : premier appel
+  réseau de l'application, donc optionnel et désactivé par défaut.
 - [ ] Choisir un premier connecteur selon l'usage réel et vérifier les conditions d'accès avant codage.
 
 | Candidat | Besoin / point à vérifier avant développement |
@@ -141,6 +172,23 @@ l'exposition à des assistants ou l'import automatique à grande échelle.
 Le serveur est le premier usage MCP proposé. Son ordre par rapport au premier connecteur natif
 reste guidé par l'usage réel. Un serveur local ne garantit pas que les données restent sur
 la machine : les résultats transmis à l'assistant peuvent partir chez son fournisseur.
+
+### Hors périmètre du lecteur, à ce stade
+
+Évoqués pendant les échanges, non retenus tant qu'un besoin réel ne les justifie pas :
+rapprochement avec les bons de livraison, traducteur vers les formats d'ERP (SAP, Oracle,
+Dynamics) et formats bancaires, workflow de bon à payer avec notifications, suivi budgétaire
+par projet. Ces deux derniers supposent plusieurs utilisateurs et un serveur : un autre produit.
+
+## Limites connues
+
+- La recherche porte sur les données XML, pas sur le texte du PDF ni les contenus binaires.
+- Les contrôles ne sont pas une validation EN 16931 ; aucun appel réseau ne vérifie l'existence
+  d'un SIREN ni le titulaire d'un IBAN.
+- Tableau, doublons et suivi portent sur les documents ouverts (500 au maximum), pas sur un historique.
+- Le suivi de vérification est enregistré dans le stockage local de la WebView, par empreinte du XML.
+- Les copies locales des fichiers déposés ne suivent pas les modifications du fichier d'origine.
+- Les builds ne sont pas signés.
 
 ## Références et précautions de spécification
 
