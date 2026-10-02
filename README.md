@@ -546,13 +546,15 @@ npm run test:ui
 
 Le workflow `.github/workflows/checks.yml` lance les tests navigateur et Rust à chaque push
 et pull request. Les tests navigateur simulent uniquement les commandes Rust ; le rendu
-PDF utilise le vrai PDF.js et une facture synthétique de deux pages. Ils couvrent aussi
-les deux portées de recherche, quotas et copie manquante, historique, session invalide et
-restauration de 500 documents.
+PDF utilise le vrai PDF.js et une facture synthétique de deux pages. Treize scénarios couvrent
+la session et la recherche, les quotas et les 500 documents, les contrôles et l'export CSV, le
+tableau et ses filtres, les menus, le suivi et le rapport, les règles EN 16931 et l'impression,
+la protection des pointages, la bibliothèque et les verdicts du Schematron.
 
 Sous Windows, un test distinct lance le véritable exécutable dans un profil WebView2 jetable,
-sans changer la session de l'utilisateur. Il valide Rust, PDF, zoom/position, arrêt du processus
-et relance, reprise des copies locales, fichier manquant et recherche :
+sans changer la session ni les données de l'utilisateur. Il valide le moteur Rust, la reprise
+après relance, le tableau, les contrôles, le Schematron officiel, la bibliothèque SQLite, le suivi
+et la restauration de fichiers de données corrompus :
 
 ```powershell
 cargo build --manifest-path src-tauri/Cargo.toml
@@ -573,7 +575,9 @@ cd src-tauri
 cargo test
 ```
 
-- tests unitaires du moteur (UBL, CII, ZIP, PDF, fichiers rejetés, parcours de dossier) ;
+- tests unitaires : moteur (UBL, CII, ZIP, PDF, conteneur), contrôles en décimaux, règles
+  EN 16931, Schematron officiel (toutes les règles se compilent, exemples officiels), pointages
+  et suivi, bibliothèque ;
 - `tests/samples.rs` analyse chaque fichier de `samples/` : il doit donner une facture UBL ou
   CII avec des lignes. Un fichier dont le nom contient `PAS DE XML` doit au contraire être
   rejeté. Sans dossier `samples/`, ce test est sans effet.
@@ -624,8 +628,6 @@ auteurs restent libres de tout usage. Détails dans [NOTICE.md](NOTICE.md).
 Voir [ROADMAP.md](ROADMAP.md) pour les évolutions envisagées et [CHANGELOG.md](CHANGELOG.md)
 pour l'historique.
 
-Les travaux locaux du 2 octobre 2026 (recherche, accueil, onglets et reprise de session)
-sont décrits dans la section **Non publié** du changelog. Leur test navigateur utilise des
-commandes Tauri simulées. P0 inclut désormais une vérification native Windows et la gestion
-du cache ; les vérifications natives sur macOS/Linux restent à réaliser.
-Voir [VALIDATION.md](VALIDATION.md) pour le bilan P0 et les limites des vérifications.
+[VALIDATION.md](VALIDATION.md) dit ce qui a été vérifié pour la version courante, ce qui ne l'a
+pas été (installeurs, macOS, Linux) et les limites de ce que l'application affirme.
+[NOTICE.md](NOTICE.md) détaille les licences, dont celle des règles de validation officielles.

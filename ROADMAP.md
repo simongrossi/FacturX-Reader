@@ -9,7 +9,7 @@ l'utilisation et [VALIDATION.md](VALIDATION.md) pour le bilan de vérification P
 | Priorité | Thème | État |
 |---|---|---|
 | P0 | Valider l'existant | Presque terminé : reste macOS, Linux et l'installation des paquets |
-| P1 | Confort et fiabilité du moteur | Aux deux tiers : reste la provenance des valeurs, le parseur PDF, « Ouvrir avec », l'export Excel |
+| P1 | Confort et fiabilité du moteur | Aux trois quarts : reste la provenance des valeurs, « Ouvrir avec », l'export Excel, les tests anonymisés |
 | P2 | Exploiter des lots de factures | Presque terminé : reste la recherche dans le PDF, le dossier surveillé, l'échéancier |
 | P3 | Conformité et distribution | Bien avancé : Schematron officiel et déclarations du conteneur ; reste XSD, PDF/A réel, signature des builds |
 | P4 | API, MCP et connecteurs | Pas commencé |
@@ -28,8 +28,9 @@ Versions publiées (pré-versions, builds non signés) :
 
 1. **Signature des builds** (P3) : des installeurs sont désormais distribués sur GitHub. Demande
    un certificat de signature Windows et un compte développeur Apple.
-2. **Fin de la fiabilité P1** : provenance des valeurs, puis « Ouvrir avec » et instance unique.
-3. **Confort P1** : « Ouvrir avec », instance unique, export Excel natif.
+2. **Schematron** : le rendre plus rapide sur les grosses factures, garder ses résultats d'une
+   session à l'autre, et brancher la suite de tests officielle sur la CI.
+3. **Fin de P1** : provenance des valeurs, « Ouvrir avec » et instance unique, export Excel natif.
 
 ## P0 — Valider l'existant
 
