@@ -1,0 +1,1384 @@
+"use strict";
+
+const $ = (s) => document.querySelector(s);
+const byId = (id) => document.getElementById(id);
+
+const state = {
+  files: [],        // {id, name, status, error, result, rendered: {}}
+  selected: null,   // id du fichier sélectionné
+  tab: "pdf",
+  zoom: 1.25,
+  pdfDoc: null,
+  pdfSource: null,   // "pdf" | "xmlpdf" | null — source affichée dans le pane PDF partagé
+  renderToken: 0,
+  fit: false,        // PDF ajusté à la largeur à l'ouverture
+};
+let fileSeq = 0;
+
+/* ---------------- utilitaires ---------------- */
+
+function esc(s) {
+  return String(s ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
+function b64toBytes(b64) {
+  const bin = atob(b64);
+  const arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return arr;
+}
+
+function fmtSize(n) {
+  if (n == null) return "";
+  if (n > 1024 * 1024) return (n / 1024 / 1024).toFixed(1) + " Mo";
+  if (n > 1024) return Math.round(n / 1024) + " Ko";
+  return n + " o";
+}
+
+async function copyText(t, btn) {
+  const old = btn.textContent;
+  try {
+    await navigator.clipboard.writeText(t);
+    btn.textContent = "Copié";
+  } catch {
+    const ta = document.createElement("textarea");
+    ta.value = t;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    ta.remove();
+    btn.textContent = "Copié";
+  }
+  setTimeout(() => { btn.textContent = old; }, 1200);
+}
+
+/* ---------------- backend (commandes Rust) ---------------- */
+
+const invoke = window.__TAURI__.core.invoke;
+
+const api = {
+  async parse(file) {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    return invoke("parse_file", bytes, {
+      headers: { "x-filename": encodeURIComponent(file.name) },
+    });
+  },
+  parsePath: (path) => invoke("parse_path", { path }),
+  pickFolder: () => invoke("pick_folder"),
+  startupPaths: () => invoke("startup_paths"),
+  getPointage: (hash) => invoke("get_pointage", { hash }),
+  setPointage: (hash, lines, filename) => invoke("set_pointage", { hash, lines, filename }),
+  clearPointage: (hash) => invoke("clear_pointage", { hash }),
+  appInfo: () => invoke("app_info"),
+  savePdf: (pdfObj) => invoke("save_pdf", {
+    filename: pdfObj.filename || "facture.pdf",
+    base64: pdfObj.base64,
+  }),
+};
+
+/* ---------------- chargement / analyse des fichiers ---------------- */
+
+function newFileEntry(name, status, result) {
+  return {
+    id: "f" + (++fileSeq),
+    name: name,
+    status: status,
+    error: null,
+    result: result,
+    rendered: {},
+    pointed: new Set(),      // indices de lignes pointees (persistees)
+    _openDetails: new Set(), // indices de lignes dont le detail est ouvert (session)
+    sort: { key: null, dir: 1 },
+    linesQuery: "",
+  };
+}
+
+/* Charge une liste de sources {name, load()} l'une après l'autre. */
+async function addSources(sources) {
+  if (!sources.length) return;
+  workspaceHasSession = true;
+  const entries = sources.map((src) => {
+    const entry = newFileEntry(src.name, "loading", null);
+    entry.source = src.source || { key: crypto.randomUUID(), name: src.name };
+    entry.view = src.view || {};
+    state.files.push(entry);
+    return entry;
+  });
+  renderList();
+  for (let i = 0; i < sources.length; i++) {
+    const entry = entries[i];
+    try {
+      if (sources[i].blob) {
+        try { await workspaceBlob("put", entry.source.key, sources[i].blob); }
+        catch { workspaceNotice("La copie locale n’a pas pu être enregistrée : ce document devra être rouvert manuellement."); }
+      }
+      entry.result = await sources[i].load();
+      entry.status = "ok";
+      rememberRecent(entry);
+    } catch (e) {
+      entry.status = "error";
+      entry.error = String((e && e.message) || e);
+    }
+    renderList();
+  }
+  const lastOk = [...entries].reverse().find((x) => x.status === "ok");
+  if (lastOk) selectFile(lastOk.id);
+  else if (!state.selected && state.files.length) selectFile(state.files[0].id);
+}
+
+/* Fichiers choisis ou déposés dans la fenêtre (objets File). */
+function addFiles(fileList) {
+  const files = [...fileList].filter((f) => f && f.size > 0);
+  return addSources(files.map((f) => ({ name: f.name, blob: f, load: () => api.parse(f) })));
+}
+
+/* Fichiers désignés par leur chemin sur le disque (dossier ouvert, ligne de commande). */
+function addPaths(listing) {
+  if (!listing || !listing.files) return Promise.resolve();
+  if (listing.truncated)
+    alert("Ce dossier contient plus de " + listing.max + " fichiers : seuls les " + listing.max + " premiers sont chargés.");
+  else if (listing.folder && !listing.files.length)
+    alert("Aucun fichier .pdf, .xml ou .zip dans ce dossier.");
+  return addSources(listing.files.map((p) => ({
+    name: p.split(/[\\/]/).pop(),
+    source: { key: p, path: p, name: p.split(/[\\/]/).pop() },
+    load: () => api.parsePath(p),
+  })));
+}
+
+async function openFolder() {
+  try {
+    await addPaths(await api.pickFolder());
+  } catch (e) {
+    alert("Ouverture du dossier impossible : " + e);
+  }
+}
+
+/* ---- dépôt de dossiers : parcours récursif des entrées déposées ---- */
+
+const INVOICE_EXT = /\.(pdf|xml|zip)$/i;
+
+function readAllEntries(reader) {
+  return new Promise((resolve) => {
+    const all = [];
+    const next = () => reader.readEntries((batch) => {
+      if (!batch.length) return resolve(all);
+      all.push(...batch);
+      next();
+    }, () => resolve(all));
+    next();
+  });
+}
+
+async function filesFromEntry(entry, insideFolder, out) {
+  if (entry.isFile) {
+    // dans un dossier, seuls les fichiers factures sont retenus
+    if (insideFolder && !INVOICE_EXT.test(entry.name)) return;
+    const file = await new Promise((resolve) => entry.file(resolve, () => resolve(null)));
+    if (file) out.push(file);
+  } else if (entry.isDirectory && !entry.name.startsWith(".")) {
+    const children = await readAllEntries(entry.createReader());
+    children.sort((a, b) => a.name.localeCompare(b.name));
+    for (const child of children) await filesFromEntry(child, true, out);
+  }
+}
+
+async function addDropped(dataTransfer) {
+  // les entrées doivent être lues de façon synchrone pendant l'événement drop
+  const entries = [...(dataTransfer.items || [])]
+    .map((it) => (it.webkitGetAsEntry ? it.webkitGetAsEntry() : null))
+    .filter(Boolean);
+  if (!entries.some((e) => e.isDirectory)) return addFiles(dataTransfer.files);
+  const files = [];
+  for (const entry of entries) await filesFromEntry(entry, false, files);
+  return addFiles(files);
+}
+
+/* ---------------- liste des fichiers ---------------- */
+
+function fmtBadge(result) {
+  if (!result) return "";
+  const b = [];
+  b.push('<span class="badge accent">' + esc(result.format) + "</span>");
+  if (result.lines && result.lines.length)
+    b.push('<span class="badge">' + result.lines.length + " lignes</span>");
+  if (result.pdf) b.push('<span class="badge ok">PDF ' + esc(fmtSize(result.pdf.size)) + "</span>");
+  else b.push('<span class="badge warn">sans PDF</span>');
+  if (result.rows) b.push('<span class="badge">' + result.rows.length + " valeurs XML</span>");
+  return b.join(" ");
+}
+
+function renderList(preserveSearch = false) {
+  renderDocumentTabs();
+  saveWorkspace();
+  if (!preserveSearch) scheduleQuickSearch();
+  const ul = byId("file-list");
+  ul.innerHTML = "";
+  for (const f of state.files) {
+    const li = document.createElement("li");
+    li.className = "file-item" + (f.id === state.selected ? " selected" : "");
+    li.innerHTML =
+      '<div class="fi-name">' + esc(f.name) + "</div>" +
+      (f.status === "error"
+        ? '<div class="fi-error">Erreur : ' + esc(f.error) + "</div>"
+        : '<div class="fi-meta">' + fmtBadge(f.result) + "</div>") +
+      '<button type="button" class="fi-del" title="Retirer ce fichier" aria-label="Retirer ce fichier">✕</button>';
+    li.addEventListener("click", () => selectFile(f.id));
+    li.querySelector(".fi-del").addEventListener("click", (e) => {
+      e.stopPropagation();
+      removeFile(f.id);
+    });
+    ul.appendChild(li);
+  }
+}
+
+function removeFile(id) {
+  const idx = state.files.findIndex((x) => x.id === id);
+  if (idx === -1) return;
+  state.files.splice(idx, 1);
+  if (state.selected === id) {
+    const next = state.files[Math.min(idx, state.files.length - 1)];
+    state.selected = next ? next.id : null;
+    state.tab = "pdf";
+    state.pdfDoc = null;
+    state.pdfSource = null;
+  }
+  renderList();
+  renderFileView();
+}
+
+function clearAllFiles() {
+  if (!state.files.length) return;
+  if (!confirm("Vider tous les fichiers de la session ?\n(Les pointages déjà sauvegardés ne seront pas supprimés.)")) return;
+  state.files = [];
+  state.selected = null;
+  state.tab = "pdf";
+  state.pdfDoc = null;
+  state.pdfSource = null;
+  renderList();
+  renderFileView();
+}
+
+function toggleSidebar() {
+  const sb = byId("sidebar");
+  const folded = sb.classList.toggle("collapsed");
+  const btn = byId("btn-fold");
+  btn.textContent = folded ? "›" : "‹";
+  btn.title = folded ? "Déplier le panneau" : "Replier le panneau";
+  btn.setAttribute("aria-label", folded ? "Déplier le panneau" : "Replier le panneau");
+  try { localStorage.setItem("fx-sidebar", folded ? "1" : "0"); } catch (e) {}
+  requestAnimationFrame(() => syncStickyOffsets());
+}
+
+/* ---------------- sélection / affichage ---------------- */
+
+function getFile(id) {
+  return state.files.find((f) => f.id === id);
+}
+
+function selectFile(id) {
+  captureDocumentView();
+  state.renderToken++;
+  state.selected = id;
+  state.tab = "pdf";
+  state.pdfDoc = null;
+  state.pdfSource = null;
+  renderList();
+  renderFileView();
+}
+
+function renderFileView() {
+  state.renderToken++;
+  document.querySelector(".layout").classList.toggle("workspace-home", !state.selected);
+  const f = getFile(state.selected);
+  if (!f || f.status !== "ok") {
+    byId("empty-state").hidden = false;
+    byId("file-view").hidden = true;
+    if (f?.status === "error") workspaceNotice(f.name + " : " + f.error);
+    return;
+  }
+  byId("empty-state").hidden = true;
+  const view = byId("file-view");
+  view.hidden = false;
+  f.rendered = {};
+  f._dataStarted = false;
+  if (f.view?.zoom) { state.zoom = f.view.zoom; state.fit = !!f.view.fit; byId("pdf-zoom").value = String(state.zoom); }
+  f.linesQuery = f.view?.linesQuery ?? f.linesQuery;
+  f.sort = f.view?.sort || f.sort;
+  loadPointage(f);
+
+  byId("fv-name").textContent = f.name;
+  const r = f.result;
+  const badges = [
+    '<span class="badge accent">' + esc(r.format) + " " + (r.root && r.root !== "Invoice" ? "· " + esc(r.root) : "") + "</span>",
+  ];
+  for (const c of r.header || []) {
+    if ((c.title === "N° de facture" || c.title === "N° d'avoir") && c.value)
+      badges.push('<span class="badge">' + esc(c.title) + " : " + esc(c.value) + "</span>");
+    if (c.title === "Date d'emission" && c.value)
+      badges.push('<span class="badge">' + esc(c.value) + "</span>");
+    if (c.title === "Profil" && c.value)
+      badges.push('<span class="badge">' + esc(c.value) + (c.note ? " — " + esc(c.note) : "") + "</span>");
+    if (c.title === "Devise" && c.value)
+      badges.push('<span class="badge">' + esc(c.value) + "</span>");
+  }
+  if (r.pdf) badges.push('<span class="badge ok">PDF intégré</span>');
+  if (r.xml_pdf) badges.push('<span class="badge ok">PDF du XML</span>');
+  byId("fv-badges").innerHTML = badges.join("");
+
+  const xmlpdfTab = document.querySelector('.tab[data-tab="xmlpdf"]');
+  if (xmlpdfTab) xmlpdfTab.hidden = !r.xml_pdf;
+
+  const dl = byId("btn-download-pdf");
+  dl.disabled = !(r.pdf || r.xml_pdf);
+
+  if (f.view?.tab) setTab(f.view.tab === "xmlpdf" && !r.xml_pdf ? "pdf" : f.view.tab, true);
+  else if (settings.defaultTab === "data") setTab("data", true);
+  else setTab(r.xml_pdf ? "xmlpdf" : "pdf", true);
+}
+
+function setTab(name, force) {
+  state.tab = name;
+  document.querySelectorAll(".tab").forEach((t) =>
+    t.classList.toggle("active", t.dataset.tab === name));
+  const paneId = (name === "xmlpdf") ? "tab-pdf" : "tab-" + name;
+  document.querySelectorAll(".tabpane").forEach((p) =>
+    p.classList.toggle("active", p.id === paneId));
+  hidePopover();
+  const f = getFile(state.selected);
+  if (!f) return;
+  if (name === "pdf" || name === "xmlpdf") {
+    if (force || state.pdfSource !== name) renderPdf(f, name);
+  } else if (name === "data") {
+    requestAnimationFrame(() => syncStickyOffsets());
+    if (!f.rendered.data) {
+      loadPointage(f).then(() => {
+        const cur = getFile(f.id);
+        if (cur && state.selected === f.id && state.tab === "data") {
+          renderData(cur);
+          cur.rendered.data = true;
+          restoreDocumentScroll(cur);
+        }
+      });
+    }
+  } else if (name === "xml" && !f.rendered.xml) {
+    renderXmlTable(f);
+    f.rendered.xml = true;
+  } else if (name === "raw" && !f.rendered.raw) {
+    renderRaw(f);
+    f.rendered.raw = true;
+  }
+  const mainEl = document.querySelector(".main");
+  if (mainEl) mainEl.scrollTop = 0;
+  if (f) {
+    f.view = { ...f.view, tab: name };
+    saveWorkspace();
+    if (name === "xml" || name === "raw") restoreDocumentScroll(f);
+  }
+}
+
+/* ---------------- onglet PDF ---------------- */
+
+function updatePageInfo(doc) {
+  const pages = document.querySelectorAll(".pdf-page");
+  if (!pages.length || !doc) { byId("pdf-pageinfo").textContent = ""; return; }
+  let current = 1;
+  const mid = window.innerHeight * 0.4;
+  let best = Infinity;
+  pages.forEach((p) => {
+    const r = p.getBoundingClientRect();
+    const d = Math.abs(r.top - mid);
+    if (d < best) { best = d; current = Number(p.dataset.page); }
+  });
+  byId("pdf-pageinfo").textContent = "Page " + current + " / " + doc.numPages;
+}
+
+async function renderPdf(f, src) {
+  const f2 = getFile(state.selected);
+  if (!f2 || f2.id !== f.id) return;
+  const pane = byId("pdf-pages");
+  const pdfObj = (src === "xmlpdf") ? f.result.xml_pdf : f.result.pdf;
+  state.pdfSource = src;
+  if (!pdfObj) {
+    pane.innerHTML = '<div class="pdf-none">' + (src === "xmlpdf"
+      ? "Le XML de cette facture ne contient pas de PDF intégré distinct."
+      : "Aucun PDF intégré trouvé dans ce fichier.") + "</div>";
+    byId("pdf-pageinfo").textContent = "";
+    state.pdfDoc = null;
+    return;
+  }
+  pane.innerHTML = '<div class="pdf-loading">Chargement du PDF…</div>';
+  try {
+    const bytes = b64toBytes(pdfObj.base64);
+    const doc = await pdfjsLib.getDocument({ data: bytes }).promise;
+    const f3 = getFile(state.selected);
+    if (!f3 || f3.id !== f.id || state.pdfSource !== src) return;
+    state.pdfDoc = doc;
+    if (state.fit) await fitWidth();
+    else await renderAllPages(doc);
+  } catch (e) {
+    if (state.selected === f.id && state.pdfSource === src)
+      pane.innerHTML = '<div class="notice error">Impossible d’afficher le PDF : ' + esc(String(e)) + "</div>";
+  }
+}
+
+async function renderAllPages(doc) {
+  const token = ++state.renderToken;
+  const pane = byId("pdf-pages");
+  pane.innerHTML = "";
+  const scale = state.zoom;
+  for (let i = 1; i <= doc.numPages; i++) {
+    if (token !== state.renderToken) return;
+    const page = await doc.getPage(i);
+    if (token !== state.renderToken) return;
+    const div = document.createElement("div");
+    div.className = "pdf-page";
+    div.dataset.page = String(i);
+    const canvas = document.createElement("canvas");
+    const label = document.createElement("div");
+    label.className = "pdf-page-label";
+    label.textContent = "Page " + i + " / " + doc.numPages;
+    div.appendChild(canvas);
+    div.appendChild(label);
+    pane.appendChild(div);
+    const viewport = page.getViewport({ scale });
+    canvas.width = Math.floor(viewport.width);
+    canvas.height = Math.floor(viewport.height);
+    const ctx = canvas.getContext("2d");
+    await page.render({ canvasContext: ctx, viewport }).promise;
+  }
+  if (token === state.renderToken) {
+    updatePageInfo(doc);
+    const f = getFile(state.selected);
+    if (f) { f.rendered.pdf = true; restoreDocumentScroll(f); }
+  }
+}
+
+async function fitWidth() {
+  const doc = state.pdfDoc;
+  if (!doc) return;
+  const page = await doc.getPage(1);
+  const base = page.getViewport({ scale: 1 });
+  const avail = Math.max(320, byId("pdf-pages").clientWidth - 40);
+  state.zoom = Math.min(3, Math.max(0.4, avail / base.width));
+  await renderAllPages(doc);
+}
+
+function gotoPage(dir) {
+  const pages = [...document.querySelectorAll(".pdf-page")];
+  if (!pages.length) return;
+  let idx = 0;
+  const mid = window.innerHeight * 0.4;
+  let best = Infinity;
+  pages.forEach((p, i) => {
+    const d = Math.abs(p.getBoundingClientRect().top - mid);
+    if (d < best) { best = d; idx = i; }
+  });
+  const next = Math.min(pages.length - 1, Math.max(0, idx + dir));
+  pages[next].scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+/* ---------------- onglet Données ---------------- */
+
+function makeCell(td, c) {
+  if (!c) return;
+  td.classList.add("cell");
+  td.dataset.title = c.title || "";
+  td.dataset.path = c.path || "";
+  td.dataset.value = c.value ?? "";
+  if (c.value === "" || c.value == null) {
+    td.classList.add("empty");
+    td.textContent = "—";
+    return;
+  }
+  const span = document.createElement("span");
+  span.className = "val";
+  span.textContent = c.value;
+  td.appendChild(span);
+  if (c.note) {
+    const n = document.createElement("span");
+    n.className = "note";
+    n.textContent = c.note;
+    td.appendChild(n);
+  }
+}
+
+function kvTable(rows) {
+  const table = document.createElement("table");
+  const thead = document.createElement("thead");
+  thead.innerHTML = "<tr><th style='width:34%'>Champ</th><th>Valeur</th></tr>";
+  table.appendChild(thead);
+  const tbody = document.createElement("tbody");
+  for (const row of rows) {
+    const tr = document.createElement("tr");
+    const th = document.createElement("td");
+    th.textContent = row.title || "";
+    th.style.color = "var(--muted)";
+    const td = document.createElement("td");
+    makeCell(td, row);
+    tr.appendChild(th);
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+  return table;
+}
+
+/* ---- pointage (persiste dans pointages.json, cles = hash du XML) ---- */
+
+function loadPointage(f) {
+  if (f._pointagePromise) return f._pointagePromise;
+  const hash = f.result && f.result.doc_hash;
+  if (!hash) {
+    f.pointed = new Set();
+    f._pointagePromise = Promise.resolve();
+    return f._pointagePromise;
+  }
+  f._pointagePromise = api.getPointage(hash)
+    .then((j) => { const cur = getFile(f.id); if (cur && cur.id === f.id) f.pointed = new Set(j.lines || []); })
+    .catch(() => { const cur = getFile(f.id); if (cur && cur.id === f.id) f.pointed = new Set(); });
+  return f._pointagePromise;
+}
+
+function savePointage(f) {
+  const hash = f.result && f.result.doc_hash;
+  if (!hash) return Promise.resolve();
+  const lines = [...f.pointed].sort((a, b) => a - b);
+  return api.setPointage(hash, lines, f.name).catch(() => {});
+}
+
+function clearPointage(f) {
+  const hash = f.result && f.result.doc_hash;
+  f.pointed = new Set();
+  if (hash) api.clearPointage(hash).catch(() => {});
+}
+
+function togglePoint(f, idx) {
+  if (f.pointed.has(idx)) f.pointed.delete(idx);
+  else f.pointed.add(idx);
+  updatePointUI(f, idx);
+  savePointage(f);
+}
+
+function updatePointUI(f, idx) {
+  const on = f.pointed.has(idx);
+  const tr = document.querySelector('#lines-tbody tr[data-idx="' + idx + '"]');
+  if (!tr) return;
+  tr.classList.toggle("pointed", on);
+  tr.classList.remove("pt-alt");
+  document.querySelectorAll('#lines-tbody tr.pointed').forEach((row, i) => {
+    if (i % 2 === 1) row.classList.add("pt-alt");
+  });
+  const btn = tr.querySelector(".point-btn");
+  if (btn) btn.setAttribute("aria-pressed", on ? "true" : "false");
+  const cnt = byId("lines-pointed-count");
+  if (cnt) cnt.textContent = f.pointed.size + " ligne" + (f.pointed.size > 1 ? "s" : "") + " pointée" + (f.pointed.size > 1 ? "s" : "");
+}
+
+function updatePointedCount(f) {
+  const cnt = byId("lines-pointed-count");
+  if (cnt) cnt.textContent = f.pointed.size + " ligne" + (f.pointed.size > 1 ? "s" : "") + " pointée" + (f.pointed.size > 1 ? "s" : "");
+  syncStickyOffsets();
+}
+
+/* ---- tri + recherche sur les lignes ---- */
+
+function linesCols(r) {
+  const base = (r.lines_columns || []).filter((c) => c.key !== "note" && c.key !== "detail");
+  const cols = base.slice();
+  const hasRawNote = (r.lines || []).some(
+    (l) => l.cells && l.cells.note && l.cells.note.value
+  );
+  if (hasRawNote) cols.push({ key: "note", title: "Note(s)", align: "left" });
+  for (const c of r.note_columns || []) cols.push(c);
+  const detail = (r.lines_columns || []).find((c) => c.key === "detail");
+  if (detail) cols.push(detail);
+  return cols;
+}
+
+function _num(v) {
+  if (v == null) return null;
+  const m = String(v).replace(/\s/g, "").match(/-?\d+(?:[.,]\d+)?/);
+  if (!m) return null;
+  const n = parseFloat(m[0].replace(",", "."));
+  return isNaN(n) ? null : n;
+}
+
+function applyLineFilters(f) {
+  const r = f.result;
+  let rows = r.lines.map((line, idx) => ({ line, idx }));
+  const q = (f.linesQuery || "").trim().toLowerCase();
+  if (q) {
+    rows = rows.filter(({ line }) => {
+      const hay = linesCols(r)
+        .map((c) => { const c2 = line.cells[c.key]; return (c2 && c2.value) ? c2.value : ""; })
+        .join(" ")
+        .toLowerCase();
+      return hay.includes(q);
+    });
+  }
+  const pf = f.linesFilter || "all";
+  if (pf !== "all") {
+    rows = rows.filter(({ idx }) => (pf === "pointed") ? f.pointed.has(idx) : !f.pointed.has(idx));
+  }
+  const s = f.sort;
+  if (s && s.key) {
+    const dir = s.dir;
+    rows.sort((a, b) => {
+      const av = (a.line.cells[s.key] || {}).value ?? "";
+      const bv = (b.line.cells[s.key] || {}).value ?? "";
+      const an = _num(av), bn = _num(bv);
+      let cmp;
+      if (an != null && bn != null) cmp = an - bn;
+      else cmp = String(av).localeCompare(String(bv), "fr", { numeric: true });
+      return cmp * dir;
+    });
+  }
+  return rows;
+}
+
+function linesTable(f) {
+  const r = f.result;
+  const cols = linesCols(r);
+  const table = document.createElement("table");
+  const thead = document.createElement("thead");
+  const trh = document.createElement("tr");
+  const thPoint = document.createElement("th");
+  thPoint.className = "col-point";
+  thPoint.title = "Pointer la ligne";
+  trh.appendChild(thPoint);
+  for (const col of cols) {
+    const th = document.createElement("th");
+    const label = document.createElement("span");
+    label.textContent = col.title;
+    th.appendChild(label);
+    if (col.align === "right") th.classList.add("num");
+    if (f.sort && f.sort.key === col.key) {
+      th.classList.add("sorted", f.sort.dir > 0 ? "sort-asc" : "sort-desc");
+      label.textContent += (f.sort.dir > 0 ? "  \u2191" : "  \u2193");
+    }
+    th.title = "Trier par " + col.title;
+    th.addEventListener("click", () => {
+      if (f.sort && f.sort.key === col.key) f.sort.dir *= -1;
+      else f.sort = { key: col.key, dir: 1 };
+      renderLinesOnly(f);
+    });
+    trh.appendChild(th);
+  }
+  thead.appendChild(trh);
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  tbody.id = "lines-tbody";
+  const rows = applyLineFilters(f);
+  let pointedSeq = 0;
+  for (const { line, idx } of rows) {
+    const tr = document.createElement("tr");
+    tr.dataset.idx = String(idx);
+    const pointed = f.pointed.has(idx);
+    if (pointed) {
+      tr.classList.add("pointed");
+      if (pointedSeq % 2 === 1) tr.classList.add("pt-alt");
+      pointedSeq++;
+    }
+    const tdPoint = document.createElement("td");
+    tdPoint.className = "col-point";
+    const btn = document.createElement("button");
+    btn.className = "point-btn";
+    btn.type = "button";
+    btn.setAttribute("aria-pressed", pointed ? "true" : "false");
+    btn.title = pointed ? "Retirer le pointage" : "Pointer cette ligne";
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      togglePoint(f, idx);
+    });
+    tdPoint.appendChild(btn);
+    tr.appendChild(tdPoint);
+    for (const col of cols) {
+      const td = document.createElement("td");
+      if (col.key === "detail") {
+        td.classList.add("col-detail");
+        const open = (f._openDetails || new Set()).has(idx);
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "detail-btn" + (open ? " open" : "");
+        b.textContent = open ? "Masquer" : "Détail";
+        b.title = "Afficher tous les champs de la ligne";
+        b.addEventListener("click", (e) => { e.stopPropagation(); toggleDetail(f, idx); });
+        td.appendChild(b);
+      } else {
+        if (col.align === "right") td.classList.add("num");
+        makeCell(td, line.cells[col.key]);
+      }
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+
+    // Ligne de détail extensible (tous les champs de la ligne).
+    const dtr = document.createElement("tr");
+    dtr.className = "line-detail-row" + ((f._openDetails || new Set()).has(idx) ? " open" : "");
+    dtr.dataset.detailFor = String(idx);
+    const dtd = document.createElement("td");
+    dtd.colSpan = cols.length + 1;
+    dtd.appendChild(detailBox(line));
+    dtr.appendChild(dtd);
+    tbody.appendChild(dtr);
+  }
+  table.appendChild(tbody);
+
+  const cnt = byId("lines-count");
+  if (cnt) {
+    const total = r.lines.length;
+    cnt.textContent = rows.length === total ? total + " lignes" : rows.length + " / " + total + " lignes";
+  }
+  return table;
+}
+
+function toggleDetail(f, idx) {
+  if (!f._openDetails) f._openDetails = new Set();
+  if (f._openDetails.has(idx)) f._openDetails.delete(idx);
+  else f._openDetails.add(idx);
+  renderLinesOnly(f);
+}
+
+function detailBox(line) {
+  const box = document.createElement("div");
+  box.className = "line-detail-box";
+  const fields = (line && line.fields) || [];
+  if (!fields.length) {
+    const p = document.createElement("p");
+    p.textContent = "Aucun champ supplémentaire pour cette ligne.";
+    box.appendChild(p);
+    return box;
+  }
+  const table = document.createElement("table");
+  table.className = "line-detail-table";
+  const thead = document.createElement("thead");
+  thead.innerHTML = "<tr><th style='width:26%'>Champ</th><th>Valeur</th><th style='width:30%'>Chemin (XML)</th></tr>";
+  table.appendChild(thead);
+  const tbody = document.createElement("tbody");
+  for (const f2 of fields) {
+    const tr = document.createElement("tr");
+    const th = document.createElement("td");
+    th.className = "dt-title";
+    th.textContent = f2.title || "";
+    const tdv = document.createElement("td");
+    tdv.textContent = f2.value || "";
+    const tdp = document.createElement("td");
+    tdp.className = "dt-path";
+    tdp.textContent = f2.path || "";
+    tr.appendChild(th);
+    tr.appendChild(tdv);
+    tr.appendChild(tdp);
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+  box.appendChild(table);
+  return box;
+}
+
+function syncStickyOffsets() {
+  const tabs = document.querySelector(".tabs");
+  const head = byId("lines-head");
+  const root = document.documentElement;
+  if (tabs) root.style.setProperty("--tabs-h", tabs.offsetHeight + "px");
+  if (head && head.offsetHeight) root.style.setProperty("--lines-head-h", head.offsetHeight + "px");
+}
+
+function renderLinesOnly(f) {
+  const wrap = byId("lines-table-wrap");
+  if (!wrap) return;
+  wrap.innerHTML = "";
+  wrap.appendChild(linesTable(f));
+  updatePointedCount(f);
+  syncStickyOffsets();
+}
+
+function renderData(f) {
+  const pane = byId("tab-data");
+  pane.innerHTML = "";
+  const r = f.result;
+
+  if (r.warnings && r.warnings.length) {
+    const w = document.createElement("div");
+    w.className = "warnings";
+    for (const msg of r.warnings) {
+      const d = document.createElement("div");
+      d.className = "warning";
+      d.textContent = msg;
+      w.appendChild(d);
+    }
+    pane.appendChild(w);
+  }
+
+  if (r.summary && r.summary.length) {
+    const cards = document.createElement("div");
+    cards.className = "cards";
+    for (const s of r.summary) {
+      const c = document.createElement("div");
+      c.className = "card";
+      const money = /HT|TTC|TVA|payer|EUR|€|\d/.test(s.value) &&
+        /HT|TTC|TVA|payer/i.test(s.title);
+      c.innerHTML =
+        '<div class="card-title">' + esc(s.title) + "</div>" +
+        '<div class="card-value' + (money ? " money" : "") + '">' + esc(s.value) + "</div>";
+      cards.appendChild(c);
+    }
+    pane.appendChild(cards);
+  }
+
+  if (r.lines && r.lines.length) {
+    const sec = document.createElement("div");
+    sec.className = "section lines-section";
+    const head = document.createElement("div");
+    head.id = "lines-head";
+    head.className = "lines-head";
+    head.appendChild(Object.assign(document.createElement("div"), {
+      className: "lines-title",
+      textContent: "Lignes de facture",
+    }));
+    const tools = document.createElement("div");
+    tools.className = "lines-tools";
+    const search = document.createElement("input");
+    search.id = "lines-search";
+    search.className = "lines-search";
+    search.type = "search";
+    search.placeholder = "Rechercher une référence ou un texte…";
+    search.value = f.linesQuery || "";
+    const count = document.createElement("span");
+    count.id = "lines-count";
+    count.className = "lines-count";
+    const pointedCount = document.createElement("span");
+    pointedCount.id = "lines-pointed-count";
+    pointedCount.className = "lines-pointed-count";
+    const clearBtn = document.createElement("button");
+    clearBtn.id = "btn-clear-pointage";
+    clearBtn.className = "btn btn-ghost btn-sm";
+    clearBtn.type = "button";
+    clearBtn.textContent = "Effacer les pointages";
+    const filterBtn = document.createElement("button");
+    filterBtn.id = "btn-lines-filter";
+    filterBtn.className = "btn btn-sm";
+    filterBtn.type = "button";
+    tools.appendChild(search);
+    tools.appendChild(count);
+    tools.appendChild(pointedCount);
+    tools.appendChild(filterBtn);
+    tools.appendChild(clearBtn);
+    head.appendChild(tools);
+    sec.appendChild(head);
+    const wrap = document.createElement("div");
+    wrap.className = "table-wrap";
+    wrap.id = "lines-table-wrap";
+    sec.appendChild(wrap);
+    pane.appendChild(sec);
+
+    const FILTERS = ["all", "pointed", "unpointed"];
+    const FILTER_LABELS = { all: "Afficher : Toutes", pointed: "Afficher : Pointées", unpointed: "Afficher : Non pointées" };
+    const nextFilter = (cur) => FILTERS[(FILTERS.indexOf(cur) + 1) % FILTERS.length];
+    const setFilterBtn = () => {
+      const mode = f.linesFilter || "all";
+      filterBtn.textContent = FILTER_LABELS[mode];
+      filterBtn.classList.toggle("filter-active", mode !== "all");
+      filterBtn.title = "Basculer l'affichage — suivant : " + FILTER_LABELS[nextFilter(mode)].replace("Afficher : ", "");
+    };
+    setFilterBtn();
+    filterBtn.addEventListener("click", () => {
+      f.linesFilter = nextFilter(f.linesFilter || "all");
+      setFilterBtn();
+      renderLinesOnly(f);
+    });
+    search.addEventListener("input", () => {
+      f.linesQuery = search.value;
+      renderLinesOnly(f);
+    });
+    clearBtn.addEventListener("click", () => {
+      if (!f.pointed.size) return;
+      if (confirm("Effacer tous les pointages de cette facture ?")) {
+        clearPointage(f);
+        renderLinesOnly(f);
+      }
+    });
+    renderLinesOnly(f);
+  }
+
+  for (const section of r.sections || []) {
+    if (!section.rows || !section.rows.length) continue;
+    const sec = document.createElement("div");
+    sec.className = "section";
+    sec.innerHTML = '<div class="section-head">' + esc(section.name) + "</div>";
+    const wrap = document.createElement("div");
+    wrap.className = "table-wrap";
+    wrap.appendChild(kvTable(section.rows));
+    sec.appendChild(wrap);
+    pane.appendChild(sec);
+  }
+
+  if (!r.lines?.length && !(r.sections || []).some((s) => s.rows?.length)) {
+    pane.innerHTML = '<div class="notice">Aucune donnée structurée reconnue — consultez les onglets « XML complet » et « XML brut ».</div>';
+  }
+}
+
+/* ---------------- onglet XML complet ---------------- */
+
+function renderXmlTable(f) {
+  const rows = f.result.rows || [];
+  const tbody = byId("xml-table").querySelector("tbody");
+  tbody.innerHTML = "";
+  const frag = document.createDocumentFragment();
+  rows.forEach((row, i) => {
+    const tr = document.createElement("tr");
+    tr.dataset.path = row.path;
+    tr.dataset.search = (row.tag + " " + row.title + " " + (row.value || "") + " " + row.path).toLowerCase();
+    const tdIdx = document.createElement("td");
+    tdIdx.className = "col-idx";
+    tdIdx.textContent = String(i + 1);
+    const tdPath = document.createElement("td");
+    tdPath.className = "col-path";
+    tdPath.textContent = row.path;
+    tdPath.title = row.path;
+    const tdTitle = document.createElement("td");
+    tdTitle.textContent = row.title;
+    const tdValue = document.createElement("td");
+    if (row.binary) tdValue.classList.add("binary");
+    tdValue.classList.add("cell");
+    tdValue.dataset.title = row.title;
+    tdValue.dataset.path = row.path;
+    tdValue.dataset.value = row.value || "";
+    const shown = row.truncated && !row.binary && row.value.length > 300
+      ? row.value.slice(0, 300) + " …"
+      : (row.value || "—");
+    tdValue.textContent = shown;
+    if (row.attrs && Object.keys(row.attrs).length) {
+      const n = document.createElement("span");
+      n.className = "note";
+      n.textContent = Object.entries(row.attrs).map(([k, v]) => k + "=" + v).join("  ");
+      tdValue.appendChild(n);
+    }
+    tr.appendChild(tdIdx);
+    tr.appendChild(tdPath);
+    tr.appendChild(tdTitle);
+    tr.appendChild(tdValue);
+    frag.appendChild(tr);
+  });
+  tbody.appendChild(frag);
+  byId("xml-count").textContent = rows.length + " valeurs";
+}
+
+function filterXmlTable(query) {
+  const q = (query || "").trim().toLowerCase();
+  let visible = 0;
+  document.querySelectorAll("#xml-table tbody tr").forEach((tr) => {
+    const ok = !q || tr.dataset.search.includes(q);
+    tr.hidden = !ok;
+    if (ok) visible++;
+  });
+  byId("xml-count").textContent = q ? visible + " / " + (visible + document.querySelectorAll("#xml-table tbody tr[hidden]").length) + " valeurs" : "";
+}
+
+/* ---------------- onglet XML brut ---------------- */
+
+function escapeRegExp(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/* Recherche transversale : une occurrence par élément XML. */
+let quickTimer, quickWorker, quickDeadline;
+let quickHits = [], quickIndex = -1;
+function quickButtons() {
+  byId("quick-prev").disabled = byId("quick-next").disabled = !quickHits.length;
+}
+function clearQuickHighlight() {
+  document.querySelectorAll(".quick-hit").forEach(el => el.classList.remove("quick-hit"));
+}
+function scheduleQuickSearch() {
+  clearTimeout(quickTimer);
+  clearTimeout(quickDeadline);
+  if (quickWorker) quickWorker.terminate();
+  quickWorker = null;
+  quickHits = []; quickIndex = -1;
+  quickButtons();
+  clearQuickHighlight();
+  const query = byId("quick-query").value;
+  const currentOnly = byId("quick-scope").value === "current";
+  if (currentOnly && !getFile(state.selected)) {
+    byId("quick-status").textContent = "Sélectionnez un document ou choisissez « Tous les documents ouverts ».";
+    return;
+  }
+  byId("quick-status").textContent = query ? "Recherche…" :
+    (currentOnly ? "Document sélectionné" : "Tous les documents ouverts") + " · données XML";
+  if (query) quickTimer = setTimeout(runQuickSearch, 200);
+}
+function runQuickSearch() {
+  const worker = quickWorker = new Worker("search-worker.js");
+  const finish = () => { clearTimeout(quickDeadline); worker.terminate(); quickWorker = null; };
+  quickDeadline = setTimeout(() => {
+    finish();
+    byId("quick-status").textContent = "Recherche trop longue : simplifiez l’expression.";
+  }, 2000);
+  worker.onerror = () => {
+    finish();
+    byId("quick-status").textContent = "Recherche indisponible.";
+  };
+  worker.onmessage = ({ data }) => {
+    finish();
+    quickHits = data.hits || [];
+    quickButtons();
+    byId("quick-status").textContent = data.error || "Aucun résultat";
+    if (quickHits.length) moveQuickSearch(1);
+  };
+  worker.postMessage({
+    query: byId("quick-query").value, regex: byId("quick-regex").checked,
+    files: state.files.filter(f => f.status === "ok" &&
+      (byId("quick-scope").value === "all" || f.id === state.selected))
+      .map(f => ({ id: f.id, rows: f.result.rows || [] })),
+  });
+}
+function moveQuickSearch(delta) {
+  if (!quickHits.length) return;
+  quickIndex = (quickIndex + delta + quickHits.length) % quickHits.length;
+  const hit = quickHits[quickIndex], f = getFile(hit.id);
+  if (!f) { scheduleQuickSearch(); return; }
+  // Ne pas relancer la recherche en sélectionnant son propre résultat.
+  if (state.selected !== f.id) {
+    captureDocumentView();
+    state.selected = f.id;
+    state.pdfDoc = null; state.pdfSource = null;
+    renderFileView();
+    renderList(true);
+  }
+  setTab("xml");
+  byId("xml-search").value = "";
+  filterXmlTable("");
+  clearQuickHighlight();
+  const tr = byId("xml-table").tBodies[0].rows[hit.index];
+  if (tr) {
+    const row = f.result.rows[hit.index];
+    // Déplier aussi les valeurs longues pour rendre le texte trouvé visible.
+    const cell = tr.cells[3];
+    if (cell.firstChild && cell.firstChild.nodeType === Node.TEXT_NODE) cell.firstChild.textContent = row.value || "—";
+    tr.classList.add("quick-hit");
+    tr.scrollIntoView({ block: "center" });
+  }
+  byId("quick-status").textContent = `${quickIndex + 1} / ${quickHits.length} éléments · ${f.name}`;
+}
+
+function renderRaw(f) {
+  const pre = byId("raw-xml");
+  const xml = f.result.xml_pretty || "(aucun XML)";
+  pre.dataset.base = xml;
+  pre.textContent = xml;
+}
+
+function highlightRaw(query) {
+  const pre = byId("raw-xml");
+  const base = pre.dataset.base || "";
+  if (!query) {
+    pre.textContent = base;
+    return;
+  }
+  const pat = escapeRegExp(esc(query));
+  const re = new RegExp(pat, "gi");
+  let html = esc(base).replace(re, (m) => "<mark>" + m + "</mark>");
+  pre.innerHTML = html;
+}
+
+/* ---------------- popover (cellules pointables) ---------------- */
+
+function hidePopover() {
+  const p = document.querySelector(".pop");
+  if (p) p.remove();
+}
+
+function showPopover(anchor) {
+  hidePopover();
+  const title = anchor.dataset.title || "";
+  const path = anchor.dataset.path || "";
+  const value = anchor.dataset.value ?? "";
+  const div = document.createElement("div");
+  div.className = "pop";
+  div.innerHTML =
+    '<div class="pop-title">' + esc(title || "—") + "</div>" +
+    (path ? '<div class="pop-path">' + esc(path) + "</div>" : "") +
+    '<pre class="pop-value">' + esc(value || "(vide)") + "</pre>" +
+    '<div class="pop-actions">' +
+    '<button class="btn" data-act="copy-value">Copier la valeur</button>' +
+    (path ? '<button class="btn" data-act="copy-path">Copier le chemin</button>' : "") +
+    (path ? '<button class="btn" data-act="goto-xml">Voir dans le XML</button>' : "") +
+    "</div>";
+  div.addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-act]");
+    if (!btn) return;
+    e.stopPropagation();
+    if (btn.dataset.act === "copy-value") copyText(value, btn);
+    if (btn.dataset.act === "copy-path") copyText(path, btn);
+    if (btn.dataset.act === "goto-xml") gotoXml(path);
+  });
+  document.body.appendChild(div);
+  const r = anchor.getBoundingClientRect();
+  const pw = div.offsetWidth;
+  const ph = div.offsetHeight;
+  let x = Math.min(r.left, window.innerWidth - pw - 10);
+  let y = r.bottom + 8;
+  if (y + ph > window.innerHeight - 8) y = Math.max(8, r.top - ph - 8);
+  x = Math.max(8, x);
+  div.style.left = x + "px";
+  div.style.top = y + "px";
+}
+
+function gotoXml(path) {
+  hidePopover();
+  setTab("xml");
+  requestAnimationFrame(() => {
+    const tr = document.querySelector('#xml-table tbody tr[data-path="' + CSS.escape(path) + '"]');
+    if (!tr) return;
+    tr.classList.remove("flash");
+    void tr.offsetWidth;
+    tr.classList.add("flash");
+    tr.scrollIntoView({ behavior: "smooth", block: "center" });
+  });
+}
+
+/* ---------------- drag & drop global ---------------- */
+
+function hasFiles(e) {
+  return e.dataTransfer && [...(e.dataTransfer.types || [])].includes("Files");
+}
+
+function wireDnD() {
+  const overlay = byId("drop-overlay");
+  let depth = 0;
+  window.addEventListener("dragenter", (e) => {
+    e.preventDefault();
+    if (!hasFiles(e)) return;
+    depth++;
+    overlay.classList.add("show");
+  });
+  window.addEventListener("dragover", (e) => e.preventDefault());
+  window.addEventListener("dragleave", (e) => {
+    if (!hasFiles(e)) return;
+    depth = Math.max(0, depth - 1);
+    if (depth === 0) overlay.classList.remove("show");
+  });
+  window.addEventListener("drop", (e) => {
+    e.preventDefault();
+    depth = 0;
+    overlay.classList.remove("show");
+    if (e.dataTransfer && e.dataTransfer.files.length) addDropped(e.dataTransfer);
+  });
+}
+
+/* ---------------- paramètres ---------------- */
+
+const SETTINGS_KEY = "fx-settings";
+const THEME_KEY = "fx-theme";   // lu par index.html avant le premier rendu
+const SETTING_DEFAULTS = { theme: "jour", density: "normal", defaultTab: "pdf", pdfZoom: "1.25", startup: "restore" };
+const SETTING_CHOICES = {
+  theme: ["jour", "nuit", "auto", "girl"],
+  density: ["normal", "compact"],
+  defaultTab: ["pdf", "data"],
+  startup: ["restore", "home"],
+  pdfZoom: ["fit", "0.75", "1", "1.25", "1.5", "2"],
+};
+const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
+const settings = loadSettings();
+
+function loadSettings() {
+  let saved = {};
+  try {
+    saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}") || {};
+    if (!saved.theme) saved.theme = localStorage.getItem(THEME_KEY);
+  } catch (e) { /* stockage indisponible */ }
+  const out = {};
+  for (const key in SETTING_DEFAULTS)
+    out[key] = SETTING_CHOICES[key].includes(saved[key]) ? saved[key] : SETTING_DEFAULTS[key];
+  return out;
+}
+
+function saveSettings() {
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    localStorage.setItem(THEME_KEY, settings.theme);
+  } catch (e) { /* stockage indisponible */ }
+}
+
+function applyTheme() {
+  const name = settings.theme === "auto" ? (darkQuery.matches ? "nuit" : "jour") : settings.theme;
+  document.documentElement.setAttribute("data-theme", name);
+}
+
+function applyDensity() {
+  document.documentElement.setAttribute("data-density", settings.density);
+  syncStickyOffsets();
+}
+
+function applyPdfZoom() {
+  state.fit = settings.pdfZoom === "fit";
+  if (!state.fit) {
+    state.zoom = parseFloat(settings.pdfZoom);
+    byId("pdf-zoom").value = settings.pdfZoom;
+  }
+  if (!state.pdfDoc) return;
+  if (state.fit) fitWidth();
+  else renderAllPages(state.pdfDoc);
+}
+
+const SETTING_APPLIERS = { theme: applyTheme, density: applyDensity, pdfZoom: applyPdfZoom };
+
+function setSetting(key, value) {
+  if (!SETTING_CHOICES[key] || !SETTING_CHOICES[key].includes(value)) return;
+  settings[key] = value;
+  saveSettings();
+  if (SETTING_APPLIERS[key]) SETTING_APPLIERS[key]();
+  syncSettingsUI();
+}
+
+function syncSettingsUI() {
+  document.querySelectorAll(".seg[data-setting] button").forEach((b) => {
+    const active = settings[b.parentElement.dataset.setting] === b.dataset.value;
+    b.classList.toggle("active", active);
+    b.setAttribute("aria-pressed", active ? "true" : "false");
+  });
+  document.querySelectorAll("select[data-setting]").forEach((sel) => {
+    sel.value = settings[sel.dataset.setting];
+  });
+}
+
+function wireSettings() {
+  const dialog = byId("settings-dialog");
+  const open = () => { syncSettingsUI(); if (!dialog.open) dialog.showModal(); };
+  byId("btn-settings").addEventListener("click", open);
+  byId("settings-close").addEventListener("click", () => dialog.close());
+  // clic sur le fond assombri = fermer
+  dialog.addEventListener("click", (e) => { if (e.target === dialog) dialog.close(); });
+  document.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === ",") { e.preventDefault(); open(); }
+  });
+
+  document.querySelectorAll(".seg[data-setting] button").forEach((b) => {
+    b.addEventListener("click", () => setSetting(b.parentElement.dataset.setting, b.dataset.value));
+  });
+  document.querySelectorAll("select[data-setting]").forEach((sel) => {
+    sel.addEventListener("change", () => setSetting(sel.dataset.setting, sel.value));
+  });
+  byId("settings-reset").addEventListener("click", () => {
+    for (const key in SETTING_DEFAULTS) setSetting(key, SETTING_DEFAULTS[key]);
+  });
+  darkQuery.addEventListener("change", () => { if (settings.theme === "auto") applyTheme(); });
+
+  api.appInfo().then((info) => {
+    if (!info) return;
+    byId("settings-version").textContent = "Factur-X Reader " + info.version;
+    byId("settings-pointages-path").textContent = info.pointages;
+    byId("settings-data").hidden = false;
+    const copy = byId("settings-copy-path");
+    copy.addEventListener("click", () => copyText(info.pointages, copy));
+  }).catch(() => {});
+
+  applyTheme();
+  applyDensity();
+  applyPdfZoom();
+  syncSettingsUI();
+}
+
+/* ---------------- câblage général ---------------- */
+
+function wireUI() {
+  byId("add-files").addEventListener("click", () => byId("file-input").click());
+  byId("file-input").addEventListener("change", (e) => {
+    addFiles(e.target.files);
+    e.target.value = "";
+  });
+  byId("open-folder").addEventListener("click", openFolder);
+  document.addEventListener("keydown", (e) => {
+    if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== "o") return;
+    e.preventDefault();
+    if (e.shiftKey) openFolder();
+    else byId("file-input").click();
+  });
+  byId("btn-clear-all").addEventListener("click", clearAllFiles);
+  byId("btn-fold").addEventListener("click", toggleSidebar);
+  try {
+    if (localStorage.getItem("fx-sidebar") === "1") toggleSidebar();
+  } catch (e) {}
+
+  document.querySelectorAll(".tab").forEach((t) =>
+    t.addEventListener("click", () => setTab(t.dataset.tab)));
+
+  byId("pdf-prev").addEventListener("click", () => gotoPage(-1));
+  byId("pdf-next").addEventListener("click", () => gotoPage(1));
+  byId("pdf-fit").addEventListener("click", fitWidth);
+  byId("pdf-zoom").addEventListener("change", (e) => {
+    state.zoom = parseFloat(e.target.value) || 1.25;
+    state.fit = false;
+    if (state.pdfDoc) renderAllPages(state.pdfDoc);
+  });
+  const mainEl = document.querySelector(".main");
+  if (mainEl) {
+    mainEl.addEventListener("scroll", () => {
+      if (state.pdfDoc && (state.tab === "pdf" || state.tab === "xmlpdf"))
+        updatePageInfo(state.pdfDoc);
+    });
+  }
+  window.addEventListener("resize", syncStickyOffsets);
+
+  byId("xml-search").addEventListener("input", (e) => filterXmlTable(e.target.value));
+  byId("raw-search").addEventListener("input", (e) => highlightRaw(e.target.value));
+
+  byId("btn-download-pdf").addEventListener("click", () => {
+    const f = getFile(state.selected);
+    if (!f || !f.result) return;
+    const key = (state.pdfSource === "xmlpdf") ? "xml_pdf" : "pdf";
+    const pdfObj = f.result[key] || f.result.pdf || f.result.xml_pdf;
+    if (!pdfObj) return;
+    api.savePdf(pdfObj).catch((e) => alert("Enregistrement du PDF impossible : " + e));
+  });
+
+  document.addEventListener("click", (e) => {
+    if (e.target.closest(".pop")) return;
+    const cell = e.target.closest("td.cell, .cell");
+    if (cell) showPopover(cell);
+    else hidePopover();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") hidePopover();
+  });
+}
+
+/* ---------------- démarrage ---------------- */
+
+window.addEventListener("DOMContentLoaded", async () => {
+  wireSettings();
+  wireDnD();
+  wireUI();
+  wireWorkspace();
+  renderFileView();
+  byId("quick-query").addEventListener("input", scheduleQuickSearch);
+  byId("quick-regex").addEventListener("change", scheduleQuickSearch);
+  byId("quick-scope").addEventListener("change", scheduleQuickSearch);
+  byId("quick-prev").addEventListener("click", () => moveQuickSearch(-1));
+  byId("quick-next").addEventListener("click", () => moveQuickSearch(1));
+  byId("quick-query").addEventListener("keydown", e => {
+    if (e.key === "Enter") { e.preventDefault(); moveQuickSearch(e.shiftKey ? -1 : 1); }
+    if (e.key === "Escape") { e.target.value = ""; scheduleQuickSearch(); }
+  });
+  document.addEventListener("keydown", e => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
+      e.preventDefault(); byId("quick-query").focus(); byId("quick-query").select();
+    }
+  });
+  renderList();
+  try {
+    const startup = await api.startupPaths();
+    if (startup?.files?.length) { workspaceReady = true; await addPaths(startup); }
+    else if (settings.startup === "restore") await resumeWorkspace();
+  } catch {
+    /* pas de fichiers passés au lancement */
+  }
+  workspaceReady = true;
+  renderWelcome();
+});

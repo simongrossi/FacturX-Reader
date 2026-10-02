@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- fond -->
+  <rect x="64" y="64" width="896" height="896" rx="200" fill="#0b6bcb"/>
+  <!-- feuille avec coin replié -->
+  <path d="M332 232h250l150 150v370a40 40 0 0 1-40 40H332a40 40 0 0 1-40-40V272a40 40 0 0 1 40-40z" fill="#ffffff"/>
+  <path d="M582 232l150 150H622a40 40 0 0 1-40-40z" fill="#b9d6f5"/>
+  <!-- lignes de facture -->
+  <rect x="372" y="452" width="280" height="44" rx="22" fill="#0b6bcb" opacity="0.28"/>
+  <rect x="372" y="548" width="280" height="44" rx="22" fill="#0b6bcb" opacity="0.28"/>
+  <!-- ligne pointée -->
+  <rect x="372" y="644" width="176" height="44" rx="22" fill="#0b6bcb" opacity="0.28"/>
+  <circle cx="630" cy="666" r="40" fill="#f59e0b"/>
+</svg>

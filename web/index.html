@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Factur-X Reader</title>
+  <link rel="icon" href="logo/kmcl.jpeg">
+  <script>
+    /* Applique le thème mémorisé avant le premier rendu (évite le flash). */
+    (function () {
+      try {
+        var t = localStorage.getItem("fx-theme") || "jour";
+        if (t === "auto") t = matchMedia("(prefers-color-scheme: dark)").matches ? "nuit" : "jour";
+        document.documentElement.setAttribute("data-theme", t);
+      } catch (e) { document.documentElement.setAttribute("data-theme", "jour"); }
+    })();
+  </script>
+  <link rel="stylesheet" href="style.css">
+<script src="pdfjs/pdf.min.js"></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <img class="logo" src="logo/kmcl.jpeg" alt="Konica Minolta Centre Loire">
+    <div class="brand-text">
+      <h1>Factur-X Reader</h1>
+      <p>Visualiseur de factures électroniques — UBL · CII · Factur-X (EN 16931)</p>
+      <div class="girl-deco" aria-hidden="true">✨ 🎀 💖 🌸 🦋</div>
+    </div>
+  </div>
+  <div class="top-actions">
+    <button id="add-files" class="btn primary" title="Ajouter des fichiers (Ctrl+O)">Ajouter des fichiers</button>
+    <button type="button" id="open-folder" class="btn" title="Ouvrir un dossier et ses sous-dossiers (Ctrl+Maj+O)">Ouvrir un dossier</button>
+    <button type="button" id="btn-settings" class="btn btn-icon" title="Paramètres (Ctrl+,)" aria-label="Paramètres">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="3.2"/>
+        <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1.03-1.56V3a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 15 4.6a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 1.56 1.03H21a2 2 0 1 1 0 4h-.09A1.7 1.7 0 0 0 19.4 15z"/>
+      </svg>
+    </button>
+    <input type="file" id="file-input" multiple hidden
+            accept=".xml,.zip,.pdf,.ciixml,.zxml,application/xml,application/zip,application/pdf">
+  </div>
+</header>
+
+<nav id="document-tabs" class="document-tabs" aria-label="Documents ouverts"></nav>
+<div id="workspace-message" class="workspace-message" role="status" hidden></div>
+<div class="quick-search" role="search" aria-label="Recherche dans les factures">
+  <input id="quick-query" type="search" placeholder="Rechercher un texte ou un numéro… (Ctrl+F)" aria-label="Recherche dans les champs, valeurs et chemins XML">
+  <label><input id="quick-regex" type="checkbox"> Regex</label>
+  <select id="quick-scope" class="zoom-select" aria-label="Portée de la recherche">
+    <option value="current">Document sélectionné</option>
+    <option value="all">Tous les documents ouverts</option>
+  </select>
+  <button id="quick-prev" class="btn" aria-label="Résultat précédent" disabled>‹</button>
+  <button id="quick-next" class="btn" aria-label="Résultat suivant" disabled>›</button>
+  <span id="quick-status" role="status" aria-live="polite">Sélectionnez un document · données XML</span>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="side-title">
+      <span class="side-label">Fichiers</span>
+      <span class="side-actions">
+        <button type="button" id="btn-clear-all" class="icon-btn"
+                title="Vider tous les fichiers" aria-label="Vider tous les fichiers">🗑</button>
+        <button type="button" id="btn-fold" class="icon-btn"
+                title="Replier le panneau" aria-label="Replier le panneau">‹</button>
+      </span>
+    </div>
+    <ul id="file-list" class="file-list"></ul>
+    <div class="side-hint">
+      Glissez-déposez ici des fichiers factures (.pdf Factur-X, .xml UBL / CII, .zip)
+      ou un dossier entier.
+    </div>
+  </aside>
+
+  <main class="main">
+    <div id="empty-state" class="empty-state">
+      <img class="empty-icon" src="logo/kmcl.jpeg" alt="Konica Minolta Centre Loire">
+      <h2>Votre espace de factures</h2>
+      <p>Ouvrez vos documents ou reprenez votre travail.</p>
+      <div class="welcome-columns">
+        <section><h3>Démarrer</h3>
+          <button id="welcome-open" class="welcome-action">Ouvrir des factures <kbd>Ctrl+O</kbd></button>
+          <button id="welcome-folder" class="welcome-action">Ouvrir un dossier <kbd>Ctrl+Maj+O</kbd></button>
+          <button id="welcome-resume" class="welcome-action">Reprendre la dernière session</button>
+          <button id="welcome-settings" class="welcome-action">Paramètres <kbd>Ctrl+,</kbd></button>
+          <p class="welcome-hint">Vous pouvez aussi déposer vos fichiers ici.</p>
+        </section>
+        <section><h3>Documents récents</h3><div id="recent-files"></div></section>
+      </div>
+    </div>
+
+    <div id="file-view" class="file-view" hidden>
+      <div class="file-head">
+        <div class="file-head-left">
+          <h2 id="fv-name"></h2>
+          <div id="fv-badges" class="badges"></div>
+        </div>
+        <div class="file-head-right">
+          <button id="btn-download-pdf" class="btn">Télécharger le PDF</button>
+        </div>
+      </div>
+
+      <nav class="tabs" id="tabs">
+        <button class="tab active" data-tab="pdf">PDF</button>
+        <button class="tab" data-tab="xmlpdf" hidden title="PDF embarque dans le XML de la facture">PDF du XML</button>
+        <button class="tab" data-tab="data">Données</button>
+        <button class="tab" data-tab="xml">XML complet</button>
+        <button class="tab" data-tab="raw">XML brut</button>
+      </nav>
+
+      <section id="tab-pdf" class="tabpane active">
+        <div class="pdf-toolbar">
+          <button id="pdf-prev" class="btn" title="Page précédente">‹</button>
+          <span id="pdf-pageinfo" class="pdf-pageinfo"></span>
+          <button id="pdf-next" class="btn" title="Page suivante">›</button>
+          <span class="toolbar-sep"></span>
+          <button id="pdf-fit" class="btn">Ajuster</button>
+          <select id="pdf-zoom" class="zoom-select" title="Zoom">
+            <option value="0.5">50 %</option>
+            <option value="0.75">75 %</option>
+            <option value="1">100 %</option>
+            <option value="1.25" selected>125 %</option>
+            <option value="1.5">150 %</option>
+            <option value="2">200 %</option>
+            <option value="3">300 %</option>
+          </select>
+        </div>
+        <div id="pdf-pages" class="pdf-pages"></div>
+      </section>
+
+      <section id="tab-data" class="tabpane"></section>
+
+      <section id="tab-xml" class="tabpane">
+        <div class="pane-tools">
+          <input id="xml-search" type="search" placeholder="Filtrer (champ, valeur, chemin…)">
+          <span id="xml-count" class="pane-count"></span>
+        </div>
+        <div class="table-wrap">
+          <table id="xml-table" class="grid-table">
+            <thead>
+              <tr>
+                <th class="col-idx">#</th>
+                <th class="col-path">Chemin XML</th>
+                <th class="col-title">Champ</th>
+                <th class="col-value">Valeur</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="tab-raw" class="tabpane">
+        <div class="pane-tools">
+          <input id="raw-search" type="search" placeholder="Rechercher dans le XML…">
+        </div>
+        <pre id="raw-xml" class="raw-xml"></pre>
+      </section>
+    </div>
+  </main>
+</div>
+
+<div id="drop-overlay" class="drop-overlay">
+  <div class="drop-box">
+    <h2>Déposez vos fichiers ou dossiers ici</h2>
+    <p>.xml (UBL / CII) · .zip (Factur-X) · .pdf (Factur-X)</p>
+  </div>
+</div>
+
+<dialog id="settings-dialog" class="settings" aria-labelledby="settings-title">
+  <div class="settings-head">
+    <h2 id="settings-title">Paramètres</h2>
+    <button type="button" id="settings-close" class="icon-btn" title="Fermer" aria-label="Fermer">✕</button>
+  </div>
+  <div class="settings-body">
+    <section class="settings-group">
+      <h3>Apparence</h3>
+      <div class="setting">
+        <span class="setting-label">Thème</span>
+        <div class="seg" role="group" aria-label="Thème" data-setting="theme">
+          <button type="button" data-value="jour">Clair</button>
+          <button type="button" data-value="nuit">Sombre</button>
+          <button type="button" data-value="auto">Système</button>
+          <button type="button" data-value="girl">Girl</button>
+        </div>
+      </div>
+      <div class="setting">
+        <span class="setting-label">Densité des tableaux</span>
+        <div class="seg" role="group" aria-label="Densité des tableaux" data-setting="density">
+          <button type="button" data-value="normal">Confortable</button>
+          <button type="button" data-value="compact">Compacte</button>
+        </div>
+      </div>
+    </section>
+    <section class="settings-group">
+      <h3>Ouverture d'une facture</h3>
+      <div class="setting">
+        <label class="setting-label" for="set-startup">Au démarrage</label>
+        <select id="set-startup" data-setting="startup">
+          <option value="restore">Reprendre la dernière session</option>
+          <option value="home">Afficher l'accueil</option>
+        </select>
+      </div>
+      <div class="setting">
+        <label class="setting-label" for="set-default-tab">Onglet affiché en premier</label>
+        <select id="set-default-tab" data-setting="defaultTab">
+          <option value="pdf">PDF</option>
+          <option value="data">Données</option>
+        </select>
+      </div>
+      <div class="setting">
+        <label class="setting-label" for="set-pdf-zoom">Zoom du PDF par défaut</label>
+        <select id="set-pdf-zoom" data-setting="pdfZoom">
+          <option value="fit">Ajuster à la largeur</option>
+          <option value="0.75">75 %</option>
+          <option value="1">100 %</option>
+          <option value="1.25">125 %</option>
+          <option value="1.5">150 %</option>
+          <option value="2">200 %</option>
+        </select>
+      </div>
+    </section>
+    <section class="settings-group" id="settings-data" hidden>
+      <h3>Données</h3>
+      <div class="setting">
+        <span class="setting-label">Fichier des pointages
+          <span class="setting-help">Les lignes pointées y sont enregistrées automatiquement.</span>
+        </span>
+        <button type="button" id="settings-copy-path" class="btn btn-sm">Copier le chemin</button>
+      </div>
+      <div class="setting-path" id="settings-pointages-path"></div>
+    </section>
+  </div>
+  <div class="settings-foot">
+    <span class="settings-version" id="settings-version"></span>
+    <button type="button" id="settings-reset" class="btn btn-sm">Rétablir les valeurs par défaut</button>
+  </div>
+</dialog>
+
+<script src="app.js"></script>
+<script src="workspace.js"></script>
+</body>
+</html>

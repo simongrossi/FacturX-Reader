@@ -1,0 +1,15 @@
+{
+  "name": "facturx-reader",
+  "private": true,
+  "version": "2.0.0",
+  "description": "Visualiseur local de factures électroniques (Factur-X, UBL, CII), basé sur Tauri",
+  "author": "Simon Grossi",
+  "scripts": {
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.8.0"
+  }
+}

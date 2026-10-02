@@ -1,0 +1,33 @@
+[package]
+name = "facturx-reader"
+version = "2.0.0"
+description = "Visualiseur local de factures electroniques (Factur-X, UBL, CII)"
+authors = ["Simon Grossi"]
+edition = "2021"
+
+[lib]
+name = "facturx_reader_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.0", features = [] }
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+tauri = { version = "2.8", features = [] }
+tauri-plugin-dialog = "2.4"
+roxmltree = "0.20"
+regex = "1.11"
+base64 = "0.22"
+sha2 = "0.10"
+flate2 = "1"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+panic = "abort"
+strip = true
+codegen-units = 1

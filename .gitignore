@@ -1,0 +1,10 @@
+# Rust / Tauri
+src-tauri/target/
+src-tauri/gen/
+node_modules/
+
+# Factures reelles servant aux tests locaux : jamais versionnees
+samples/
+
+# Sorties de tests Playwright
+test-results/
