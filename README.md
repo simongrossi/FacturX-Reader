@@ -34,7 +34,7 @@ tableaux lisibles en français, **recalcule les montants** et signale ce qui ne 
 
 - **100 % local** : aucun serveur, aucun appel réseau, aucun compte. La bibliothèque est un
   fichier sur votre poste, désactivable.
-- **Léger** : exécutable d'environ 7 Mo, installeur d'environ 2 Mo.
+- **Léger** : exécutable d'environ 15 Mo, moteur de validation et règles officielles compris.
 - **Pensé pour vérifier**, pas seulement pour afficher : contrôles, pointage, suivi, exports.
 
 > Version de développement (0.y.z). Les builds ne sont pas signés : Windows SmartScreen et
@@ -45,9 +45,11 @@ tableaux lisibles en français, **recalcule les montants** et signale ce qui ne 
 | | |
 |---|---|
 | 📄 **Lecture** | PDF Factur-X, archive ZIP, XML UBL 2.x et CII. PDF d'origine, données en tableaux, XML complet et XML brut. |
+| 🏛️ **Schematron officiel** | Les règles officielles EN 16931 de la Commission européenne, exécutées sur votre poste, sans envoyer la facture où que ce soit. |
+| 📎 **Conteneur PDF** | PDF/A-3 annoncé, pièce jointe XML déclarée, profil annoncé comparé à celui du XML. |
 | 📐 **Règles EN 16931** | Une soixantaine de règles métier de la norme évaluées sur chaque facture : mentions obligatoires, calculs, décimales, catégories de TVA. |
 | ✅ **Contrôles de cohérence** | Calculs en décimaux exacts : lignes, HT, TVA par taux, TTC, net à payer. Mentions essentielles, clés SIREN/SIRET, n° de TVA et IBAN, échéance, escompte. |
-| 📊 **Tableau multi-factures** | Toutes les factures ouvertes sur une page : totaux par devise, avoirs déduits, filtres d'anomalies, export CSV. |
+| 📊 **Tableau multi-factures** | Toutes les factures ouvertes sur une page : totaux par devise, avoirs déduits, filtres d'anomalies, de période, de montant et de fournisseur, export CSV. |
 | 🗄️ **Bibliothèque locale** | Toutes les factures déjà ouvertes, retrouvables entre les sessions. Signale un IBAN nouveau pour un fournisseur, un doublon dans l'historique, une variation de prix unitaire. |
 | 🪟 **PDF et données côte à côte** | Vérifiez une ligne sans changer d'onglet. |
 | 🖊️ **Pointage et suivi** | Pointage des lignes, statut À vérifier / Vérifiée / Anomalie, commentaires par facture et par ligne. |
@@ -87,8 +89,9 @@ une case est cochée des deux côtés, le niveau de détail peut différer.
 | Recherche | ✅ texte et regex | ✅ | — | Texte du PDF |
 | Impression | ✅ | ✅ | — | ✅ |
 | Contrôles arithmétiques détaillés | ✅ | — | Via la validation | — |
-| Règles métier EN 16931 | ✅ natif, hors ligne | ✅ en ligne | ✅ | — |
-| Schematron officiel, XSD, PDF/A-3 | — *(prévu)* | ✅ en ligne | ✅ | — |
+| Schematron officiel EN 16931 | ✅ hors ligne | ✅ en ligne | ✅ | — |
+| Validation XSD | — | ✅ en ligne | ✅ | — |
+| Validation PDF/A-3 du fichier | Déclarations lues seulement | ✅ en ligne | ✅ | — |
 | Tableau multi-factures avec totaux | ✅ | — | — | — |
 | Pointage, statuts et commentaires | ✅ | — | — | — |
 | Historique : alerte de changement d'IBAN, prix, doublons | ✅ | — | — | — |
@@ -100,9 +103,9 @@ une case est cochée des deux côtés, le niveau de détail peut différer.
 
 <sub>Établi le 2 octobre 2026 d'après la documentation publique de chaque projet ; une case vide
 signifie « non documenté à cette date », pas forcément « impossible ». Corrections bienvenues.
-Factur-X Reader évalue les règles métier de la norme avec sa propre implémentation, pas avec le
-Schematron officiel, et ne contrôle ni le schéma XSD ni le conteneur PDF/A-3 : pour une
-validation de conformité opposable, Mustang ou Quba restent les bons outils.</sub>
+Factur-X Reader exécute le Schematron officiel EN 16931, mais ne contrôle ni le schéma XSD, ni la
+conformité PDF/A-3 réelle du fichier, ni les règles nationales : pour une validation complète,
+Mustang ou Quba restent les bons outils.</sub>
 
 ## Téléchargement
 
@@ -124,6 +127,8 @@ Ils sont produits par le workflow GitHub à chaque tag `vX.Y.Z`, ou localement p
 - **SQLite** embarqué — bibliothèque locale ;
 - **HTML / CSS / JS sans framework** — le front de `web/` est servi tel quel, sans étape de
   compilation ;
+- **xee** — moteur XPath, pour évaluer le Schematron officiel ;
+- **lopdf** — lecture de la structure des PDF ;
 - **PDF.js 3.11** — rendu des PDF.
 
 ## Utilisation
@@ -217,17 +222,72 @@ Sur le tableau des **lignes de facture** :
 
 ### Verdicts
 
-En tête de l'onglet **Données**, trois verdicts indépendants, jamais fondus en un seul « conforme » :
+En tête de l'onglet **Données**, des verdicts indépendants, jamais fondus en un seul « conforme » :
 
 | Verdict | Ce qu'il dit | Ce qu'il ne dit pas |
 |---|---|---|
 | **Lecture réussie** | Le XML a été trouvé et ses données extraites | Que le fichier est un Factur-X valide |
 | **Calculs cohérents** | Les montants du XML se recalculent sans écart | Que la facture respecte la norme |
-| **Règles EN 16931 respectées** | Les règles métier évaluées par l'application passent | Que le Schematron officiel passerait |
+| **Règles EN 16931 respectées** | Les règles métier évaluées par le moteur de l'application passent | Que le Schematron officiel passerait |
+| **Schematron officiel respecté** | Aucune règle bloquante du Schematron officiel EN 16931 n'est enfreinte | Que le XML respecte le schéma XSD ou les règles nationales |
+| **PDF/A-3 déclaré, pièce jointe déclarée** | Le PDF s'annonce PDF/A-3 et déclare sa pièce jointe XML | Que le fichier est réellement conforme à ISO 19005-3 |
 
 Les autres constats (identifiants, échéance, doublons, IBAN) sont comptés à part comme alertes.
-**Non contrôlés** : le Schematron officiel, le schéma XSD et le conteneur PDF/A-3. Le tableau
-multi-factures reprend ces verdicts en trois colonnes, et le rapport JSON dans un bloc `verdicts`.
+**Non contrôlés** : le schéma XSD, la conformité PDF/A-3 réelle du fichier et les règles
+nationales (CIUS). Aucun de ces verdicts ne vaut certification. Le tableau multi-factures reprend
+les verdicts en colonnes, et le rapport JSON dans un bloc `verdicts`.
+
+### Schematron officiel
+
+L'application embarque les règles de validation officielles de la norme EN 16931, publiées par la
+Commission européenne (dépôt [`eInvoicing-EN16931`](https://github.com/ConnectingEurope/eInvoicing-EN16931),
+version 1.3.16), pour les deux syntaxes CII et UBL : 806 règles CII et 979 règles UBL. Elles sont
+évaluées **sur votre poste** par le moteur de l'application, en Rust, à l'aide du moteur XPath
+open source `xee` : la facture n'est envoyée nulle part, et aucun code n'est exécuté dans la
+fenêtre.
+
+Le bloc **Schematron officiel** de l'onglet Données liste chaque règle non respectée (bloquante)
+et chaque avertissement, avec l'identifiant officiel (`BR-CO-15`, `UBL-CR-528`, `CII-SR-173`…),
+le texte de la règle et son emplacement dans le XML.
+
+À savoir :
+
+- seules les factures dont la racine est un `CrossIndustryInvoice` CII ou un `Invoice` /
+  `CreditNote` UBL aux espaces de noms standard sont validées. Sur tout autre document, le
+  verdict est **« non évalué »**, jamais « respecté » ;
+- la validation porte sur le XML tel que réindenté par l'application, pas sur les octets d'origine ;
+- elle tourne en arrière-plan, sans bloquer l'interface : moins d'une seconde pour une facture
+  courante, jusqu'à cinq secondes pour une facture de plus de cent lignes. À l'ouverture d'un
+  dossier, plusieurs documents sont validés de front, celui qui est affiché en premier ;
+- si une valeur du XML n'a pas le format attendu (un montant non numérique, par exemple), les
+  règles qui en dépendent sont listées comme **non évaluables** et le verdict n'est pas
+  « respecté » ;
+- les profils Factur-X **MINIMUM** et **BASIC WL** ne sont pas des factures EN 16931 complètes :
+  le Schematron EN 16931 y signale des règles non respectées, ce qui est attendu.
+
+Ce moteur n'est pas l'implémentation de référence : c'est une évaluation directe des règles
+officielles. Il a été comparé à SaxonJS, le moteur XSLT de référence, sur 583 documents (exemples
+officiels, variantes abîmées, factures réelles) : mêmes règles enfreintes, en même nombre, dans
+578 cas ; dans les 5 autres, SaxonJS s'arrête sur une valeur illisible là où l'application
+continue et signale les règles non évaluables.
+
+Le Schematron ajoute aux règles métier les règles de syntaxe (`UBL-CR`, `UBL-SR`, `CII-SR`) que
+les [règles natives](#règles-en-16931) de l'application ne couvrent pas.
+
+### Conteneur PDF
+
+Pour une facture reçue en PDF, l'application lit la structure du fichier et signale :
+
+| Contrôle | Ce qui est lu |
+|---|---|
+| **PDF/A-3 déclaré dans les métadonnées** | `pdfaid:part` et `pdfaid:conformance` des métadonnées XMP |
+| **Pièce jointe XML déclarée** | Présence du XML dans le catalogue du PDF (`/AF` ou `/EmbeddedFiles`) et sa relation (`AFRelationship`) |
+| **Profil Factur-X annoncé** | Le niveau annoncé dans les métadonnées, comparé au profil du XML |
+
+Ce sont les **déclarations** du fichier. L'application ne vérifie pas que le PDF respecte
+réellement la norme PDF/A-3 (polices incorporées, espaces colorimétriques, etc.) : cela demande un
+validateur dédié comme veraPDF. Un XML ou un ZIP n'a pas de conteneur : ces contrôles n'y
+apparaissent pas.
 
 ### Contrôles
 
@@ -265,10 +325,11 @@ sur la facture, celles qui ne sont pas respectées en premier, avec leur identif
 
 Limites, à connaître avant de s'y fier :
 
-- c'est une **implémentation native** écrite d'après l'énoncé des règles, pas le Schematron
-  officiel : elle peut diverger sur des cas particuliers ;
-- **non couverts** : le schéma XSD, les listes de codes (hors catégories de TVA), les règles
-  nationales (CIUS, XRechnung), le conteneur PDF/A-3 et ses métadonnées ;
+- c'est une **implémentation native** écrite d'après l'énoncé des règles ; elle sert aux verdicts
+  instantanés, au tableau et à la bibliothèque. En cas de désaccord, le
+  [Schematron officiel](#schematron-officiel) fait foi ;
+- **non couverts** par ce moteur natif : les listes de codes (hors catégories de TVA) et les
+  règles de syntaxe ;
 - pour les profils Factur-X **MINIMUM** et **BASIC WL**, hors norme EN 16931, seules les règles
   qui ont un objet sont évaluées.
 
@@ -305,6 +366,8 @@ ouvertes : fichier, vendeur, numéro, type, date, échéance, HT, TVA, TTC, à p
 (calculs, règles EN 16931, alertes). Un clic sur une ligne ouvre la facture.
 
 - **Tri** par clic sur un en-tête, **filtre** texte.
+- **Filtres métier** : période (date d'émission), plage de montants TTC, fournisseur ;
+  « Effacer filtres » les remet à zéro.
 - **Filtre d'anomalies** : écart de calcul, alerte, échéance dépassée, sans TVA, émise un
   week-end, doublon, avoirs, documents non lus.
 - **Totaux par devise** sur les lignes affichées ; les avoirs sont déduits.
@@ -324,6 +387,7 @@ L'onglet **Bibliothèque**, à côté d'Accueil et de Tableau, liste ces facture
 
 - **Recherche** par fournisseur, numéro, date, montant, nom de fichier, référence ou désignation
   d'article (1000 résultats au plus) ;
+- **filtres** par période, plage de montants TTC et fournisseur ;
 - un clic **rouvre la facture** depuis son emplacement d'origine. Un fichier ajouté par dépôt n'a
   pas d'emplacement connu : l'application le dit et demande de rouvrir le fichier ;
 - **✕** retire une facture de la bibliothèque, sans toucher au fichier.
@@ -440,6 +504,7 @@ web/                       interface (aucune étape de compilation)
   batch.js                 tableau multi-factures
   review.js                suivi de vérification, rapport de contrôle
   library.js               bibliothèque locale, historique des prix
+  schematron/              appel du validateur, notices de licence
   menu.js                  menus contextuels (tableaux, onglets)
   menubar.js               barre de menus
   pdfjs/                   PDF.js embarqué
@@ -447,6 +512,8 @@ src-tauri/
   src/facturx.rs           moteur : PDF Factur-X, ZIP, UBL, CII
   src/facturx/controles.rs contrôles de cohérence (décimaux exacts)
   src/facturx/en16931.rs   règles métier EN 16931
+  src/schematron.rs        Schematron officiel EN 16931 (évaluation XPath, fils de travail)
+  schematron/              règles officielles (.sch, EUPL 1.2) et exemples de test
   src/tables.rs            libellés français et tables de codes
   src/pointages.rs         pointages et suivi : persistance, sauvegardes, export/import
   src/bibliotheque.rs      bibliothèque locale (SQLite) : historique, IBAN, doublons, prix
@@ -539,6 +606,7 @@ cargo run --example dump -- ../samples/facture.pdf > facture.json
 | `save_text` | boîte « Enregistrer sous » et écriture d'un export CSV |
 | `save_control_report` | boîte « Enregistrer sous » et écriture du rapport de contrôle JSON |
 | `print_window` | boîte d'impression du système |
+| `validate_schematron` | Schematron officiel EN 16931 sur le XML d'une facture |
 | `app_info` | version et emplacement des pointages |
 
 ## Auteurs et licence

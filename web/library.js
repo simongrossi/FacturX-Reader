@@ -3,7 +3,17 @@
 /* Bibliothèque locale : toutes les factures déjà analysées, entre les sessions.
    Les données viennent de la base tenue par le moteur (bibliotheque.sqlite). */
 
-const library = { query: "", timer: null, token: 0, warned: new Set() };
+const library = {
+  query: "",
+  timer: null,
+  token: 0,
+  warned: new Set(),
+  dateMin: "",
+  dateMax: "",
+  montantMin: "",
+  montantMax: "",
+  fournisseur: "",
+};
 
 const LIBRARY_COLS = [
   { key: "date", title: "Date" },
@@ -51,7 +61,21 @@ async function renderLibrary() {
     return;
   }
   if (token !== library.token) return;
-  const rows = (result && result.factures) || [];
+  let rows = (result && result.factures) || [];
+  if (library.dateMin) rows = rows.filter((r) => !r.date || r.date >= library.dateMin);
+  if (library.dateMax) rows = rows.filter((r) => !r.date || r.date <= library.dateMax);
+  if (library.fournisseur) {
+    const fn = library.fournisseur.toLowerCase();
+    rows = rows.filter((r) => r.vendeur && r.vendeur.toLowerCase().includes(fn));
+  }
+  if (library.montantMin !== "" && !isNaN(parseFloat(library.montantMin))) {
+    const minVal = parseFloat(library.montantMin);
+    rows = rows.filter((r) => r.ttc !== "" && parseFloat(r.ttc) >= minVal);
+  }
+  if (library.montantMax !== "" && !isNaN(parseFloat(library.montantMax))) {
+    const maxVal = parseFloat(library.montantMax);
+    rows = rows.filter((r) => r.ttc !== "" && parseFloat(r.ttc) <= maxVal);
+  }
   const total = (result && result.total) || 0;
   count.textContent = (rows.length === total ? total + " facture" + (total > 1 ? "s" : "")
     : rows.length + " / " + total + " factures") + (result && result.tronque ? " (1000 premières)" : "");
@@ -170,6 +194,30 @@ function wireLibrary() {
     library.query = e.target.value;
     clearTimeout(library.timer);
     library.timer = setTimeout(renderLibrary, 200);
+  });
+  const dateFrom = byId("library-date-from");
+  if (dateFrom) dateFrom.addEventListener("change", (e) => { library.dateMin = e.target.value; renderLibrary(); });
+  const dateTo = byId("library-date-to");
+  if (dateTo) dateTo.addEventListener("change", (e) => { library.dateMax = e.target.value; renderLibrary(); });
+  const amtMin = byId("library-amount-min");
+  if (amtMin) amtMin.addEventListener("input", (e) => { library.montantMin = e.target.value; renderLibrary(); });
+  const amtMax = byId("library-amount-max");
+  if (amtMax) amtMax.addEventListener("input", (e) => { library.montantMax = e.target.value; renderLibrary(); });
+  const seller = byId("library-seller");
+  if (seller) seller.addEventListener("input", (e) => { library.fournisseur = e.target.value.trim(); renderLibrary(); });
+  const resetBtn = byId("library-reset-filters");
+  if (resetBtn) resetBtn.addEventListener("click", () => {
+    library.dateMin = "";
+    library.dateMax = "";
+    library.montantMin = "";
+    library.montantMax = "";
+    library.fournisseur = "";
+    if (dateFrom) dateFrom.value = "";
+    if (dateTo) dateTo.value = "";
+    if (amtMin) amtMin.value = "";
+    if (amtMax) amtMax.value = "";
+    if (seller) seller.value = "";
+    renderLibrary();
   });
   byId("btn-settings").addEventListener("click", () => refreshLibraryStatus(false));
   byId("library-clear").addEventListener("click", async () => {

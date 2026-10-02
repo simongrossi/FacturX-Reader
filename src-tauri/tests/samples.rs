@@ -28,6 +28,9 @@ fn factures_d_exemple() {
         assert_eq!(r["doc_hash"].as_str().unwrap().len(), 64, "{name}");
         if name.to_lowercase().ends_with(".pdf") {
             assert_eq!(r["pdf"]["size"], data.len(), "{name} : le PDF servi est le fichier d'origine");
+            assert_eq!(r["conteneur"]["est_pdf"], true, "{name} : conteneur PDF");
+            assert_eq!(r["conteneur"]["piece_jointe_declaree"], true, "{name} : pièce jointe déclarée");
+            assert_eq!(r["conteneur"]["est_pdfa"], true, "{name} : métadonnées PDF/A");
         }
         count += 1;
     }

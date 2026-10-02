@@ -3,6 +3,7 @@
 mod bibliotheque;
 pub mod facturx;
 mod pointages;
+mod schematron;
 mod tables;
 
 use std::path::{Path, PathBuf};
@@ -232,6 +233,7 @@ pub fn run() {
                 None => data_dir.clone().unwrap_or_default().join("bibliotheque.sqlite"),
             };
             app.manage(bibliotheque::Library::new(library));
+            app.manage(std::sync::Arc::new(schematron::Validator::new()));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -243,6 +245,7 @@ pub fn run() {
             save_text,
             save_control_report,
             print_window,
+            schematron::validate_schematron,
             app_info,
             pointages::get_pointage,
             pointages::set_pointage,

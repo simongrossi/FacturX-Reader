@@ -11,7 +11,7 @@ l'utilisation et [VALIDATION.md](VALIDATION.md) pour le bilan de vérification P
 | P0 | Valider l'existant | Presque terminé : reste macOS, Linux et l'installation des paquets |
 | P1 | Confort et fiabilité du moteur | Aux deux tiers : reste la provenance des valeurs, le parseur PDF, « Ouvrir avec », l'export Excel |
 | P2 | Exploiter des lots de factures | Presque terminé : reste la recherche dans le PDF, le dossier surveillé, l'échéancier |
-| P3 | Conformité et distribution | Commencé : règles métier EN 16931 natives ; reste XSD, Schematron officiel, PDF/A, signature |
+| P3 | Conformité et distribution | Bien avancé : Schematron officiel et déclarations du conteneur ; reste XSD, PDF/A réel, signature des builds |
 | P4 | API, MCP et connecteurs | Pas commencé |
 
 Versions publiées (pré-versions, builds non signés) :
@@ -68,8 +68,8 @@ Versions publiées (pré-versions, builds non signés) :
   et de la TVA de ligne reconstitués reste en `f64`.
 - [ ] Provenance des valeurs : distinguer ce qui est extrait du XML de ce qui est reconstitué,
   avec formule, valeur d'origine et chemin consultables.
-- [ ] Extraction PDF avec un vrai parseur, au-delà des expressions régulières : structures
-  complexes, pièces jointes multiples, choix du XML pertinent.
+- [x] Extraction PDF avec un vrai parseur, au-delà des expressions régulières : structures
+  complexes, pièces jointes multiples, choix du XML pertinent (`lopdf`, repli de secours).
 - [x] Protection des pointages et du suivi : sauvegarde quotidienne, restauration, export/import,
   erreur visible si un fichier est illisible ; une corruption n'est plus traitée comme un
   historique vide. Suivi de vérification déplacé dans `suivi.json`.
@@ -91,6 +91,8 @@ Versions publiées (pré-versions, builds non signés) :
 - [x] Tableau multi-factures : totaux par devise, avoirs déduits, tri, filtre, export CSV (0.3.0).
 - [x] Filtres d'anomalies : écart, alerte, échue, sans TVA, émise un week-end, doublon, avoirs,
   non lues (0.3.0) ; filtre par statut de vérification (0.4.0).
+- [x] Filtres métier : période (dates début / fin), montants (min / max) et fournisseur dans le
+  tableau multi-factures et la bibliothèque locale.
 - [x] Vue PDF et données côte à côte, défilements indépendants (0.4.0).
 - [x] Statuts « À vérifier », « Vérifiée », « Anomalie », commentaires par facture et par ligne,
   pointage de la facture entière ; distinct d'un paiement confirmé (0.4.0).
@@ -119,8 +121,8 @@ Versions publiées (pré-versions, builds non signés) :
 - [x] Alerte de changement d'IBAN par fournisseur (anti-fraude au virement).
 - [x] Doublons sur l'historique, au-delà des documents ouverts.
 - [x] Historique des prix unitaires par article et par fournisseur, variation signalée.
-- [ ] Bibliothèque : filtres par période et par fournisseur, recherche dans les commentaires,
-  graphique de prix, validation explicite d'un nouvel IBAN, sauvegarde et export de la base.
+- [x] Bibliothèque : filtres par période, montants et fournisseur. Reste : recherche dans les
+  commentaires, graphique de prix, validation explicite d'un nouvel IBAN, sauvegarde/export de la base.
 - [ ] Grille de prix négociés importée et alerte de dépassement.
 
 ## P3 — Conformité et distribution
@@ -131,12 +133,21 @@ Versions publiées (pré-versions, builds non signés) :
   TVA, reliées aux données concernées. Hors Schematron officiel.
 - [ ] Compléter les règles natives : listes de codes (pays, devises, unités, types de facture),
   remises et frais de ligne, règles nationales françaises (CIUS).
-- [ ] Validation XML XSD puis Schematron officiel EN 16931, selon le profil et la version ;
-  versions des jeux de règles traçables. Demande un moteur XSLT 2 ou une traduction des règles.
-- [ ] Validation du conteneur PDF/A-3, métadonnées XMP, association et cohérence avec le XML.
-- [x] Verdicts séparés : lecture réussie, calculs cohérents, règles EN 16931 respectées, avec la
-  mention de ce qui n'est pas contrôlé. Un fichier lisible n'est pas nécessairement conforme.
-- [ ] Ajouter aux verdicts la validation XML officielle et celle du conteneur quand elles existeront.
+- [x] Schematron officiel EN 16931 (Commission européenne, v1.3.16) : règles embarquées sans
+  modification et évaluées en Rust (moteur XPath `xee`), hors de l'interface, sur CII et UBL.
+  Comparé à SaxonJS sur 583 documents. Aucun composant propriétaire, aucun `eval` dans la fenêtre.
+- [x] Conteneur PDF : déclarations lues (PDF/A-3 annoncé, pièce jointe déclarée, relation, profil
+  annoncé comparé au XML). Ce n'est pas une validation ISO 19005-3.
+- [x] Verdicts séparés : lecture, calculs, règles EN 16931, Schematron officiel, conteneur, avec
+  la mention de ce qui n'est pas contrôlé.
+- [ ] Schematron plus rapide : jusqu'à cinq secondes sur une facture de plus de cent lignes
+  (contextes et assertions réévalués sur tout le document) ; cache persistant par empreinte.
+- [ ] Intégrer la suite de tests officielle du dépôt de la Commission à la CI.
+- [ ] Schematron des profils Factur-X (MINIMUM, BASIC WL, BASIC, EXTENDED), pour ne plus évaluer
+  ces profils avec les seules règles EN 16931.
+- [ ] Valider le XML d'origine plutôt que sa version réindentée.
+- [ ] Validation du schéma XSD.
+- [ ] Validation PDF/A-3 réelle du fichier (type veraPDF).
 - [ ] Comparaison PDF vs XML : montants clés recherchés dans le texte du PDF, écart mis en
   évidence (PDF texte uniquement). Puis synchronisation au clic XML ↔ PDF.
 - [ ] Signature électronique du PDF : détecter sa présence, puis vérifier l'intégrité.
@@ -191,9 +202,9 @@ par projet. Ces deux derniers supposent plusieurs utilisateurs et un serveur : u
 ## Limites connues
 
 - La recherche porte sur les données XML, pas sur le texte du PDF ni les contenus binaires.
-- Les règles EN 16931 sont une implémentation native, pas le Schematron officiel ; ni le schéma
-  XSD ni le conteneur PDF/A-3 ne sont contrôlés. Aucun appel réseau ne vérifie l'existence
-  d'un SIREN ni le titulaire d'un IBAN.
+- Le Schematron officiel EN 16931 est exécuté, mais ni le schéma XSD, ni la conformité PDF/A-3
+  réelle du fichier, ni les règles nationales ne sont contrôlés. Aucun appel réseau ne vérifie
+  l'existence d'un SIREN ni le titulaire d'un IBAN.
 - Le tableau porte sur les documents ouverts (500 au maximum). La bibliothèque ne connaît que les
   factures ouvertes au moins une fois sur ce poste : la première facture d'un fournisseur ne
   déclenche aucune alerte d'IBAN.

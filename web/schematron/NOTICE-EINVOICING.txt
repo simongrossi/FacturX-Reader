@@ -1,0 +1,6 @@
+European Commission - Connecting Europe Facility (CEF) / eInvoicing-EN16931
+Schematron validation rules for EN 16931 (UBL & CII), version 1.3.16, embedded unmodified
+(preprocessed .sch files) and evaluated by the application.
+Source repository: https://github.com/ConnectingEurope/eInvoicing-EN16931
+Licensed under the European Union Public Licence (EUPL) version 1.2.
+Copyright (c) European Union, 2017-2026.

@@ -662,19 +662,110 @@ fn synthese(s: &Map<String, Value>, t: &Totals, type_code: &str, is_credit_note:
     })
 }
 
+fn check_container(out: &mut Vec<Value>, conteneur: &super::PdfContainerInfo, xml_profil: Option<&str>) {
+    // 1. Conteneur PDF/A-3
+    if conteneur.est_pdfa && conteneur.pdfa_part == Some(3) {
+        let conf = conteneur.pdfa_conformance.as_deref().unwrap_or("");
+        out.push(json!({
+            "regle": "PDF/A-3 déclaré dans les métadonnées",
+            "etat": "conforme",
+            "attendu": "PDF/A-3 (ISO 19005-3)",
+            "constate": format!("PDF/A-3{}", conf),
+            "detail": "Déclaration lue dans les métadonnées XMP. La conformité réelle du fichier à ISO 19005-3 n'est pas vérifiée.",
+        }));
+    } else if conteneur.est_pdfa {
+        let part_str = conteneur.pdfa_part.map(|p| p.to_string()).unwrap_or_else(|| "?".into());
+        out.push(json!({
+            "regle": "PDF/A-3 déclaré dans les métadonnées",
+            "etat": "alerte",
+            "attendu": "PDF/A-3 (ISO 19005-3)",
+            "constate": format!("PDF/A-{}", part_str),
+            "detail": "Le fichier est un PDF/A mais pas de version 3 (requise pour l'embarquement de pièces jointes Factur-X).",
+        }));
+    } else {
+        out.push(json!({
+            "regle": "PDF/A-3 déclaré dans les métadonnées",
+            "etat": "alerte",
+            "attendu": "PDF/A-3 (ISO 19005-3)",
+            "constate": "Non déclaré PDF/A",
+            "detail": "Aucune déclaration de conformité PDF/A-3 trouvée dans les métadonnées XMP.",
+        }));
+    }
+
+    // 2. Pièce jointe XML déclarée
+    let pj_name = conteneur.nom_piece_jointe.as_deref().unwrap_or("factur-x.xml");
+    if conteneur.piece_jointe_declaree {
+        let rel_txt = conteneur.af_relationship.as_deref().unwrap_or("non précisée");
+        out.push(json!({
+            "regle": "Pièce jointe XML déclarée",
+            "etat": "conforme",
+            "attendu": "Déclarée dans le catalogue PDF (/AF ou /EmbeddedFiles)",
+            "constate": format!("{} (relation : {})", pj_name, rel_txt),
+            "detail": "La pièce jointe XML est déclarée dans le catalogue du PDF.",
+        }));
+    } else {
+        out.push(json!({
+            "regle": "Pièce jointe XML déclarée",
+            "etat": "alerte",
+            "attendu": "Déclarée dans le catalogue PDF (/AF ou /EmbeddedFiles)",
+            "constate": format!("{} extrait hors catalogue", pj_name),
+            "detail": "Le XML a été trouvé dans un flux du PDF mais n'est pas proprement déclaré dans les pièces jointes associées.",
+        }));
+    }
+
+    // 3. Profil annoncé (XMP vs XML)
+    if let Some(xmp_prof) = &conteneur.profil_xmp {
+        let coherent = match xml_profil {
+            Some(xml_prof) => {
+                let x = xmp_prof.to_uppercase().replace([' ', '_', '-'], "");
+                let m = xml_prof.to_uppercase().replace([' ', '_', '-'], "");
+                m.contains(&x) || x.contains(&m) || (m.contains("EN16931") && x.contains("EN16931"))
+            }
+            None => true,
+        };
+        if coherent {
+            out.push(json!({
+                "regle": "Profil Factur-X annoncé",
+                "etat": "conforme",
+                "attendu": format!("Concordance XMP / XML ({})", xml_profil.unwrap_or("—")),
+                "constate": format!("Profil XMP {}", xmp_prof),
+                "detail": "Le niveau de conformité annoncé dans les métadonnées PDF correspond au profil du XML.",
+            }));
+        } else {
+            out.push(json!({
+                "regle": "Profil Factur-X annoncé",
+                "etat": "ecart",
+                "attendu": format!("Profil XML {}", xml_profil.unwrap_or("—")),
+                "constate": format!("Profil XMP {}", xmp_prof),
+                "ecart": "Divergence de profil",
+                "detail": "Le profil déclaré dans les métadonnées PDF (XMP) ne correspond pas au profil du XML embarqué.",
+            }));
+        }
+    } else {
+        out.push(json!({
+            "regle": "Profil Factur-X annoncé",
+            "etat": "info",
+            "attendu": "Profil annoncé dans les métadonnées XMP",
+            "constate": "Non renseigné",
+            "detail": "Les métadonnées XMP du PDF ne précisent pas de ConformanceLevel.",
+        }));
+    }
+}
+
 /// Controles et synthese d'une facture UBL ou CII deja extraite (`structured`).
 pub(super) fn run(
     root: N,
     format: &str,
     paths: &Paths,
     structured: &Map<String, Value>,
+    conteneur: Option<&super::PdfContainerInfo>,
     today: NaiveDate,
 ) -> (Vec<Value>, Value) {
     let totals = if format == "UBL" { ubl_totals(root, paths) } else { cii_totals(root, paths) };
     let type_code = field(structured, None, &["Type de facture"]).map(|(v, _)| v).unwrap_or_default();
     let is_credit_note = root.tag_name().name() == "CreditNote" || type_code == "381";
     let mut out = Vec::new();
-    // Famille de chaque controle : `calcul`, `mention` (mentions et identifiants) ou `date`.
+    // Famille de chaque controle : `calcul`, `mention`, `date` ou `conteneur`.
     let tag = |out: &mut Vec<Value>, from: usize, family: &str| {
         for item in &mut out[from..] {
             item["famille"] = family.into();
@@ -689,6 +780,12 @@ pub(super) fn run(
     let from = out.len();
     check_dates(&mut out, structured, &totals, is_credit_note, today);
     tag(&mut out, from, "date");
+    if let Some(c) = conteneur {
+        let from = out.len();
+        let xml_profil = field(structured, None, &["Profil", "ID de profil"]).map(|(v, _)| v);
+        check_container(&mut out, c, xml_profil.as_deref());
+        tag(&mut out, from, "conteneur");
+    }
     let synthese = synthese(structured, &totals, &type_code, is_credit_note, today);
     (out, synthese)
 }

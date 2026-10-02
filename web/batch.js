@@ -3,7 +3,16 @@
 /* Tableau multi-factures : une ligne par document ouvert, à partir de la synthèse
    et des contrôles calculés par le moteur. */
 
-const batch = { query: "", filter: "all", sort: { key: "date", dir: 1 } };
+const batch = {
+  query: "",
+  filter: "all",
+  sort: { key: "date", dir: 1 },
+  dateMin: "",
+  dateMax: "",
+  montantMin: "",
+  montantMax: "",
+  fournisseur: "",
+};
 
 const BATCH_COLS = [
   { key: "fichier", title: "Fichier" },
@@ -90,6 +99,20 @@ function batchVisibleRows() {
   const filter = batch.filter.startsWith("s:") ? (r) => r.suivi === batch.filter.slice(2)
     : BATCH_FILTERS[batch.filter] || BATCH_FILTERS.all;
   let rows = batchRows().filter(filter);
+  if (batch.dateMin) rows = rows.filter((r) => !r.date || r.date >= batch.dateMin);
+  if (batch.dateMax) rows = rows.filter((r) => !r.date || r.date <= batch.dateMax);
+  if (batch.fournisseur) {
+    const fn = batch.fournisseur.toLowerCase();
+    rows = rows.filter((r) => r.vendeur && r.vendeur.toLowerCase().includes(fn));
+  }
+  if (batch.montantMin !== "" && !isNaN(parseFloat(batch.montantMin))) {
+    const minVal = parseFloat(batch.montantMin);
+    rows = rows.filter((r) => r.ttc !== "" && parseFloat(r.ttc) >= minVal);
+  }
+  if (batch.montantMax !== "" && !isNaN(parseFloat(batch.montantMax))) {
+    const maxVal = parseFloat(batch.montantMax);
+    rows = rows.filter((r) => r.ttc !== "" && parseFloat(r.ttc) <= maxVal);
+  }
   if (q) rows = rows.filter((r) => [...BATCH_COLS.map((c) => r[c.key]), r.commentaire].join(" ").toLowerCase().includes(q));
   const { key, dir } = batch.sort;
   const col = BATCH_COLS.find((c) => c.key === key);
@@ -219,6 +242,30 @@ function showBatch() {
 function wireBatch() {
   byId("batch-search").addEventListener("input", (e) => { batch.query = e.target.value; renderBatch(); });
   byId("batch-filter").addEventListener("change", (e) => { batch.filter = e.target.value; renderBatch(); });
+  const dateFrom = byId("batch-date-from");
+  if (dateFrom) dateFrom.addEventListener("change", (e) => { batch.dateMin = e.target.value; renderBatch(); });
+  const dateTo = byId("batch-date-to");
+  if (dateTo) dateTo.addEventListener("change", (e) => { batch.dateMax = e.target.value; renderBatch(); });
+  const amtMin = byId("batch-amount-min");
+  if (amtMin) amtMin.addEventListener("input", (e) => { batch.montantMin = e.target.value; renderBatch(); });
+  const amtMax = byId("batch-amount-max");
+  if (amtMax) amtMax.addEventListener("input", (e) => { batch.montantMax = e.target.value; renderBatch(); });
+  const seller = byId("batch-seller");
+  if (seller) seller.addEventListener("input", (e) => { batch.fournisseur = e.target.value.trim(); renderBatch(); });
+  const resetBtn = byId("batch-reset-filters");
+  if (resetBtn) resetBtn.addEventListener("click", () => {
+    batch.dateMin = "";
+    batch.dateMax = "";
+    batch.montantMin = "";
+    batch.montantMax = "";
+    batch.fournisseur = "";
+    if (dateFrom) dateFrom.value = "";
+    if (dateTo) dateTo.value = "";
+    if (amtMin) amtMin.value = "";
+    if (amtMax) amtMax.value = "";
+    if (seller) seller.value = "";
+    renderBatch();
+  });
   byId("batch-copy").addEventListener("click", (e) =>
     copyText(batchExportRows().map((row) => row.map((v) => v.replace(/[\t\r\n]+/g, " ")).join("\t")).join("\n"), e.currentTarget));
   byId("batch-export").addEventListener("click", async (e) => {

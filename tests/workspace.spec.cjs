@@ -21,6 +21,10 @@ async function mockBackend(page, pdf = null, extra = {}) {
       if (command === 'get_pointage') return { lines: [] };
       if (command === 'parse_path' && args.path.includes('missing')) throw new Error('Fichier introuvable');
       if (command === 'save_text') { window.__saved = args; return true; }
+      if (command === 'validate_schematron') {
+        window.__schematronCalls = [...(window.__schematronCalls || []), { format: args.format, priority: args.priority, xml: args.xml }];
+        return JSON.parse(sessionStorage.getItem('mock-schematron') || '{}');
+      }
       if (command === 'library_status') return window.__libraryBroken
         ? { ok: false, erreur: 'La bibliothèque (bibliotheque.sqlite) est illisible : file is not a database.', factures: 0, chemin: 'bibliotheque.sqlite' }
         : { ok: true, erreur: '', factures: 2, chemin: 'bibliotheque.sqlite' };
@@ -289,7 +293,7 @@ test('tableau multi-factures : totaux, filtres, export et menu contextuel', asyn
   await expect(rows.first()).toContainText('1 écart');
   await expect(rows.first()).toContainText('Non évaluées');
   await expect(rows.first()).toContainText('doublon');
-  await expect(page.locator('#batch-note')).toContainText('ne valent pas conformité à la norme');
+  await expect(page.locator('#batch-note')).toContainText('Aucun verdict ne vaut certification');
   await expect(rows.first()).toContainText('échue depuis 31 j');
   await expect(rows.last()).toContainText('Non lue');
   await expect(page.locator('#batch-table tfoot tr')).toContainText('Total EUR — 2 documents');
@@ -302,6 +306,26 @@ test('tableau multi-factures : totaux, filtres, export et menu contextuel', asyn
   await page.locator('#batch-filter').selectOption('echue');
   await expect(rows).toHaveCount(2);
   await expect(page.locator('#batch-count')).toHaveText('2 / 3 documents');
+
+  // Filtres métier : fournisseur, montants et remise à zéro
+  await page.locator('#batch-filter').selectOption('all');
+  await expect(rows).toHaveCount(3);
+  await page.locator('#batch-seller').fill('Inconnu');
+  await expect(page.locator('.batch-empty')).toHaveText('Aucun document ne correspond au filtre.');
+  await page.locator('#batch-seller').fill('Test');
+  await expect(rows).toHaveCount(2);
+  await page.locator('#batch-amount-min').fill('1500');
+  await expect(page.locator('.batch-empty')).toHaveText('Aucun document ne correspond au filtre.');
+  await page.locator('#batch-amount-min').fill('500');
+  await page.locator('#batch-amount-max').fill('1300');
+  await expect(rows).toHaveCount(2);
+  await page.locator('#batch-reset-filters').click();
+  await expect(rows).toHaveCount(3);
+  await expect(page.locator('#batch-seller')).toHaveValue('');
+  await expect(page.locator('#batch-amount-min')).toHaveValue('');
+
+  await page.locator('#batch-filter').selectOption('echue');
+  await expect(rows).toHaveCount(2);
   await page.locator('#batch-export').click();
   await expect.poll(() => page.evaluate(() => window.__saved?.filename)).toBe('factures.csv');
   const csv = (await page.evaluate(() => window.__saved.content)).split('\r\n');
@@ -353,6 +377,16 @@ test('barre de menus, onglets Accueil et Tableau fixes, menu d’onglet', async 
   await page.keyboard.press('Escape');
   await expect(drop).toHaveCount(0);
   await expect(menubar.locator('[aria-expanded="true"]')).toHaveCount(0);
+
+  // Les licences des composants embarqués sont consultables dans l'application.
+  await menubar.getByRole('button', { name: 'Aide' }).click();
+  await drop.getByRole('menuitem', { name: 'Licences des composants tiers' }).click();
+  await expect(page.locator('#licenses-dialog')).toBeVisible();
+  await expect(page.locator('#licenses-body')).toContainText('European Union Public Licence (EUPL) version 1.2');
+  await expect(page.locator('#licenses-body')).toContainText('EUROPEAN UNION PUBLIC LICENCE v. 1.2');
+  await expect(page.locator('#licenses-body')).toContainText('ConnectingEurope/eInvoicing-EN16931');
+  await page.locator('#licenses-close').click();
+  await expect(page.locator('#licenses-dialog')).toBeHidden();
 
   await page.evaluate(async () => { await addPaths({ files: Array.from({ length: 30 }, (_, i) => `C:/facture-numero-${i}.xml`) }); });
   await expect(page.locator('.document-tab-group')).toHaveCount(30);
@@ -474,8 +508,9 @@ test('règles EN 16931 affichées, filtrées dans le tableau, et impression', as
   await expect(rules).toHaveAttribute('open', '');
   // Verdicts séparés : des calculs cohérents n'effacent pas une règle non respectée.
   const verdicts = page.locator('#verdicts .ctl-chip');
-  await expect(verdicts).toHaveText(['Lecture réussie', 'Calculs cohérents', '1 règle EN 16931 non respectée']);
-  await expect(page.locator('#verdicts .verdict-note')).toContainText('Non contrôlés : Schematron officiel, schéma XSD, conteneur PDF/A-3');
+  await expect(verdicts).toHaveText(['Lecture réussie', 'Calculs cohérents', '1 règle EN 16931 non respectée', 'Schematron officiel non évalué']);
+  await expect(page.locator('#verdicts .verdict-note')).toContainText('Non contrôlés : schéma XSD');
+  await expect(page.locator('#verdicts .verdict-note')).toContainText('ne vaut certification');
   await expect(rules.locator('summary')).toContainText('1 non respectée');
   await expect(rules.locator('summary')).toContainText('2 respectées');
   await expect(rules.locator('tbody tr').first()).toContainText('BR-07');
@@ -503,7 +538,7 @@ test('règles EN 16931 affichées, filtrées dans le tableau, et impression', as
   await page.locator('#btn-control-report').click();
   await expect.poll(() => page.evaluate(() => window.__report?.report.regles_en16931?.non_conformes)).toBe(1);
   expect(await page.evaluate(() => window.__report.report.verdicts)).toEqual({ lecture: 'Lecture réussie', calculs: 'Calculs cohérents',
-    regles_en16931: '1 règle EN 16931 non respectée', autres_alertes: 0, non_controle: ['Schematron officiel', 'schéma XSD', 'conteneur PDF/A-3'] });
+    regles_en16931: '1 règle EN 16931 non respectée', autres_alertes: 0, non_controle: ['schéma XSD', 'conformité PDF/A-3 réelle du fichier (seules ses métadonnées déclarées sont lues)', 'règles nationales (CIUS)'] });
   await page.locator('#tab-batch').click();
   await expect(page.locator('#batch-table tbody tr.batch-row')).toContainText('1 non respectée');
   await expect(page.locator('#batch-table tbody tr.batch-row')).toContainText('Cohérents');
@@ -636,5 +671,64 @@ test('bibliothèque : recherche, ouverture, retrait, historique des prix, régla
   await page.locator('#library-reset').click();
   await expect(page.locator('#workspace-message')).toContainText('Bibliothèque réinitialisée');
   await expect(page.locator('#library-reset')).toBeHidden();
+  expect(errors).toEqual([]);
+});
+
+test('Schematron officiel : verdicts respecté, non respecté, partiel et non évalué', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await mockBackend(page, null, {
+    synthese: { numero: 'X', vendeur: 'V', devise: 'EUR' },
+    sections: [{ name: 'Vendeur', rows: [{ title: 'Raison sociale', value: 'V', path: 'Invoice/x' }] }],
+  });
+  await page.goto(url);
+  // Le moteur de validation est dans l'application : plus de moteur XSLT ni d'eval dans la page.
+  expect(await page.evaluate(() => typeof SaxonJS)).toBe('undefined');
+  const open = async (name, result) => {
+    await page.evaluate(r => sessionStorage.setItem('mock-schematron', JSON.stringify(r)), result);
+    await page.locator('#file-input').setInputFiles({ name, mimeType: 'text/xml', buffer: Buffer.from('<Invoice/>') });
+    await expect(page.locator('#fv-name')).toHaveText(name);
+    await page.getByRole('button', { name: 'Données', exact: true }).click();
+  };
+  const base = { evalue: true, version_regles: '1.3.16', regles_declenchees: 42, non_conformes: 0, avertissements: 0, non_evaluables: [], erreurs: [], duree_ms: 120 };
+  const verdicts = page.locator('#verdicts');
+  const section = page.locator('#schematron-rules');
+
+  await open('respecte.xml', { ...base, ok: true });
+  await expect(verdicts).toContainText('Schematron officiel respecté');
+  await expect(section).toContainText('Aucune règle bloquante enfreinte');
+  await expect(section).toContainText('EN 16931 v1.3.16');
+  await expect(section).toContainText('42 contextes examinés en 120 ms');
+  // Le moteur reçoit le XML du document et son format.
+  expect(await page.evaluate(() => window.__schematronCalls[0])).toMatchObject({ format: 'CII', xml: '<Invoice>FAC-2026-123</Invoice>' });
+
+  await open('enfreint.xml', { ...base, ok: false, non_conformes: 1, avertissements: 1, erreurs: [
+    { id: 'BR-CO-15', flag: 'fatal', texte: '[BR-CO-15]-Invoice total amount with VAT = Invoice total amount without VAT + Invoice total VAT amount.', location: '/rsm:CrossIndustryInvoice' },
+    { id: 'CII-SR-173', flag: 'warning', texte: '[CII-SR-173]-Avertissement de syntaxe', location: '/rsm:CrossIndustryInvoice/x' },
+  ] });
+  await expect(verdicts).toContainText('1 règle Schematron officiel non respectée');
+  await expect(section).toHaveAttribute('open', '');
+  await expect(section).toContainText('1 règle bloquante non respectée · 1 avertissement');
+  await expect(section.locator('tr.ctl-ecart')).toContainText('BR-CO-15');
+  await expect(section.locator('tr.ctl-ecart')).toContainText('Emplacement : /rsm:CrossIndustryInvoice');
+  await expect(section.locator('tr.ctl-alerte')).toContainText('CII-SR-173');
+
+  // Une règle que le moteur n'a pas pu évaluer empêche d'afficher « respecté ».
+  await open('partiel.xml', { ...base, ok: false, non_evaluables: ['BR-DEC-23'] });
+  await expect(verdicts).toContainText('Schematron officiel : 1 règle non évaluable');
+  await expect(verdicts).not.toContainText('Schematron officiel respecté');
+  await expect(section).toContainText('BR-DEC-23');
+
+  // Document non reconnu, puis réponse inattendue du moteur : jamais « respecté ».
+  await open('inconnu.xml', { evalue: false, ok: false, erreur_moteur: 'Aucune règle officielle ne s\'applique à ce document (racine ou espace de noms non reconnu)' });
+  await expect(verdicts).toContainText('Schematron officiel non évalué');
+  await expect(section).toContainText('Aucune règle officielle ne s\'applique');
+  await open('muet.xml', {});
+  await expect(verdicts).toContainText('Schematron officiel non évalué');
+  await expect(verdicts).not.toContainText('Schematron officiel respecté');
+
+  // Le tableau reprend les verdicts.
+  await page.locator('#tab-batch').click();
+  await expect(page.locator('#batch-table tbody tr.batch-row')).toHaveCount(5);
   expect(errors).toEqual([]);
 });

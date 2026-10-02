@@ -1432,12 +1432,55 @@ fn parse_xml(source: &str) -> Result<Document<'_>, FacturXError> {
     Document::parse_with_options(source, options).map_err(|e| FacturXError(format!("XML invalide : {e}")))
 }
 
+// ------------------------------------------------------------------ Conteneur PDF / PDF/A-3
+
+#[derive(Clone, Debug, Default)]
+pub struct PdfContainerInfo {
+    pub est_pdfa: bool,
+    pub pdfa_part: Option<u32>,
+    pub pdfa_conformance: Option<String>,
+    pub piece_jointe_declaree: bool,
+    pub nom_piece_jointe: Option<String>,
+    pub af_relationship: Option<String>,
+    pub profil_xmp: Option<String>,
+}
+
+impl PdfContainerInfo {
+    pub fn pdfa_version(&self) -> String {
+        if self.est_pdfa {
+            if let Some(part) = self.pdfa_part {
+                let conf = self.pdfa_conformance.as_deref().unwrap_or("");
+                format!("PDF/A-{part}{conf}")
+            } else {
+                "PDF/A (version non précisée)".into()
+            }
+        } else {
+            "Non déclaré PDF/A".into()
+        }
+    }
+
+    pub fn to_json(&self) -> Value {
+        json!({
+            "est_pdf": true,
+            "est_pdfa": self.est_pdfa,
+            "pdfa_part": self.pdfa_part,
+            "pdfa_conformance": self.pdfa_conformance,
+            "pdfa_version": self.pdfa_version(),
+            "piece_jointe_declaree": self.piece_jointe_declaree,
+            "nom_piece_jointe": self.nom_piece_jointe,
+            "af_relationship": self.af_relationship,
+            "profil_xmp": self.profil_xmp,
+        })
+    }
+}
+
 // ------------------------------------------------------------------ ZIP (Factur-X CII)
 
 struct Extracted {
     xml: Vec<u8>,
     xml_name: Option<String>,
     pdf: Option<(Vec<u8>, String)>,
+    conteneur_pdf: Option<PdfContainerInfo>,
 }
 
 fn parse_zip(data: &[u8]) -> Result<Extracted, FacturXError> {
@@ -1467,7 +1510,7 @@ fn parse_zip(data: &[u8]) -> Result<Extracted, FacturXError> {
         Some(n) => Some((read(n)?, n.clone())),
         None => None,
     };
-    Ok(Extracted { xml, xml_name: Some(xml_name.clone()), pdf })
+    Ok(Extracted { xml, xml_name: Some(xml_name.clone()), pdf, conteneur_pdf: None })
 }
 
 // ------------------------------------------------------------------ PDF (Factur-X)
@@ -1524,21 +1567,230 @@ fn pdf_object_stream(data: &[u8], n: &[u8]) -> Option<Vec<u8>> {
     PDF_STREAM.captures(&data[pos..]).map(|c| c[1].to_vec())
 }
 
+fn decode_pdf_str(bytes: &[u8]) -> String {
+    if bytes.len() >= 2 && bytes[0] == 0xFE && bytes[1] == 0xFF {
+        let u16s: Vec<u16> = bytes[2..]
+            .chunks_exact(2)
+            .map(|c| u16::from_be_bytes([c[0], c[1]]))
+            .collect();
+        String::from_utf16_lossy(&u16s)
+    } else if let Ok(s) = std::str::from_utf8(bytes) {
+        s.to_string()
+    } else {
+        bytes.iter().map(|&b| b as char).collect()
+    }
+}
+
+fn extract_xmp_field<'a>(xmp: &'a str, tag: &str) -> Option<&'a str> {
+    let open_pat = format!("<{tag}");
+    if let Some(pos) = xmp.find(&open_pat) {
+        let after_tag = &xmp[pos + open_pat.len()..];
+        if let Some(close_bracket) = after_tag.find('>') {
+            let content = &after_tag[close_bracket + 1..];
+            if let Some(end_pos) = content.find('<') {
+                return Some(&content[..end_pos]);
+            }
+        }
+    }
+    let attr_pat = format!("{tag}=\"");
+    if let Some(pos) = xmp.find(&attr_pat) {
+        let after_attr = &xmp[pos + attr_pat.len()..];
+        if let Some(quote) = after_attr.find('"') {
+            return Some(&after_attr[..quote]);
+        }
+    }
+    None
+}
+
+/// Analyse structurelle du PDF via `lopdf` : recherche des fichiers associés
+/// (/AF et /Names/EmbeddedFiles), métadonnées XMP (PDF/A-3, ConformanceLevel)
+/// et extraction du flux XML de facture.
+fn extract_pdf_with_lopdf(data: &[u8]) -> Option<(Vec<u8>, String, PdfContainerInfo)> {
+    let doc = lopdf::Document::load_mem(data).ok()?;
+
+    let mut declared_files = Vec::new();
+    let mut is_pdfa = false;
+    let mut pdfa_part = None;
+    let mut pdfa_conformance = None;
+    let mut profil_xmp = None;
+
+    if let Ok(catalog) = doc.catalog() {
+        // 1. /AF (Associated Files de PDF/A-3)
+        if let Ok(af) = catalog.get(b"AF").and_then(|o| o.as_array()) {
+            for item in af {
+                if let Ok(ref_id) = item.as_reference() {
+                    declared_files.push(ref_id);
+                }
+            }
+        }
+
+        // 2. /Names -> /EmbeddedFiles
+        if let Ok(names_obj) = catalog.get(b"Names") {
+            let names_dict = match names_obj {
+                lopdf::Object::Dictionary(d) => Some(d),
+                lopdf::Object::Reference(r) => doc.get_object(*r).ok().and_then(|o| o.as_dict().ok()),
+                _ => None,
+            };
+            if let Some(nd) = names_dict {
+                if let Ok(ef_obj) = nd.get(b"EmbeddedFiles") {
+                    let ef_dict = match ef_obj {
+                        lopdf::Object::Dictionary(d) => Some(d),
+                        lopdf::Object::Reference(r) => doc.get_object(*r).ok().and_then(|o| o.as_dict().ok()),
+                        _ => None,
+                    };
+                    if let Some(efd) = ef_dict {
+                        if let Ok(arr) = efd.get(b"Names").and_then(|o| o.as_array()) {
+                            for (idx, item) in arr.iter().enumerate() {
+                                if idx % 2 == 1 {
+                                    if let Ok(ref_id) = item.as_reference() {
+                                        declared_files.push(ref_id);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. /Metadata (XMP)
+        if let Ok(meta_obj) = catalog.get(b"Metadata") {
+            let meta_stream = match meta_obj {
+                lopdf::Object::Stream(s) => Some(s),
+                lopdf::Object::Reference(r) => doc.get_object(*r).ok().and_then(|o| o.as_stream().ok()),
+                _ => None,
+            };
+            if let Some(ms) = meta_stream {
+                let bytes = ms.decompressed_content().unwrap_or_else(|_| ms.content.clone());
+                let text = String::from_utf8_lossy(&bytes);
+                if text.contains("pdfaid:part") {
+                    is_pdfa = true;
+                    if let Some(p) = extract_xmp_field(&text, "pdfaid:part") {
+                        pdfa_part = p.trim().parse::<u32>().ok();
+                    }
+                    if let Some(c) = extract_xmp_field(&text, "pdfaid:conformance") {
+                        pdfa_conformance = Some(c.trim().to_string());
+                    }
+                }
+                if let Some(lvl) = extract_xmp_field(&text, "fx:ConformanceLevel")
+                    .or_else(|| extract_xmp_field(&text, "zf:ConformanceLevel"))
+                    .or_else(|| extract_xmp_field(&text, "ConformanceLevel"))
+                {
+                    let trimmed = lvl.trim();
+                    if !trimmed.is_empty() {
+                        profil_xmp = Some(trimmed.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    // Recherche parmi les objets Filespec
+    let mut candidate_xml: Option<(Vec<u8>, String, bool, Option<String>)> = None;
+
+    for (id, obj) in &doc.objects {
+        if let lopdf::Object::Dictionary(dict) = obj {
+            let is_filespec = dict.get(b"Type").map(|t| t == &lopdf::Object::Name(b"Filespec".to_vec())).unwrap_or(false)
+                || dict.has(b"EF");
+            if !is_filespec {
+                continue;
+            }
+
+            let uf = dict.get(b"UF").ok().and_then(|o| match o {
+                lopdf::Object::String(s, _) => Some(decode_pdf_str(s)),
+                _ => None,
+            });
+            let f = dict.get(b"F").ok().and_then(|o| match o {
+                lopdf::Object::String(s, _) => Some(decode_pdf_str(s)),
+                _ => None,
+            });
+            let name = uf.or(f).unwrap_or_else(|| "factur-x.xml".into());
+            let rel = dict.get(b"AFRelationship").ok().and_then(|o| match o {
+                lopdf::Object::Name(n) => Some(String::from_utf8_lossy(n).into_owned()),
+                _ => None,
+            });
+            let is_declared = declared_files.contains(id);
+
+            let ef_dict = dict.get(b"EF").ok().and_then(|o| match o {
+                lopdf::Object::Dictionary(d) => Some(d),
+                lopdf::Object::Reference(r) => doc.get_object(*r).ok().and_then(|x| x.as_dict().ok()),
+                _ => None,
+            });
+
+            if let Some(ef) = ef_dict {
+                let stream_ref = ef.get(b"UF").or_else(|_| ef.get(b"F")).ok().and_then(|o| o.as_reference().ok());
+                if let Some(sref) = stream_ref {
+                    if let Ok(stream_obj) = doc.get_object(sref).and_then(|o| o.as_stream()) {
+                        let stream_bytes = stream_obj.decompressed_content().unwrap_or_else(|_| stream_obj.content.clone());
+                        for cand in decompress_candidates(&stream_bytes) {
+                            if is_invoice_xml(&cand) {
+                                let is_primary_name = name.to_lowercase().contains("factur-x")
+                                    || name.to_lowercase().contains("zugferd")
+                                    || name.to_lowercase().contains("xrechnung")
+                                    || name.to_lowercase().ends_with(".xml");
+                                if candidate_xml.is_none() || (is_declared && is_primary_name) {
+                                    candidate_xml = Some((cand, name.clone(), is_declared, rel.clone()));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let (xml, xml_name, piece_jointe_declaree, af_relationship) = candidate_xml?;
+    Some((
+        xml,
+        xml_name.clone(),
+        PdfContainerInfo {
+            est_pdfa: is_pdfa,
+            pdfa_part,
+            pdfa_conformance,
+            piece_jointe_declaree,
+            nom_piece_jointe: Some(xml_name),
+            af_relationship,
+            profil_xmp,
+        },
+    ))
+}
+
 /// Extrait le XML de facture embarqué dans un PDF Factur-X.
 ///
-/// Chemin principal : pièce jointe declaree dans l'objet /Filespec (champ /UF
-/// et référence /EF). Repli : scan de tous les flux du PDF.
-fn extract_pdf_xml(data: &[u8]) -> Result<(Vec<u8>, String), FacturXError> {
+/// Chemin principal : parseur PDF structurel (lopdf) avec inspection des pièces
+/// jointes déclarées (/AF, /EmbeddedFiles) et métadonnées XMP.
+/// Repli robuste : scan des flux du PDF par expressions régulières.
+fn extract_pdf_xml(data: &[u8]) -> Result<(Vec<u8>, String, PdfContainerInfo), FacturXError> {
+    // 1. Essai avec le parseur structurel lopdf
+    if let Some(res) = extract_pdf_with_lopdf(data) {
+        return Ok(res);
+    }
+
+    // 2. Repli par expressions regulieres si structure inhabituelle
     let xml_name: Option<String> = PDF_FILESPEC_NAME
         .captures(data)
         .map(|c| c[1].iter().map(|&b| b as char).collect());
+
+    let piece_jointe_declaree = xml_name.is_some();
 
     if let Some(name) = &xml_name {
         let stream = PDF_FILESPEC_REF.captures(data).and_then(|c| pdf_object_stream(data, &c[1]));
         if let Some(stream) = stream {
             for cand in decompress_candidates(&stream) {
                 if is_invoice_xml(&cand) {
-                    return Ok((cand, name.clone()));
+                    return Ok((
+                        cand,
+                        name.clone(),
+                        PdfContainerInfo {
+                            est_pdfa: false,
+                            pdfa_part: None,
+                            pdfa_conformance: None,
+                            piece_jointe_declaree: true,
+                            nom_piece_jointe: Some(name.clone()),
+                            af_relationship: None,
+                            profil_xmp: None,
+                        },
+                    ));
                 }
             }
         }
@@ -1547,7 +1799,20 @@ fn extract_pdf_xml(data: &[u8]) -> Result<(Vec<u8>, String), FacturXError> {
     for c in PDF_STREAM.captures_iter(data) {
         for cand in decompress_candidates(&c[1]) {
             if is_invoice_xml(&cand) {
-                return Ok((cand, xml_name.unwrap_or_else(|| "factur-x.xml".into())));
+                let name = xml_name.unwrap_or_else(|| "factur-x.xml".into());
+                return Ok((
+                    cand,
+                    name.clone(),
+                    PdfContainerInfo {
+                        est_pdfa: false,
+                        pdfa_part: None,
+                        pdfa_conformance: None,
+                        piece_jointe_declaree,
+                        nom_piece_jointe: Some(name),
+                        af_relationship: None,
+                        profil_xmp: None,
+                    },
+                ));
             }
         }
     }
@@ -1576,11 +1841,11 @@ pub fn parse_file(filename: &str, data: &[u8]) -> Result<Value, FacturXError> {
         ));
         ("zip", extracted)
     } else if data.starts_with(b"%PDF-") {
-        let (xml, xml_name) = extract_pdf_xml(data)?;
+        let (xml, xml_name, conteneur) = extract_pdf_xml(data)?;
         warnings.push(format!("XML extrait de la pièce jointe du PDF : {xml_name}"));
-        ("pdf", Extracted { xml, xml_name: Some(xml_name), pdf: Some((data.to_vec(), filename.to_string())) })
+        ("pdf", Extracted { xml, xml_name: Some(xml_name), pdf: Some((data.to_vec(), filename.to_string())), conteneur_pdf: Some(conteneur) })
     } else if looks_like_xml(data) {
-        ("xml", Extracted { xml: lstrip(data).to_vec(), xml_name: None, pdf: None })
+        ("xml", Extracted { xml: lstrip(data).to_vec(), xml_name: None, pdf: None, conteneur_pdf: None })
     } else {
         return Err(FacturXError(
             "Format non reconnu : ni PDF (Factur-X), ni archive ZIP, ni XML UBL/CII.".into(),
@@ -1622,7 +1887,7 @@ pub fn parse_file(filename: &str, data: &[u8]) -> Result<Value, FacturXError> {
     let recognized = structured.get("header").and_then(Value::as_array).is_some_and(|h| !h.is_empty());
     if recognized && format != "XML" {
         let today = chrono::Local::now().date_naive();
-        let (checks, synthese) = controles::run(root, format, &paths, &structured, today);
+        let (checks, synthese) = controles::run(root, format, &paths, &structured, extracted.conteneur_pdf.as_ref(), today);
         structured.insert("controles".into(), checks.into());
         structured.insert("synthese".into(), synthese);
         structured.insert("regles".into(), en16931::run(root, format, &paths));
@@ -1641,6 +1906,9 @@ pub fn parse_file(filename: &str, data: &[u8]) -> Result<Value, FacturXError> {
         "pdf".into(),
         main_pdf.as_ref().map(|(raw, name)| pdf_entry(raw, name)).unwrap_or(Value::Null),
     );
+    if let Some(c) = &extracted.conteneur_pdf {
+        result.insert("conteneur".into(), c.to_json());
+    }
     result.insert("warnings".into(), warnings.into());
     result.insert("rows".into(), build_rows(root, &paths).into());
     // PDF embarqué dans le XML : expose a part quand il est distinct du PDF principal.
@@ -1828,6 +2096,100 @@ mod tests {
         assert_eq!(r["format"], "CII");
         assert_eq!(r["pdf"]["size"], pdf.len());
         assert_eq!(r["warnings"][0], "XML extrait de la pièce jointe du PDF : factur-x.xml");
+        assert_eq!(r["conteneur"]["est_pdf"], true);
+        assert_eq!(r["conteneur"]["piece_jointe_declaree"], true);
+    }
+
+    /// PDF minimal bien forme, construit avec lopdf : XML en piece jointe, avec ou
+    /// sans declaration /AF, et metadonnees XMP optionnelles.
+    fn pdf_factur_x(xmp: Option<&str>, declared: bool, relationship: Option<&str>) -> Vec<u8> {
+        use lopdf::{dictionary, Document, Object, Stream};
+        let mut doc = Document::with_version("1.7");
+        let pages = doc.new_object_id();
+        let page = doc.add_object(dictionary! { "Type" => "Page", "Parent" => pages, "MediaBox" => vec![0.into(), 0.into(), 595.into(), 842.into()] });
+        doc.objects.insert(pages, Object::Dictionary(dictionary! { "Type" => "Pages", "Kids" => vec![page.into()], "Count" => 1 }));
+        let embedded = doc.add_object(Stream::new(dictionary! { "Type" => "EmbeddedFile" }, CII.as_bytes().to_vec()));
+        let mut spec = dictionary! {
+            "Type" => "Filespec",
+            "F" => Object::string_literal("factur-x.xml"),
+            "UF" => Object::string_literal("factur-x.xml"),
+            "EF" => dictionary! { "F" => embedded },
+        };
+        if let Some(rel) = relationship {
+            spec.set("AFRelationship", Object::Name(rel.as_bytes().to_vec()));
+        }
+        let filespec = doc.add_object(spec);
+        let mut catalog = dictionary! { "Type" => "Catalog", "Pages" => pages };
+        if declared {
+            catalog.set("AF", vec![filespec.into()]);
+        }
+        if let Some(xmp) = xmp {
+            let meta = doc.add_object(Stream::new(dictionary! { "Type" => "Metadata", "Subtype" => "XML" }, xmp.as_bytes().to_vec()));
+            catalog.set("Metadata", meta);
+        }
+        let root = doc.add_object(catalog);
+        doc.trailer.set("Root", root);
+        let mut out = Vec::new();
+        doc.save_to(&mut out).unwrap();
+        out
+    }
+
+    fn xmp(part: &str, level: &str) -> String {
+        format!("<x:xmpmeta><rdf:RDF><rdf:Description><pdfaid:part>{part}</pdfaid:part><pdfaid:conformance>B</pdfaid:conformance><fx:ConformanceLevel>{level}</fx:ConformanceLevel></rdf:Description></rdf:RDF></x:xmpmeta>")
+    }
+
+    fn conteneur_checks(r: &Value) -> Vec<(String, String)> {
+        r["controles"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|c| c["famille"] == "conteneur")
+            .map(|c| (c["regle"].as_str().unwrap().to_string(), c["etat"].as_str().unwrap().to_string()))
+            .collect()
+    }
+
+    #[test]
+    fn conteneur_pdf_declarations_lues() {
+        // PDF/A-3 declare, piece jointe declaree dans /AF, profil coherent avec le XML.
+        let r = parse_file("f.pdf", &pdf_factur_x(Some(&xmp("3", "EN 16931")), true, Some("Alternative"))).unwrap();
+        assert_eq!(r["kind"], "pdf");
+        assert_eq!(r["format"], "CII");
+        let c = &r["conteneur"];
+        assert_eq!((c["est_pdfa"].clone(), c["pdfa_part"].clone(), c["pdfa_version"].clone()), (json!(true), json!(3), json!("PDF/A-3B")));
+        assert_eq!(c["piece_jointe_declaree"], true);
+        assert_eq!(c["af_relationship"], "Alternative");
+        assert_eq!(c["profil_xmp"], "EN 16931");
+        let checks = conteneur_checks(&r);
+        assert!(checks.iter().all(|(_, etat)| etat == "conforme"), "{checks:?}");
+        // Le libelle parle de declaration, pas de conformite du fichier.
+        assert_eq!(checks[0].0, "PDF/A-3 déclaré dans les métadonnées");
+        let detail = r["controles"].as_array().unwrap().iter().find(|x| x["famille"] == "conteneur").unwrap()["detail"].as_str().unwrap();
+        assert!(detail.contains("n'est pas vérifiée"));
+    }
+
+    #[test]
+    fn conteneur_pdf_ecarts() {
+        // PDF/A-1 : alerte. Aucune relation declaree : rien d'invente.
+        let r = parse_file("f.pdf", &pdf_factur_x(Some(&xmp("1", "EN 16931")), true, None)).unwrap();
+        let checks = conteneur_checks(&r);
+        assert_eq!(checks[0], ("PDF/A-3 déclaré dans les métadonnées".to_string(), "alerte".to_string()));
+        assert!(r["conteneur"]["af_relationship"].is_null());
+        let pj = r["controles"].as_array().unwrap().iter().find(|x| x["regle"] == "Pièce jointe XML déclarée").unwrap();
+        assert!(pj["constate"].as_str().unwrap().contains("relation : non précisée"), "{pj}");
+        // Sans metadonnees XMP ni declaration /AF : deux alertes, profil non renseigne.
+        let r = parse_file("f.pdf", &pdf_factur_x(None, false, None)).unwrap();
+        assert_eq!(r["conteneur"]["est_pdfa"], false);
+        assert_eq!(r["conteneur"]["piece_jointe_declaree"], false);
+        let states: Vec<String> = conteneur_checks(&r).into_iter().map(|(_, e)| e).collect();
+        assert_eq!(states, ["alerte", "alerte", "info"]);
+        // Profil annonce dans le PDF different de celui du XML : ecart.
+        let r = parse_file("f.pdf", &pdf_factur_x(Some(&xmp("3", "MINIMUM")), true, Some("Data"))).unwrap();
+        let profil = conteneur_checks(&r).into_iter().find(|(regle, _)| regle == "Profil Factur-X annoncé").unwrap();
+        assert_eq!(profil.1, "ecart");
+        // Un XML seul n'a pas de conteneur.
+        let r = parse_file("f.xml", CII.as_bytes()).unwrap();
+        assert!(r.get("conteneur").is_none());
+        assert!(conteneur_checks(&r).is_empty());
     }
 
     #[test]
@@ -1851,7 +2213,7 @@ mod tests {
             ("UBL", extract_ubl(root, &paths, &mut warnings))
         };
         let today = chrono::NaiveDate::from_ymd_opt(today.0, today.1, today.2).unwrap();
-        controles::run(root, format, &paths, &s, today).0
+        controles::run(root, format, &paths, &s, None, today).0
     }
 
     fn controle<'a>(checks: &'a [Value], prefix: &str) -> &'a Value {

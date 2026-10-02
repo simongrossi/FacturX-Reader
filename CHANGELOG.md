@@ -5,15 +5,41 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 
 ## [Non publié]
 
+### Ajouté
+
+- **Schematron officiel EN 16931** : les règles publiées par la Commission européenne
+  (`eInvoicing-EN16931` v1.3.16, licence EUPL 1.2), 806 pour CII et 979 pour UBL, sont embarquées
+  sans modification et évaluées par le moteur de l'application, en Rust, avec le moteur XPath
+  open source `xee`. Verdict dédié et bloc listant chaque règle non respectée ou avertissement,
+  avec son identifiant, son texte et son emplacement. Validation en arrière-plan, sur plusieurs
+  fils, résultat mis en cache pour la session.
+- **Conteneur PDF** : extraction par un vrai parseur PDF (`lopdf`), avec repli sur l'ancienne
+  méthode. Lecture des déclarations du fichier : PDF/A-3 annoncé dans les métadonnées XMP, pièce
+  jointe XML déclarée dans le catalogue (`/AF`, `/EmbeddedFiles`), relation, profil annoncé
+  comparé à celui du XML. Ce sont des déclarations lues, pas une validation ISO 19005-3.
+- **Filtres métier** dans le tableau multi-factures et la bibliothèque : période, plage de
+  montants TTC, fournisseur, avec remise à zéro.
+
 ### Modifié
 
-- **Verdicts séparés** : lecture, calculs et règles EN 16931 ne sont plus résumés par un seul
-  « Conforme ». L'onglet Données affiche trois verdicts distincts en tête, le tableau a trois
-  colonnes (Calculs, Règles EN 16931, Alertes), et le rapport JSON porte un bloc `verdicts`.
-  Partout, une mention rappelle ce qui n'est pas contrôlé : Schematron officiel, schéma XSD,
-  conteneur PDF/A-3.
-- Chaque contrôle porte sa famille (`calcul`, `mention`, `date`, `historique`) ; la pastille
-  rouge de la liste ne compte plus que les écarts de calcul.
+- **Verdicts séparés** : lecture, calculs, règles EN 16931, Schematron officiel et conteneur PDF
+  ont chacun leur verdict dans l'onglet Données, le tableau et le rapport JSON. Une mention
+  rappelle ce qui n'est pas contrôlé : schéma XSD, conformité PDF/A-3 réelle du fichier, règles
+  nationales. Aucun verdict ne vaut certification.
+- Chaque contrôle porte sa famille (`calcul`, `mention`, `date`, `historique`, `conteneur`) ; la
+  pastille rouge de la liste ne compte plus que les écarts de calcul.
+
+### Corrigé
+
+- Schematron : un XML sans rapport avec une facture (autre racine ou autre espace de noms) était
+  déclaré « respecté », aucune règle ne s'y appliquant. Il est maintenant « non évalué ».
+- Conteneur : le verdict affirmait un conteneur « valide » dès qu'une version de PDF/A était
+  déclarée, y compris PDF/A-1. Il exige PDF/A-3 et parle de déclaration. Les valeurs absentes du
+  fichier (niveau de conformité, relation de la pièce jointe) ne sont plus remplacées par une
+  valeur par défaut.
+- Menu **Aide → Licences des composants tiers** : le texte de l'EUPL et la notice des règles
+  officielles sont consultables dans l'application.
+- Le verdict Schematron ne se mettait pas à jour à la fin de la validation du document affiché.
 
 ## [0.5.0] - 2026-10-02
 

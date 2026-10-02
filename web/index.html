@@ -130,9 +130,28 @@
         <span id="batch-count" class="lines-count"></span>
         <button id="batch-export" class="btn btn-sm" type="button" title="Enregistrer le tableau affiché dans un fichier CSV (Excel)">Exporter CSV</button>
         <button id="batch-copy" class="btn btn-sm" type="button" title="Copier le tableau affiché, à coller dans un tableur">Copier</button>
+        <div class="business-filters" id="batch-business-filters">
+          <div class="filter-group">
+            <label for="batch-date-from">Du</label>
+            <input id="batch-date-from" type="date" class="filter-input filter-date" title="Date d'émission minimale">
+            <label for="batch-date-to">au</label>
+            <input id="batch-date-to" type="date" class="filter-input filter-date" title="Date d'émission maximale">
+          </div>
+          <div class="filter-group">
+            <label for="batch-amount-min">TTC</label>
+            <input id="batch-amount-min" type="number" step="any" placeholder="Min €" class="filter-input filter-amount" title="Montant TTC minimal">
+            <label for="batch-amount-max">à</label>
+            <input id="batch-amount-max" type="number" step="any" placeholder="Max €" class="filter-input filter-amount" title="Montant TTC maximal">
+          </div>
+          <div class="filter-group">
+            <label for="batch-seller">Fournisseur</label>
+            <input id="batch-seller" type="text" placeholder="Nom du fournisseur…" class="filter-input filter-seller" title="Filtrer par nom de fournisseur">
+          </div>
+          <button id="batch-reset-filters" type="button" class="btn btn-sm" title="Réinitialiser les filtres de période, montant et fournisseur">Effacer filtres</button>
+        </div>
       </div>
       <div class="section"><div class="table-wrap"><table id="batch-table"></table></div></div>
-      <p class="verdict-note" id="batch-note">Calculs et règles EN 16931 sont évalués par l'application. Non contrôlés : Schematron officiel, schéma XSD, conteneur PDF/A-3. « Cohérents » et « respectées » ne valent pas conformité à la norme.</p>
+      <p class="verdict-note" id="batch-note">Calculs, règles EN 16931 et Schematron officiel sont évalués localement ; pour le conteneur, seules les déclarations du PDF sont lues. Non contrôlés : schéma XSD, conformité PDF/A-3 réelle, règles nationales. Aucun verdict ne vaut certification.</p>
     </div>
 
     <div id="library-view" class="batch-view" hidden>
@@ -142,6 +161,25 @@
       <div class="lines-tools batch-tools">
         <input id="library-search" class="lines-search" type="search" placeholder="Rechercher (fournisseur, numéro, date, montant, référence ou désignation d'article…)" aria-label="Rechercher dans la bibliothèque">
         <span id="library-count" class="lines-count"></span>
+        <div class="business-filters" id="library-business-filters">
+          <div class="filter-group">
+            <label for="library-date-from">Du</label>
+            <input id="library-date-from" type="date" class="filter-input filter-date" title="Date d'émission minimale">
+            <label for="library-date-to">au</label>
+            <input id="library-date-to" type="date" class="filter-input filter-date" title="Date d'émission maximale">
+          </div>
+          <div class="filter-group">
+            <label for="library-amount-min">TTC</label>
+            <input id="library-amount-min" type="number" step="any" placeholder="Min €" class="filter-input filter-amount" title="Montant TTC minimal">
+            <label for="library-amount-max">à</label>
+            <input id="library-amount-max" type="number" step="any" placeholder="Max €" class="filter-input filter-amount" title="Montant TTC maximal">
+          </div>
+          <div class="filter-group">
+            <label for="library-seller">Fournisseur</label>
+            <input id="library-seller" type="text" placeholder="Nom du fournisseur…" class="filter-input filter-seller" title="Filtrer par nom de fournisseur">
+          </div>
+          <button id="library-reset-filters" type="button" class="btn btn-sm" title="Réinitialiser les filtres de période, montant et fournisseur">Effacer filtres</button>
+        </div>
       </div>
       <div class="section"><div class="table-wrap"><table id="library-table"></table></div></div>
       <p id="library-empty" class="notice" hidden></p>
@@ -329,6 +367,17 @@
   <div class="settings-foot">
     <span class="settings-version" id="settings-version"></span>
     <button type="button" id="settings-reset" class="btn btn-sm">Rétablir les valeurs par défaut</button>
+  </div>
+</dialog>
+
+<script src="schematron/schematron.js"></script>
+<dialog id="licenses-dialog" class="settings licenses" aria-labelledby="licenses-title">
+  <div class="settings-head">
+    <h2 id="licenses-title">Licences des composants tiers</h2>
+    <button type="button" id="licenses-close" class="icon-btn" title="Fermer" aria-label="Fermer">✕</button>
+  </div>
+  <div class="settings-body" id="licenses-body">
+    <p class="setting-help">Factur-X Reader est distribué sous licence PolyForm Noncommercial 1.0.0. Les composants ci-dessous sont embarqués sans modification et gardent leur propre licence.</p>
   </div>
 </dialog>
 

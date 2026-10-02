@@ -24,3 +24,31 @@ Mehault et Simon Grossi, ne sont pas limités par elle : ils restent libres d'ut
 logiciel à toutes fins, y compris commerciales, et d'accorder d'autres licences.
 
 Pour un usage commercial : simon.grossi@gmail.com
+
+## Composants tiers embarqués
+
+La licence PolyForm Noncommercial ne couvre que le code de Factur-X Reader.
+
+### Règles de validation EN 16931
+
+- Fichiers : `src-tauri/schematron/EN16931-CII-validation-preprocessed.sch` et
+  `EN16931-UBL-validation-preprocessed.sch`, embarqués dans l'application, plus deux factures
+  d'exemple utilisées par les tests. © Union européenne, 2017-2026.
+- Source : dépôt [ConnectingEurope/eInvoicing-EN16931](https://github.com/ConnectingEurope/eInvoicing-EN16931),
+  étiquette `validation-1.3.16`. Les fichiers sont repris **sans modification** ; la correspondance
+  exacte est dans [src-tauri/schematron/README.md](src-tauri/schematron/README.md).
+- Licence : **EUPL 1.2**, texte complet dans
+  [src-tauri/schematron/LICENSE-EUPL-1.2.txt](src-tauri/schematron/LICENSE-EUPL-1.2.txt) et dans
+  l'application installée (menu **Aide → Licences des composants tiers**).
+- Ces fichiers restent sous EUPL 1.2 : la restriction d'usage non commercial de Factur-X Reader ne
+  s'y applique pas, et chacun peut les réutiliser aux conditions de l'EUPL.
+
+### Bibliothèques
+
+Toutes les bibliothèques embarquées sont sous licences libres permissives et gardent leur
+licence : Tauri (MIT / Apache-2.0), PDF.js (Apache-2.0), SQLite (domaine public) via rusqlite
+(MIT), lopdf (MIT), xee — moteur XPath qui évalue les règles de validation (MIT), et leurs
+dépendances.
+
+L'application n'embarque plus aucun composant propriétaire : le moteur SaxonJS, utilisé un temps
+pour exécuter le Schematron, a été remplacé par une évaluation directe des règles en Rust.
