@@ -65,6 +65,12 @@ const api = {
   setPointage: (hash, lines, filename) => invoke("set_pointage", { hash, lines, filename }),
   clearPointage: (hash) => invoke("clear_pointage", { hash }),
   appInfo: () => invoke("app_info"),
+  getReviews: () => invoke("get_reviews"),
+  setReview: (key, review, filename) => invoke("set_review", { key, review, filename }),
+  dataStatus: () => invoke("data_status"),
+  restoreBackup: (which) => invoke("restore_backup", { which }),
+  exportData: () => invoke("export_data"),
+  importData: () => invoke("import_data"),
   savePdf: (pdfObj) => invoke("save_pdf", {
     filename: pdfObj.filename || "facture.pdf",
     base64: pdfObj.base64,
@@ -569,6 +575,76 @@ function kvTable(rows) {
 
 /* ---- pointage (persiste dans pointages.json, cles = hash du XML) ---- */
 
+/* Erreur de lecture ou d'écriture des pointages ou du suivi : toujours visible. */
+function dataNotice(error) {
+  workspaceNotice(String((error && error.message) || error));
+  // Si un fichier est illisible, afficher l'état complet des deux fichiers plutôt que la dernière erreur.
+  refreshDataStatus(true);
+}
+
+/* État des fichiers de pointages et de suivi, affiché dans les Paramètres. */
+async function refreshDataStatus(warn) {
+  let status;
+  try { status = await api.dataStatus(); } catch { return; }
+  if (!status || !status.pointages || !status.suivi) return;
+  const parts = [["pointages", "Pointages"], ["suivi", "Suivi de vérification"]];
+  const broken = parts.filter(([key]) => !status[key].ok);
+  const text = byId("data-status-text");
+  text.replaceChildren();
+  for (const [key, label] of parts) {
+    const s = status[key];
+    const line = document.createElement("span");
+    line.className = "data-status-line" + (s.ok ? "" : " data-status-error");
+    line.textContent = label + " : " + (s.ok
+      ? s.entrees + " facture" + (s.entrees > 1 ? "s" : "") + ", " + s.sauvegardes.length + " sauvegarde" + (s.sauvegardes.length > 1 ? "s" : "") + " quotidienne" + (s.sauvegardes.length > 1 ? "s" : "")
+      : s.erreur + " Rien n'est écrasé tant que le fichier n'est pas restauré.");
+    text.appendChild(line);
+  }
+  const restore = byId("data-restore");
+  restore.hidden = !broken.length;
+  restore.dataset.which = broken.map(([key]) => key).join(",");
+  restore.disabled = !broken.some(([key]) => status[key].sauvegardes.length);
+  restore.title = restore.disabled ? "Aucune sauvegarde disponible" : "";
+  if (warn && broken.length)
+    workspaceNotice(broken.map(([key]) => status[key].erreur).join(" ") +
+      " Rien ne sera écrasé : ouvrez les Paramètres pour restaurer une sauvegarde.");
+}
+
+/* Après une restauration ou un import : relire le suivi et les pointages affichés. */
+async function reloadUserData() {
+  await initReviews();
+  for (const f of state.files) f._pointagePromise = null;
+  renderList(true);
+  renderFileView();
+  await refreshDataStatus(false);
+}
+
+function wireDataProtection() {
+  byId("btn-settings").addEventListener("click", () => refreshDataStatus(false));
+  byId("data-export").addEventListener("click", async (e) => {
+    const btn = e.currentTarget, old = btn.textContent;
+    try { await flushReviews(); if (await api.exportData()) btn.textContent = "Exporté"; }
+    catch (error) { dataNotice(error); }
+    setTimeout(() => { btn.textContent = old; }, 1200);
+  });
+  byId("data-import").addEventListener("click", async () => {
+    try {
+      const result = await api.importData();
+      if (!result) return;
+      await reloadUserData();
+      workspaceNotice("Import terminé : " + result.pointages + " pointage(s) et " + result.suivi + " suivi(s) ajoutés ou mis à jour. Les données plus récentes déjà présentes sont conservées.");
+    } catch (error) { dataNotice(error); }
+  });
+  byId("data-restore").addEventListener("click", async (e) => {
+    const names = [];
+    try {
+      for (const which of e.currentTarget.dataset.which.split(",").filter(Boolean)) names.push(await api.restoreBackup(which));
+      await reloadUserData();
+      workspaceNotice("Sauvegarde restaurée : " + names.join(", ") + ". Le fichier illisible a été conservé à côté.");
+    } catch (error) { dataNotice(error); await refreshDataStatus(false); }
+  });
+}
+
 function loadPointage(f) {
   if (f._pointagePromise) return f._pointagePromise;
   const hash = f.result && f.result.doc_hash;
@@ -579,7 +655,11 @@ function loadPointage(f) {
   }
   f._pointagePromise = api.getPointage(hash)
     .then((j) => { const cur = getFile(f.id); if (cur && cur.id === f.id) f.pointed = new Set(j.lines || []); })
-    .catch(() => { const cur = getFile(f.id); if (cur && cur.id === f.id) f.pointed = new Set(); });
+    .catch((e) => {
+      // Fichier des pointages illisible : le dire, ne pas faire croire qu'il n'y a aucun pointage.
+      const cur = getFile(f.id); if (cur && cur.id === f.id) f.pointed = new Set();
+      dataNotice(e);
+    });
   return f._pointagePromise;
 }
 
@@ -587,13 +667,13 @@ function savePointage(f) {
   const hash = f.result && f.result.doc_hash;
   if (!hash) return Promise.resolve();
   const lines = [...f.pointed].sort((a, b) => a - b);
-  return api.setPointage(hash, lines, f.name).catch(() => {});
+  return api.setPointage(hash, lines, f.name).catch(dataNotice);
 }
 
 function clearPointage(f) {
   const hash = f.result && f.result.doc_hash;
   f.pointed = new Set();
-  if (hash) api.clearPointage(hash).catch(() => {});
+  if (hash) api.clearPointage(hash).catch(dataNotice);
 }
 
 function togglePoint(f, idx) {
@@ -1642,6 +1722,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   wireContextMenu();
   wireMenubar();
   wireReview();
+  wireDataProtection();
   renderFileView();
   byId("quick-query").addEventListener("input", scheduleQuickSearch);
   byId("quick-regex").addEventListener("change", scheduleQuickSearch);
@@ -1659,6 +1740,8 @@ window.addEventListener("DOMContentLoaded", async () => {
     }
   });
   renderList();
+  await initReviews();
+  await refreshDataStatus(true);
   try {
     const startup = await api.startupPaths();
     if (startup?.files?.length) { workspaceReady = true; await addPaths(startup); }

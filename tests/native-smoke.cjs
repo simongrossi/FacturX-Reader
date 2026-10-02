@@ -11,6 +11,8 @@ async function main() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'facturx-p0-'));
   const fixture = path.join(root, 'synthetic.pdf');
   fs.writeFileSync(fixture, invoicePdf());
+  const dataDir = path.join(root, 'data');
+  fs.mkdirSync(dataDir);
   const exe = path.resolve(process.env.FACTURX_TEST_EXE || 'src-tauri/target/debug/facturx-reader.exe');
   let child, browser;
   const errors = [];
@@ -22,6 +24,8 @@ async function main() {
   async function launch() {
     const port = await freePort();
     child = spawn(exe, [], { windowsHide: true, env: { ...process.env,
+      // Pointages et suivi dans le dossier jetable : jamais dans les données de l'utilisateur.
+      FACTURX_DATA_DIR: dataDir,
       WEBVIEW2_USER_DATA_FOLDER: path.join(root, 'webview'),
       WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port}`,
     }, stdio: 'ignore' });
@@ -106,9 +110,43 @@ async function main() {
     await page.getByRole('button', { name: 'PDF et données', exact: true }).click();
     await expect(page.getByLabel('Commentaire de la facture', { exact: true })).toHaveValue('Test natif P2');
     await expect(page.locator('#tab-data').getByLabel('Vérification de deposited.pdf')).toHaveValue('Vérifiée');
+    // Le suivi est écrit dans suivi.json du dossier de données, pas dans la WebView.
+    const suiviFile = path.join(dataDir, 'suivi.json');
+    const suivi = Object.values(JSON.parse(fs.readFileSync(suiviFile, 'utf8')));
+    if (suivi.length !== 1 || suivi[0].comment !== 'Test natif P2' || suivi[0].status !== 'Vérifiée')
+      throw new Error('suivi.json inattendu : ' + JSON.stringify(suivi));
     if (errors.length) throw new Error(errors.join('\n'));
     await stop(page);
-    console.log('Native Windows OK : Rust, PDF 2 pages, reprise, recherche, tableau, contrôles du moteur, double lecture, statut et commentaire.');
+
+    // Fichiers illisibles : signalés au démarrage, jamais écrasés, puis restaurés.
+    const pointagesFile = path.join(dataDir, 'pointages.json');
+    const broken = '{ "abc": { "lines": [1, ';
+    fs.writeFileSync(pointagesFile, broken);
+    fs.writeFileSync(path.join(dataDir, 'pointages.sauvegarde-2026-10-01.json'), JSON.stringify({ abc: { filename: 'a.pdf', updated: '2026-10-01 09:00:00', lines: [1, 2] } }));
+    fs.copyFileSync(suiviFile, path.join(dataDir, 'suivi.sauvegarde-2026-10-01.json'));
+    fs.writeFileSync(suiviFile, 'pas du json');
+    page = await launch();
+    await expect(page.locator('#workspace-message')).toContainText('pointages.json est illisible');
+    await expect(page.locator('#workspace-message')).toContainText('suivi.json est illisible');
+    await page.getByRole('button', { name: 'PDF et données', exact: true }).click();
+    await page.locator('#tab-data').getByLabel('Vérification de deposited.pdf').selectOption('Anomalie');
+    await expect(page.locator('#workspace-message')).toContainText('Rien ne sera écrasé');
+    await expect(page.locator('#workspace-message')).toContainText('suivi.json est illisible');
+    if (fs.readFileSync(pointagesFile, 'utf8') !== broken || fs.readFileSync(suiviFile, 'utf8') !== 'pas du json')
+      throw new Error('Un fichier illisible a été modifié.');
+    await page.locator('#btn-settings').click();
+    await expect(page.locator('#data-status-text .data-status-error')).toHaveCount(2);
+    await page.locator('#data-restore').click();
+    await expect(page.locator('#workspace-message')).toContainText('Sauvegarde restaurée');
+    await expect(page.locator('#data-status-text')).toContainText('Pointages : 1 facture');
+    await expect(page.locator('#data-status-text .data-status-error')).toHaveCount(0);
+    await page.locator('#settings-close').click();
+    await expect(page.locator('#tab-data').getByLabel('Vérification de deposited.pdf')).toHaveValue('Vérifiée');
+    if (JSON.parse(fs.readFileSync(pointagesFile, 'utf8')).abc.lines.length !== 2) throw new Error('Pointages non restaurés.');
+    if (!fs.readdirSync(dataDir).some(name => name.startsWith('pointages.illisible-'))) throw new Error('Fichier illisible non conservé.');
+    if (errors.length) throw new Error(errors.join('\n'));
+    await stop(page);
+    console.log('Native Windows OK : Rust, PDF 2 pages, reprise, recherche, tableau, contrôles du moteur, double lecture, suivi dans suivi.json, fichiers illisibles signalés puis restaurés.');
   } finally {
     if (child && child.exitCode === null) child.kill();
     if (browser) await browser.close().catch(() => {});

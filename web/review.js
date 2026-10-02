@@ -2,29 +2,58 @@
 
 /* Suivi local de vérification ; indépendant du paiement et des contrôles calculés. */
 const REVIEW_STATUSES = ["À vérifier", "Vérifiée", "Anomalie"];
+/* Le suivi est enregistré dans suivi.json, à côté des pointages (clé = empreinte du XML).
+   Il est chargé en entier au démarrage : la lecture reste synchrone pour l'affichage. */
 const reviewCache = new Map();
-function reviewKey(f) { return "fx-review:" + (f.result?.doc_hash || f.source?.key || f.name); }
-function readReview(f) {
-  const key = reviewKey(f);
-  if (reviewCache.has(key)) return reviewCache.get(key);
-  let review = { status: "À vérifier", comment: "", lines: {} };
-  try {
-    const raw = localStorage.getItem(key);
-    if (raw) {
-      const value = JSON.parse(raw);
-      if (!REVIEW_STATUSES.includes(value.status) || typeof value.comment !== "string" ||
-          !value.lines || typeof value.lines !== "object" || Array.isArray(value.lines) ||
-          Object.values(value.lines).some(c => typeof c !== "string")) throw new Error("Format invalide");
-      review = value;
-    }
-  } catch { workspaceNotice("Suivi de vérification illisible ou indisponible pour " + f.name + "."); }
-  reviewCache.set(key, review);
-  return review;
+const reviewPending = new Map();
+const REVIEW_LEGACY_PREFIX = "fx-review:";
+function reviewKey(f) { return f.result?.doc_hash || f.source?.key || f.name; }
+function validReview(value) {
+  return !!value && REVIEW_STATUSES.includes(value.status) && typeof value.comment === "string" &&
+    !!value.lines && typeof value.lines === "object" && !Array.isArray(value.lines) &&
+    Object.values(value.lines).every(c => typeof c === "string");
 }
-function writeReview(f, review) {
-  reviewCache.set(reviewKey(f), review);
-  try { localStorage.setItem(reviewKey(f), JSON.stringify(review)); }
-  catch { workspaceNotice("Le suivi de " + f.name + " n’a pas pu être enregistré. Vos changements restent dans cette session."); }
+function reviewIsEmpty(r) { return r.status === REVIEW_STATUSES[0] && !r.comment && !Object.keys(r.lines).length; }
+async function initReviews() {
+  let stored;
+  try { stored = await api.getReviews(); }
+  catch (error) { dataNotice(error); return; }
+  reviewCache.clear();
+  for (const [key, value] of Object.entries(stored || {}))
+    if (validReview(value)) reviewCache.set(key, { status: value.status, comment: value.comment, lines: value.lines });
+  // Reprise des suivis enregistrés par les versions précédentes dans le stockage de la WebView :
+  // une entrée n'est retirée de l'ancien stockage qu'une fois écrite dans le fichier.
+  let legacy = [];
+  try { legacy = Object.keys(localStorage).filter(k => k.startsWith(REVIEW_LEGACY_PREFIX)); } catch { return; }
+  for (const storageKey of legacy) {
+    const key = storageKey.slice(REVIEW_LEGACY_PREFIX.length);
+    try {
+      const value = JSON.parse(localStorage.getItem(storageKey));
+      if (validReview(value) && !reviewIsEmpty(value) && !reviewCache.has(key)) {
+        const review = { status: value.status, comment: value.comment, lines: value.lines };
+        await api.setReview(key, review, "");
+        reviewCache.set(key, review);
+      }
+      localStorage.removeItem(storageKey);
+    } catch (error) { dataNotice(error); return; }
+  }
+}
+function readReview(f) {
+  return reviewCache.get(reviewKey(f)) || { status: REVIEW_STATUSES[0], comment: "", lines: {} };
+}
+/* La frappe d'un commentaire est regroupée ; un changement de statut est écrit tout de suite. */
+function writeReview(f, review, immediate) {
+  const key = reviewKey(f);
+  reviewCache.set(key, review);
+  clearTimeout(reviewPending.get(key)?.timer);
+  const run = () => { reviewPending.delete(key); return api.setReview(key, review, f.name).catch(dataNotice); };
+  if (immediate) return run();
+  reviewPending.set(key, { run, timer: setTimeout(run, 400) });
+}
+function flushReviews() {
+  const runs = [...reviewPending.values()];
+  for (const p of runs) clearTimeout(p.timer);
+  return Promise.all(runs.map(p => p.run()));
 }
 function reviewSelect(f) {
   const select = document.createElement("select");
@@ -34,7 +63,7 @@ function reviewSelect(f) {
   select.value = readReview(f).status;
   select.dataset.status = select.value;
   select.onchange = () => {
-    writeReview(f, { ...readReview(f), status: select.value });
+    writeReview(f, { ...readReview(f), status: select.value }, true);
     select.dataset.status = select.value;
     renderList(true);
   };
@@ -54,6 +83,7 @@ function reviewPanel(f) {
   const comment = document.createElement("textarea"); comment.maxLength = 10000;
   comment.setAttribute("aria-label", "Commentaire de la facture"); comment.value = review.comment;
   comment.oninput = () => { writeReview(f, { ...readReview(f), comment: comment.value }); };
+  comment.onchange = flushReviews;
   label.append(comment); body.append(label);
   if (f.result.lines?.length) {
     const select = document.createElement("select"); select.setAttribute("aria-label", "Ligne à commenter");
@@ -67,6 +97,7 @@ function reviewPanel(f) {
       if (lineComment.value) lines[select.value] = lineComment.value; else delete lines[select.value];
       writeReview(f, { ...current, lines });
     };
+    lineComment.onchange = flushReviews;
     const lineLabel = document.createElement("label"); lineLabel.textContent = "Commentaires par ligne";
     lineLabel.append(select, lineComment); body.append(lineLabel);
     const point = document.createElement("button"); point.className = "btn btn-sm"; point.type = "button"; point.textContent = "Pointer toutes les lignes";
@@ -106,6 +137,7 @@ async function exportControlReport(f, btn) {
 
 /* Vue « PDF et données » : chaque volet garde son propre défilement. */
 function wireReview() {
+  window.addEventListener("pagehide", flushReviews);
   for (const id of ["tab-pdf", "tab-data"]) byId(id).addEventListener("scroll", () => {
     if (state.tab !== "dual") return;
     clearTimeout(workspaceSaveTimer);

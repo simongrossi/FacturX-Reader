@@ -1005,3 +1005,8 @@ tr.flash { animation: flash 1.8s ease-out; }
   .review-select { appearance: none; border: 0 !important; }
   @page { margin: 12mm; }
 }
+
+/* ---------- protection des pointages et du suivi ---------- */
+.data-status-line { display: block; margin-top: 3px; }
+.data-status-error { color: var(--err); font-weight: 600; }
+.setting-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }

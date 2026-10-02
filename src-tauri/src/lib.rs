@@ -194,10 +194,10 @@ fn print_window(window: tauri::WebviewWindow) -> Result<(), String> {
 
 /// Informations affichees dans la fenetre Parametres.
 #[tauri::command]
-fn app_info(app: tauri::AppHandle, store: tauri::State<'_, pointages::Store>) -> Value {
+fn app_info(app: tauri::AppHandle, store: tauri::State<'_, pointages::Pointages>) -> Value {
     json!({
         "version": app.package_info().version.to_string(),
-        "pointages": store.path().to_string_lossy(),
+        "pointages": store.0.path().to_string_lossy(),
     })
 }
 
@@ -207,7 +207,16 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let data_dir = app.path().app_data_dir().ok();
-            app.manage(pointages::Store::new(pointages::resolve_path(data_dir)));
+            // FACTURX_DATA_DIR impose le dossier des donnees (tests natifs, profils separes).
+            let forced = std::env::var_os("FACTURX_DATA_DIR").map(PathBuf::from);
+            let store = |name: &str| {
+                pointages::Store::new(match &forced {
+                    Some(dir) => dir.join(name),
+                    None => pointages::resolve_path(data_dir.clone(), name),
+                })
+            };
+            app.manage(pointages::Pointages(store("pointages.json")));
+            app.manage(pointages::Suivi(store("suivi.json")));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -223,6 +232,12 @@ pub fn run() {
             pointages::get_pointage,
             pointages::set_pointage,
             pointages::clear_pointage,
+            pointages::get_reviews,
+            pointages::set_review,
+            pointages::data_status,
+            pointages::restore_backup,
+            pointages::export_data,
+            pointages::import_data,
         ])
         .run(tauri::generate_context!())
         .expect("erreur au lancement de Factur-X Reader");

@@ -13,9 +13,23 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
   (BR-S, BR-Z, BR-E, BR-AE, BR-IC, BR-G, BR-O). Bloc dédié dans l'onglet Données, pastille dans
   la liste, filtre et export dans le tableau, détail dans le rapport JSON. Implémentation
   native, hors Schematron officiel ; XSD, listes de codes, CIUS et PDF/A-3 non couverts.
+- **Protection des pointages et du suivi** : sauvegarde quotidienne avant la première
+  modification (sept conservées), restauration depuis les Paramètres, export et import fusionné
+  dans un seul fichier.
 - **Impression** de la vue affichée (`Ctrl+P`, menu Fichier) : données, contrôles, tableau, XML
   ou PDF, sans l'habillage de l'application.
 - README : logo, badges, captures d'écran sur factures fictives, comparatif avec d'autres outils.
+
+### Modifié
+
+- Le suivi de vérification est enregistré dans `suivi.json`, à côté de `pointages.json`, et non
+  plus dans le stockage de la WebView. Les suivis existants sont repris au premier lancement.
+
+### Corrigé
+
+- Un fichier de pointages illisible ou vide était traité comme un historique vide, puis écrasé
+  au pointage suivant. Il est désormais signalé au démarrage et jamais écrasé.
+- Les erreurs d'enregistrement d'un pointage n'étaient pas affichées.
 
 ## [0.4.0] - 2026-10-02
 

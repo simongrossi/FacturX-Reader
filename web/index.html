@@ -271,6 +271,17 @@
         <button type="button" id="settings-copy-path" class="btn btn-sm">Copier le chemin</button>
       </div>
       <div class="setting-path" id="settings-pointages-path"></div>
+      <div class="setting">
+        <span class="setting-label">Pointages et suivi de vérification
+          <span class="setting-help">Une sauvegarde est prise chaque jour avant la première modification (7 conservées). Un fichier illisible n'est jamais écrasé.</span>
+          <span class="setting-help" id="data-status-text"></span>
+        </span>
+      </div>
+      <div class="setting-actions">
+        <button type="button" id="data-export" class="btn btn-sm" title="Enregistrer pointages et suivi dans un fichier">Exporter…</button>
+        <button type="button" id="data-import" class="btn btn-sm" title="Fusionner un fichier exporté avec les données présentes">Importer…</button>
+        <button type="button" id="data-restore" class="btn btn-sm" hidden>Restaurer la dernière sauvegarde</button>
+      </div>
     </section>
   </div>
   <p class="settings-credits">Idée originale : Christophe Mehault · Version Rust : Simon Grossi<br>

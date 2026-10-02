@@ -26,8 +26,7 @@ Versions publiées (pré-versions, builds non signés) :
 
 1. **Signature des builds** (P3) : des installeurs sont désormais distribués sur GitHub. Demande
    un certificat de signature Windows et un compte développeur Apple.
-2. **Fin de la fiabilité P1** : protection des pointages, provenance des valeurs, puis
-   « Ouvrir avec » et instance unique.
+2. **Fin de la fiabilité P1** : provenance des valeurs, puis « Ouvrir avec » et instance unique.
 3. **Bibliothèque locale** (P2) : elle débloque le registre IBAN par fournisseur, les doublons
    sur l'historique et l'historique des prix unitaires.
 
@@ -70,8 +69,9 @@ Versions publiées (pré-versions, builds non signés) :
   avec formule, valeur d'origine et chemin consultables.
 - [ ] Extraction PDF avec un vrai parseur, au-delà des expressions régulières : structures
   complexes, pièces jointes multiples, choix du XML pertinent.
-- [ ] Protection des pointages : sauvegarde, restauration, export/import, erreur visible si le
-  fichier est illisible ; ne pas traiter une corruption comme un historique vide.
+- [x] Protection des pointages et du suivi : sauvegarde quotidienne, restauration, export/import,
+  erreur visible si un fichier est illisible ; une corruption n'est plus traitée comme un
+  historique vide. Suivi de vérification déplacé dans `suivi.json`.
 - [ ] Jeu de tests anonymisé et versionnable pour la CI : profils sans lignes, avoirs, remises,
   frais, acomptes, plusieurs taux de TVA, arrondis, devises, PDF/ZIP et variantes UBL/CII.
 - [ ] Mise à jour de PDF.js (3.11 embarqué) et déclaration explicite du worker.
@@ -191,7 +191,6 @@ par projet. Ces deux derniers supposent plusieurs utilisateurs et un serveur : u
   XSD ni le conteneur PDF/A-3 ne sont contrôlés. Aucun appel réseau ne vérifie l'existence
   d'un SIREN ni le titulaire d'un IBAN.
 - Tableau, doublons et suivi portent sur les documents ouverts (500 au maximum), pas sur un historique.
-- Le suivi de vérification est enregistré dans le stockage local de la WebView, par empreinte du XML.
 - Les copies locales des fichiers déposés ne suivent pas les modifications du fichier d'origine.
 - Les builds ne sont pas signés.
 

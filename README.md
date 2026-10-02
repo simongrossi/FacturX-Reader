@@ -268,7 +268,8 @@ dépliés et le thème clair est utilisé le temps de l'impression.
 Sous les contrôles, le bloc **Suivi de vérification** porte un statut manuel (*À vérifier*,
 *Vérifiée*, *Anomalie*), un commentaire de facture, des commentaires par ligne et le bouton
 **Pointer toutes les lignes**. Ce suivi est enregistré localement, associé à l'empreinte du XML ;
-il ne dit rien du paiement. Le statut se retrouve dans le tableau multi-factures.
+il ne dit rien du paiement. Le statut se retrouve dans le tableau multi-factures. Voir
+[Protection des pointages et du suivi](#protection-des-pointages-et-du-suivi).
 
 **Rapport JSON** (en-tête du bloc Contrôles, ou menu Fichier) enregistre la synthèse de la
 facture, tous les contrôles et le suivi de vérification.
@@ -323,8 +324,28 @@ facture. Elles sont indexées par l'empreinte SHA-256 du XML, dans `pointages.js
 | macOS | `~/Library/Application Support/com.simongrossi.facturxreader/` |
 | Linux | `~/.local/share/com.simongrossi.facturxreader/` |
 
-**Mode portable** : si un `pointages.json` se trouve à côté de l'exécutable, c'est lui qui est
-utilisé. Le chemin effectif est affiché dans les Paramètres.
+Le **suivi de vérification** (statuts et commentaires) est enregistré de la même façon dans
+`suivi.json`, dans le même dossier.
+
+**Mode portable** : si un `pointages.json` ou un `suivi.json` se trouve à côté de l'exécutable,
+c'est lui qui est utilisé. Le chemin effectif est affiché dans les Paramètres.
+
+### Protection des pointages et du suivi
+
+- **Sauvegarde quotidienne** : avant la première modification de chaque jour, le fichier est copié
+  en `pointages.sauvegarde-AAAA-MM-JJ.json` (ou `suivi.sauvegarde-…`). Les sept dernières sont
+  conservées.
+- **Un fichier illisible n'est jamais écrasé** : s'il est corrompu ou vide, l'application le
+  signale dès le démarrage, refuse toute écriture et n'affiche pas un historique vide à la place.
+- **Restauration** : *Paramètres → Données → Restaurer la dernière sauvegarde* remet en place la
+  sauvegarde lisible la plus récente. Le fichier illisible est conservé à côté, renommé
+  `…illisible-<date>.json`.
+- **Exporter / Importer** : un seul fichier JSON contient pointages et suivi. L'import fusionne :
+  une entrée absente est ajoutée, une entrée existante n'est remplacée que si celle du fichier
+  est plus récente.
+
+Les suivis saisis avec la version 0.4.0, alors stockés dans la WebView, sont repris dans
+`suivi.json` au premier lancement.
 
 ### Paramètres
 
@@ -335,7 +356,8 @@ et mémorisé :
 - **Densité des tableaux** — Confortable ou Compacte ;
 - **Onglet affiché en premier** — PDF ou Données ;
 - **Zoom du PDF par défaut** — 75 % à 200 %, ou « Ajuster à la largeur » ;
-- **Fichier des pointages** — emplacement, avec copie du chemin.
+- **Fichier des pointages** — emplacement, avec copie du chemin ;
+- **Pointages et suivi de vérification** — état des fichiers, export, import, restauration.
 
 ## Développement
 
@@ -365,7 +387,7 @@ src-tauri/
   src/facturx/controles.rs contrôles de cohérence (décimaux exacts)
   src/facturx/en16931.rs   règles métier EN 16931
   src/tables.rs            libellés français et tables de codes
-  src/pointages.rs         persistance des pointages
+  src/pointages.rs         pointages et suivi : persistance, sauvegardes, export/import
   src/lib.rs               commandes exposées au front
   examples/dump.rs         export JSON d'une facture
   tests/samples.rs         test sur les factures de samples/
@@ -412,7 +434,9 @@ npm run test:native
 ```
 
 Le port de débogage WebView2 est activé uniquement par ce processus de test, avec un profil
-temporaire supprimé à la fin. La vérification native macOS/Linux et l'installation des
+temporaire supprimé à la fin. La variable `FACTURX_DATA_DIR` y place aussi pointages et suivi :
+le test n'écrit jamais dans vos données. L'exécutable embarque l'interface à la compilation :
+relancez `cargo build` après toute modification de `web/`. La vérification native macOS/Linux et l'installation des
 paquets se font séparément sur leurs systèmes respectifs.
 
 ```bash
@@ -444,6 +468,9 @@ cargo run --example dump -- ../samples/facture.pdf > facture.json
 | `pick_folder` | sélecteur de dossier natif, renvoie les fichiers factures trouvés |
 | `startup_paths` | fichiers et dossiers passés en ligne de commande |
 | `get_pointage` / `set_pointage` / `clear_pointage` | pointages d'une facture |
+| `get_reviews` / `set_review` | suivi de vérification |
+| `data_status` / `restore_backup` | état des fichiers de données, restauration d'une sauvegarde |
+| `export_data` / `import_data` | export et import des pointages et du suivi |
 | `save_pdf` | boîte « Enregistrer sous » et écriture du PDF |
 | `save_text` | boîte « Enregistrer sous » et écriture d'un export CSV |
 | `save_control_report` | boîte « Enregistrer sous » et écriture du rapport de contrôle JSON |

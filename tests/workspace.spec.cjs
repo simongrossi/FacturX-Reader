@@ -21,6 +21,22 @@ async function mockBackend(page, pdf = null, extra = {}) {
       if (command === 'get_pointage') return { lines: [] };
       if (command === 'parse_path' && args.path.includes('missing')) throw new Error('Fichier introuvable');
       if (command === 'save_text') { window.__saved = args; return true; }
+      if (window.__dataBroken && ['get_reviews', 'set_review', 'get_pointage', 'set_pointage'].includes(command))
+        throw new Error('pointages.json est illisible : JSON invalide. Rien n\'a été enregistré. Restaurez une sauvegarde depuis les Paramètres.');
+      if (command === 'get_reviews') return JSON.parse(localStorage.getItem('mock-suivi') || '{}');
+      if (command === 'set_review') {
+        const all = JSON.parse(localStorage.getItem('mock-suivi') || '{}');
+        all[args.key] = { ...args.review, filename: args.filename };
+        localStorage.setItem('mock-suivi', JSON.stringify(all)); return null;
+      }
+      if (command === 'data_status') {
+        const ok = !window.__dataBroken;
+        const part = { chemin: 'x', ok, erreur: ok ? '' : 'pointages.json est illisible : JSON invalide.', entrees: 2, sauvegardes: ['pointages.sauvegarde-2026-10-01.json'] };
+        return { pointages: part, suivi: { ...part, ok: true, erreur: '' } };
+      }
+      if (command === 'restore_backup') { window.__dataBroken = false; window.__restored = args.which; return 'pointages.sauvegarde-2026-10-01.json'; }
+      if (command === 'export_data') { window.__exported = true; return true; }
+      if (command === 'import_data') return { pointages: 3, suivi: 1 };
       if (command === 'save_control_report') { window.__report = args; return true; }
       if (command === 'print_window') { window.__printed = { theme: document.documentElement.dataset.theme, rules: document.querySelector('#rules')?.open }; return null; }
       if (command === 'parse_file' || command === 'parse_path') return {
@@ -449,5 +465,56 @@ test('règles EN 16931 affichées, filtrées dans le tableau, et impression', as
   await expect(page.locator('#batch-table tbody tr.batch-row')).toHaveCount(1);
   await rules.page().locator('#batch-export').click();
   await expect.poll(() => page.evaluate(() => window.__saved?.content.split('\r\n')[1])).toContain(';BR-07;');
+  expect(errors).toEqual([]);
+});
+
+test('pointages et suivi : fichier illisible signalé, restauration, export, import, reprise de l’ancien stockage', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  const cell = (title, value) => ({ title, value, path: 'Invoice/x' });
+  await mockBackend(page, null, {
+    doc_hash: 'abc', lines_columns: [{ key: 'name', title: 'Désignation', align: 'left' }],
+    lines: [{ fields: [], cells: { name: cell('Désignation', 'Toner') } }],
+  });
+  // Suivi enregistré par une version précédente dans le stockage de la WebView.
+  await page.addInitScript(() => {
+    if (!sessionStorage.getItem('seeded')) {
+      sessionStorage.setItem('seeded', '1');
+      localStorage.setItem('fx-review:abc', JSON.stringify({ status: 'Anomalie', comment: 'Ancien commentaire', lines: {} }));
+    }
+  });
+  await page.goto(url);
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('fx-review:abc'))).toBeNull();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('mock-suivi')).abc)).toMatchObject({ status: 'Anomalie', comment: 'Ancien commentaire' });
+  await page.locator('#file-input').setInputFiles({ name: 'protege.xml', mimeType: 'text/xml', buffer: Buffer.from('<Invoice/>') });
+  await page.getByRole('button', { name: 'Données', exact: true }).click();
+  await expect(page.getByLabel('Commentaire de la facture', { exact: true })).toHaveValue('Ancien commentaire');
+
+  // Un commentaire tapé est écrit dans le fichier, sans attendre la fermeture.
+  await page.getByLabel('Commentaire de la facture', { exact: true }).fill('Nouveau commentaire');
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('mock-suivi')).abc.comment)).toBe('Nouveau commentaire');
+
+  // Paramètres : état, export, import.
+  await page.locator('#btn-settings').click();
+  await expect(page.locator('#data-status-text')).toContainText('Pointages : 2 factures, 1 sauvegarde quotidienne');
+  await expect(page.locator('#data-restore')).toBeHidden();
+  await page.locator('#data-export').click();
+  await expect.poll(() => page.evaluate(() => window.__exported)).toBe(true);
+  await page.locator('#data-import').click();
+  await expect(page.locator('#workspace-message')).toContainText('Import terminé : 3 pointage(s) et 1 suivi(s)');
+  await page.locator('#settings-close').click();
+
+  // Fichier illisible : l'erreur est visible, pointer une ligne ne passe pas sous silence.
+  await page.evaluate(() => { window.__dataBroken = true; });
+  await page.locator('.point-btn').first().click();
+  await expect(page.locator('#workspace-message')).toContainText('pointages.json est illisible');
+  await expect(page.locator('#workspace-message')).toContainText('ouvrez les Paramètres pour restaurer une sauvegarde');
+  await page.locator('#btn-settings').click();
+  await expect(page.locator('#data-status-text .data-status-error')).toContainText('Rien n\'est écrasé');
+  await expect(page.locator('#data-restore')).toBeVisible();
+  await page.locator('#data-restore').click();
+  await expect.poll(() => page.evaluate(() => window.__restored)).toBe('pointages');
+  await expect(page.locator('#workspace-message')).toContainText('Sauvegarde restaurée : pointages.sauvegarde-2026-10-01.json');
+  await expect(page.locator('#data-restore')).toBeHidden();
   expect(errors).toEqual([]);
 });
