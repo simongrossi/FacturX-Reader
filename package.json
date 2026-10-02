@@ -13,9 +13,10 @@
     "dev": "tauri dev",
     "build": "tauri build",
     "test:ui": "playwright test",
+    "test:checks": "node --test tests/checks.test.cjs",
     "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
     "test:native": "node tests/native-smoke.cjs",
-    "check:js": "node --check web/app.js && node --check web/workspace.js && node --check web/search-worker.js"
+    "check:js": "node --check web/app.js && node --check web/workspace.js && node --check web/search-worker.js && node --check web/batch.js && node --check web/checks.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",

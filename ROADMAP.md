@@ -28,7 +28,7 @@ du fichier original. La session n'est pas une bibliothèque indexée de toutes l
 
 Vérification P0 : neuf tests unitaires Rust et test sur les factures locales réussis ; cinq
 scénarios navigateur Edge (dont PDF multipage, quota, cache manquant et session de 500 documents).
-Test Windows natif avec le vrai moteur Rust et un profil WebView2 jetable : fermeture de la
+Test Windows natif sur les builds debug et release, avec le vrai moteur Rust et un profil WebView2 jetable : fermeture de la
 fenêtre et relance, reprise du PDF de deux pages, zoom/position, copie IndexedDB,
 fichier manquant et recherche. Les quotas navigateur sont simulés dans les tests de panne.
 Les vérifications macOS/Linux et l'installation des paquets restent à faire sur ces systèmes.
@@ -50,8 +50,11 @@ Les vérifications macOS/Linux et l'installation des paquets restent à faire su
 
 ### Confort et exploitation
 
-- [ ] Corriger les libellés accentués dans `tables.rs` et le moteur : Désignation, Quantité,
-  Date d'échéance, etc. Vérifier les comparaisons de titres et les tests concernés.
+- [x] Libellés français accentués dans `tables.rs`, le moteur et l'interface : Désignation,
+  Quantité, Date d'échéance, Référence, À payer, unités, messages et infobulles.
+  Comparaisons des titres de synthèse et badge de date adaptées ; tests concernés vérifiés.
+- [x] Traductions des modes de paiement corrigées selon UNCL4461 : notamment 58 virement SEPA,
+  59 prélèvement SEPA, 48 carte et 68 paiement en ligne ; codes source conservés.
 - [ ] Export CSV / Excel des lignes visibles ou pointées ; copie de tableaux dans le presse-papiers.
 - [ ] Associations de fichiers, « Ouvrir avec » et instance unique.
 - [ ] Compléter les récents avec les dossiers.
@@ -70,24 +73,34 @@ Les vérifications macOS/Linux et l'installation des paquets restent à faire su
 - [ ] Jeu de tests anonymisé et versionnable pour la CI : profils sans lignes, avoirs, remises,
   frais, acomptes, plusieurs taux de TVA, arrondis, devises, PDF/ZIP et variantes UBL/CII.
 - [ ] Mise à jour de PDF.js (3.11 embarqué actuellement) et déclaration explicite du worker.
+- [ ] Auditer les autres correspondances de codes héritées du moteur Python (TVA, unités,
+  types de documents) avec leurs référentiels officiels ; certaines traductions sont à revoir.
 
 ## P2 — Traitement quotidien de lots de factures
 
-- [ ] Tableau multi-factures : fournisseur, numéro, date, HT, TVA, TTC, échéance et état de vérification.
+- [x] Tableau multi-factures : fournisseur, numéro, date, HT, TVA, TTC, échéance et état de vérification.
   Totaux séparés par devise ; prise en compte explicite des avoirs.
-- [ ] Recherche transversale dans les lignes et filtre de la liste des fichiers (fournisseur,
+- [x] Recherche transversale dans les lignes et filtre de la liste des fichiers (fournisseur,
   numéro, montant), masquage optionnel des PDF sans XML.
 - [ ] Recherche dans le texte du PDF et surlignage à l'emplacement trouvé : extension distincte
   de la recherche XML actuelle ; décider séparément du besoin d'OCR pour les scans.
-- [ ] Vue PDF et données côte à côte, positions et zoom indépendants.
-- [ ] Statuts « À vérifier », « Vérifiée », « Anomalie », commentaires par facture et par ligne,
+- [x] Vue PDF et données côte à côte, défilements indépendants et zoom du PDF conservés.
+- [x] Statuts « À vérifier », « Vérifiée », « Anomalie », commentaires par facture et par ligne,
   pointage de la facture entière. Distinguer vérification et paiement confirmé.
-- [ ] Contrôles arithmétiques : lignes, remises/frais globaux, TVA par taux, HT/TTC,
+  Suivi local lié à l'empreinte XML ; commande de pointage de toutes les lignes.
+  Premier lot P2 : ces quatre chantiers sont réalisés. Deuxième lot : contrôles et rapport
+  JSON réalisés ci-dessous. Recherche PDF, bibliothèque et dossier surveillé restent à développer.
+- [x] Contrôles arithmétiques locaux : lignes, remises/frais globaux, TVA par catégorie/taux, HT/TTC,
   acomptes, arrondis, net à payer et avoirs ; échéance dépassée comme alerte distincte,
   sans déduire automatiquement qu'une facture est impayée.
-- [ ] Résultats de contrôle : conforme au contrôle, écart détecté, non vérifiable, non applicable.
+- [x] Résultats de contrôle : conforme au contrôle, écart détecté, non vérifiable, non applicable.
   L'absence de lignes détaillées n'est pas automatiquement une erreur.
-- [ ] Rapport de contrôle exportable : règle, attendu, constaté, écart et chemin XML.
+- [x] Rapport de contrôle JSON exportable par « Enregistrer sous » : règle, attendu, constaté,
+  écart, chemins XML, devise, empreinte et politique de calcul. Clic sur un chemin : XML surligné.
+  Calculs rationnels exacts sur les feuilles XML, arrondi local à deux décimales (demi-unité
+  éloignée de zéro) et tolérance de 0,02 sur les lignes. Données absentes/ambiguës ou devises
+  incompatibles : non vérifiable. Les variantes CII anciennes ou catégories sans taux peuvent
+  rester non vérifiables ; ce lot n'implémente pas les règles normatives XSD/Schematron.
 - [ ] Impression / export PDF de la vue Données.
 - [ ] Bibliothèque locale persistante : recherche fournisseur, référence article, période,
   montant et commentaires entre les sessions, au-delà des seuls documents ouverts.

@@ -7,6 +7,20 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 
 ### Ajouté
 
+- Contrôles de cohérence dans Données et PDF–données : lignes, quantités de base, frais/remises,
+  TVA par catégorie et taux, HT/TTC, acomptes, arrondi et net à payer. Calcul rationnel exact
+  sur les valeurs XML d'origine, avec états conforme/écart/non vérifiable/non applicable.
+- Détail attendu/constaté/écart et chemins cliquables avec surlignage XML ; rapport JSON via
+  la boîte native Enregistrer sous et erreur d'export visible. Échéance passée comme alerte
+  indépendante, sans affirmer un impayé ni modifier le statut manuel de vérification.
+- Onglet Toutes les factures : tableau des documents ouverts, montants XML HT/TVA/TTC,
+  totaux décimaux exacts par devise et contributions négatives des avoirs. Données absentes,
+  devise inconnue ou nature non déterminée exclues des contributions avec compteur visible.
+- Filtres partagés entre tableau et liste : texte (fournisseur, numéro, montants, lignes et
+  commentaires), statut de vérification et masquage des PDF sans XML.
+- Statuts manuels À vérifier/Vérifiée/Anomalie, commentaires par facture et ligne, enregistrés
+  localement par empreinte XML ; pointage de toutes les lignes en une commande.
+- Vue PDF et données côte à côte, défilements séparés repris entre sessions avec le zoom PDF.
 - Recherche rapide (`Ctrl+F`) : texte ou regex, document sélectionné par défaut ou tous
   les documents ouverts. Navigation précédent/suivant et surlignage jaune de l'élément
   trouvé dans XML complet. Recherche des données XML uniquement, hors contenus binaires.
@@ -26,6 +40,12 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 
 ### Corrigé
 
+- Libellés et messages français accentués : colonnes Désignation/Quantité/Référence,
+  dates d'émission et d'échéance, synthèse À payer, unités, notes de calcul et alertes.
+  Comparaisons de titres utilisées par la synthèse et le badge de date adaptées.
+- Modes de paiement traduits selon UNCL4461 : virement SEPA (58), prélèvement SEPA (59),
+  carte (48), paiement en ligne (68), ainsi que les libellés des codes 42 et 45 ;
+  prise en charge du prélèvement (49). Valeurs et chemins XML conservés.
 - Rendu de la vue Données lors du changement de document ; protection contre certains rendus
   asynchrones devenus obsolètes après navigation.
 - Position sauvegardée préservée pendant le rendu et la restauration, reprise du défilement
@@ -40,6 +60,10 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
   jetable, fermeture de fenêtre et relance, PDF multipage, zoom/position, copie locale et fichier manquant.
   Vérifications natives macOS/Linux et installation des paquets restantes.
   Aucune nouvelle version distribuée à ce stade.
+
+- Le premier chantier P1 (libellés) inclut un contrôle de traduction des paiements dans
+  les deux syntaxes UBL/CII et de conservation d'un code inconnu. Référentiel :
+  [UNCL4461, OpenPeppol](https://docs.peppol.eu/poacc/billing/3.0/codelist/UNCL4461/).
 
 ## [0.1.0] - 2026-10-02
 

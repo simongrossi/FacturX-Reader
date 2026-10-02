@@ -392,6 +392,29 @@ button, input, select { font: inherit; color: inherit; }
 }
 .tabpane { display: none; }
 .tabpane.active { display: block; }
+.batch-filters { padding: 10px; display: grid; gap: 8px; font-size: 12px; }
+.batch-filters input[type=search], .batch-filters select { width: 100%; min-width: 0; }
+.batch-filters input, .batch-filters select, .review-panel textarea, .review-panel select, #overview-table select {
+  background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 8px;
+}
+.overview-view { padding: 24px; }
+.overview-view p, .review-panel p { color: var(--muted); }
+.overview-note { font-size: 12px; }
+.review-panel { padding: 16px; }
+.checks-panel { padding: 16px; }
+.checks-panel p { color: var(--muted); }
+.check-result { padding: 10px; border-bottom: 1px solid var(--border); }
+.check-result summary { cursor: pointer; }
+.check-ecart summary { color: #c44518; font-weight: 600; }
+.check-path { display: block; max-width: 100%; overflow-wrap: anywhere; text-align: left; background: none; border: 0; color: var(--accent); cursor: pointer; padding: 5px 0; }
+.control-hit td { background: #fff1a8 !important; color: #332b00 !important; }
+.review-panel label { display: grid; gap: 8px; margin: 12px 0; }
+.review-panel textarea { width: 100%; min-height: 64px; resize: vertical; box-sizing: border-box; }
+.dual-reading { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+.dual-reading > .active { height: calc(100vh - 290px); min-height: 250px; overflow: auto; padding: 8px; }
+.dual-reading .pdf-toolbar { position: sticky; top: 0; z-index: 2; flex-wrap: wrap; }
+.dual-reading .lines-head { position: static; }
+@media (max-width: 900px) { .dual-reading { grid-template-columns: minmax(0, 1fr); } }
 
 /* ---------- PDF ---------- */
 .pdf-toolbar {

@@ -13,6 +13,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check:js
+      - run: npm run test:checks
       - run: npx playwright install --with-deps chromium
       - run: npm run test:ui
   rust:

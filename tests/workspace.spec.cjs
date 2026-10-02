@@ -13,6 +13,134 @@ test.beforeAll(async () => {
   url = `http://127.0.0.1:${server.address().port}`;
 });
 test.afterAll(() => server.close());
+test('Contrôles : écarts visibles, chemin XML surligné, rapport et échéance distincte', async ({ page }) => {
+  const result = require('./checks-fixtures.cjs').invoice();
+  result.rows.find(row => row.tag === 'TaxInclusiveAmount').value = '147';
+  result.header = [{ title: "Date d'échéance", value: '2000-01-01' }];
+  await page.addInitScript(result => {
+    window.__TAURI__ = { core: { invoke: async (command, args) => {
+      if (command === 'startup_paths') return { files: [] };
+      if (command === 'get_pointage') return { lines: [] };
+      if (command === 'parse_file') return result;
+      if (command === 'save_control_report') { if (window.failReport) throw new Error('Écriture refusée'); window.savedControlReport = args; return true; }
+      return {};
+    } } };
+  }, result);
+  await page.goto(url);
+  await page.locator('#file-input').setInputFiles({ name: 'controle.xml', mimeType: 'text/xml', buffer: Buffer.from('test') });
+  await page.getByRole('button', { name: 'Données', exact: true }).click();
+  const panel = page.locator('.checks-panel');
+  await expect(panel).toContainText('Échéance passée (2000-01-01). Le paiement effectif n’est pas connu.');
+  const ttc = panel.locator('details').filter({ hasText: 'TTC = HT + TVA' });
+  await ttc.locator('summary').click();
+  await expect(ttc).toContainText('Attendu : 146.50 · XML : 147.00 · Écart (XML − attendu) : 0.50 EUR');
+  await expect(ttc.locator('summary')).toContainText('Écart détecté');
+  await ttc.getByRole('button', { name: 'Invoice/LegalMonetaryTotal/TaxInclusiveAmount', exact: true }).click();
+  await expect(page.locator('#tab-xml')).toHaveClass(/active/);
+  await expect(page.locator('.control-hit')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Données', exact: true }).click();
+  await page.getByRole('button', { name: 'Exporter le rapport de contrôle' }).click();
+  const saved = await page.evaluate(() => savedControlReport);
+  expect(saved.filename).toBe('controle-controles.json');
+  expect(saved.report.checks.find(c => c.id === 'ttc').difference).toBe('0.50');
+  expect(saved.report.doc_hash).toBe(result.doc_hash);
+  await panel.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: 'test-results/controls.png' });
+  await page.evaluate(() => { window.failReport = true; });
+  await page.getByRole('button', { name: 'Exporter le rapport de contrôle' }).click();
+  await expect(page.locator('#workspace-message')).toContainText('Export du rapport impossible');
+  await expect(page.getByRole('button', { name: 'Exporter le rapport de contrôle' })).toBeEnabled();
+});
+async function mockBatch(page) {
+  await page.addInitScript(pdf => {
+    window.__TAURI__ = { core: { invoke: async (command, args, options) => {
+      if (command === 'startup_paths') return { files: [] };
+      if (command === 'get_pointage') return { lines: [] };
+      if (!['parse_file', 'parse_path'].includes(command)) return {};
+      const name = command === 'parse_path' ? args.path.split('/').pop() : decodeURIComponent(options.headers['x-filename']);
+      const credit = name.includes('credit'), usd = name.includes('usd'), missing = name.includes('missing');
+      const currency = usd ? 'USD' : 'EUR', amount = credit ? '-0.10' : '0.20';
+      return {
+        format: 'UBL', root: credit ? 'CreditNote' : 'Invoice', doc_hash: name,
+        header: [{ title: 'Devise', value: currency }],
+        summary: [{ title: 'Vendeur', value: usd ? 'Supplier US' : 'Fournisseur Paris' }, { title: 'N° de facture', value: name }],
+        lines_columns: [{ key: 'name', title: 'Désignation', align: 'left' }],
+        lines: Array.from({ length: 35 }, (_, i) => ({ cells: { name: { value: `ARTICLE-${i}`, title: 'Désignation' } }, fields: [] })),
+        rows: missing ? [] : [
+          { tag: 'TaxAmount', value: '999', path: 'Invoice/TaxTotal/TaxSubtotal/TaxAmount' },
+          ...['TaxExclusiveAmount', 'TaxInclusiveAmount'].map(tag => ({ tag, value: amount, path: `Invoice/LegalMonetaryTotal/${tag}` })),
+          { tag: 'TaxAmount', value: '0.00', path: 'Invoice/TaxTotal/TaxAmount', attrs: { currencyID: currency } },
+        ],
+        sections: [], warnings: [], xml_pretty: '<Invoice/>', pdf: { base64: pdf, filename: name },
+      };
+    } } };
+  }, require('./fixtures.cjs').invoicePdf().toString('base64'));
+}
+test('P2 : totaux exacts, avoir négatif, devises, absences et filtres', async ({ page }) => {
+  await mockBatch(page); await page.goto(url);
+  await page.locator('#file-input').setInputFiles(['invoice.xml', 'credit.xml', 'usd.xml', 'missing.pdf'].map(name => ({ name, mimeType: 'text/xml', buffer: Buffer.from('test') })));
+  await page.getByRole('button', { name: 'Toutes les factures', exact: true }).click();
+  await expect(page.locator('#overview-table tbody tr')).toHaveCount(4);
+  await expect(page.locator('#overview-totals')).toContainText('EUR · 3 document(s) · HT : 0,10 (2/3 contributions) · TVA : 0,00 (2/3 contributions)');
+  await expect(page.locator('#overview-totals')).toContainText('USD · 1 document(s) · HT : 0,20');
+  await page.locator('#batch-xml').check();
+  await expect(page.locator('#overview-table tbody tr')).toHaveCount(3);
+  await page.locator('#batch-query').fill('Supplier US');
+  await expect(page.locator('#overview-table tbody tr')).toHaveCount(1);
+  await expect(page.locator('#file-list li:visible')).toHaveCount(1);
+  await page.locator('#batch-query').fill('ARTICLE-34');
+  await expect(page.locator('#overview-table tbody tr')).toHaveCount(3);
+  await page.locator('#batch-query').fill('');
+  await page.locator('#overview-table select').first().selectOption('Vérifiée');
+  await page.locator('#batch-status').selectOption('Vérifiée');
+  await expect(page.locator('#overview-table tbody tr')).toHaveCount(1);
+  await page.reload();
+  await expect(page.locator('#overview-view')).toBeVisible();
+  await expect(page.locator('#overview-table select').first()).toHaveValue('Vérifiée');
+  expect(await page.evaluate(() => batchFormat(batchAdd(batchDecimal('0.1'), batchDecimal('0.2'))))).toBe('0,30');
+});
+test('P2 : commentaires, pointage complet et double lecture persistante', async ({ page }) => {
+  const errors = []; page.on('pageerror', e => errors.push(e.message));
+  await mockBatch(page); await page.goto(url);
+  await page.locator('#file-input').setInputFiles({ name: 'invoice.xml', mimeType: 'text/xml', buffer: Buffer.from('test') });
+  await page.getByRole('button', { name: 'PDF et données', exact: true }).click();
+  await page.waitForFunction(() => getFile(state.selected).rendered.data && getFile(state.selected).rendered.pdf && !workspaceScrollTarget);
+  await page.getByLabel('Commentaire de la facture', { exact: true }).fill('À rapprocher du bon de commande');
+  await page.getByLabel('Ligne à commenter').selectOption('2');
+  await page.getByLabel('Commentaire de la ligne', { exact: true }).fill('Quantité à confirmer');
+  await page.getByLabel('Vérification de invoice.xml').selectOption('Anomalie');
+  await page.getByRole('button', { name: 'Pointer toutes les lignes' }).click();
+  await expect.poll(() => page.evaluate(() => getFile(state.selected).pointed.size)).toBe(35);
+  await page.evaluate(() => { document.querySelector('#tab-pdf').scrollTop = 240; document.querySelector('#tab-data').scrollTop = 310; });
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('fx-workspace')).files[0].view.dualScroll)).toEqual({ pdf: 240, data: 310 });
+  await page.reload();
+  await page.waitForFunction(() => getFile(state.selected)?.rendered.pdf && getFile(state.selected)?.rendered.data && !workspaceScrollTarget);
+  await expect(page.locator('#reading-panes')).toHaveClass('dual-reading');
+  await expect(page.getByLabel('Commentaire de la facture', { exact: true })).toHaveValue('À rapprocher du bon de commande');
+  await page.getByLabel('Ligne à commenter').selectOption('2');
+  await expect(page.getByLabel('Commentaire de la ligne', { exact: true })).toHaveValue('Quantité à confirmer');
+  await expect(page.getByLabel('Vérification de invoice.xml')).toHaveValue('Anomalie');
+  await expect.poll(() => page.evaluate(() => ({ pdf: byId('tab-pdf').scrollTop, data: byId('tab-data').scrollTop }))).toEqual({ pdf: 240, data: 310 });
+  await page.screenshot({ path: 'test-results/p2-dual.png' });
+  expect(errors).toEqual([]);
+});
+test('P2 : suivi illisible et écriture refusée signalés sans bloquer la lecture', async ({ page }) => {
+  await mockBatch(page);
+  await page.addInitScript(() => localStorage.setItem('fx-review:invoice.xml', '{broken'));
+  await page.goto(url);
+  await page.locator('#file-input').setInputFiles({ name: 'invoice.xml', mimeType: 'text/xml', buffer: Buffer.from('test') });
+  await page.getByRole('button', { name: 'Données', exact: true }).click();
+  await expect(page.locator('#workspace-message')).toContainText('Suivi de vérification illisible');
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    Storage.prototype.setItem = function(key, value) { if (key.startsWith('fx-review:')) throw new DOMException('Quota', 'QuotaExceededError'); return original.call(this, key, value); };
+  });
+  await page.getByLabel('Commentaire de la facture', { exact: true }).fill('Commentaire conservé en mémoire');
+  await expect(page.locator('#workspace-message')).toContainText('n’a pas pu être enregistré');
+  await page.getByRole('button', { name: 'XML brut', exact: true }).click();
+  await page.getByRole('button', { name: 'Données', exact: true }).click();
+  await expect(page.getByLabel('Commentaire de la facture', { exact: true })).toHaveValue('Commentaire conservé en mémoire');
+});
 async function mockBackend(page, pdf = null) {
   await page.addInitScript(pdf => {
     window.__TAURI__ = { core: { invoke: async (command, args) => {

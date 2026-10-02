@@ -61,6 +61,10 @@ async function main() {
     await expect(page.locator('.document-tab-group')).toHaveCount(0);
     await page.evaluate(async fixture => { await addPaths({ files: [fixture] }); }, fixture);
     await expect(page.locator('.pdf-page')).toHaveCount(2);
+    await expect(page.locator('#fv-badges')).toContainText('2026-10-02');
+    await page.getByRole('button', { name: 'Données', exact: true }).click();
+    await expect(page.locator('#tab-data')).toContainText("Date d'émission");
+    await page.getByRole('button', { name: 'PDF', exact: true }).click();
     await page.locator('#pdf-zoom').selectOption('1.5');
     await page.waitForFunction(() => !workspaceScrollTarget && state.zoom === 1.5 && getFile(state.selected)?.rendered.pdf);
     await page.evaluate(() => { document.querySelector('.main').scrollTop = 650; });
@@ -78,6 +82,15 @@ async function main() {
     await page.locator('#quick-query').fill('TEST-P0');
     await expect(page.locator('#xml-table .quick-hit')).toHaveCount(1);
     await page.locator('#quick-query').fill('');
+    await page.getByRole('button', { name: 'Toutes les factures', exact: true }).click();
+    await expect(page.locator('#overview-totals')).toContainText('EUR · 1 document(s) · HT : 100,00 (1/1 contributions) · TVA : 20,00 (1/1 contributions) · TTC : 120,00');
+    await page.locator('#overview-table button').click();
+    await page.getByRole('button', { name: 'PDF et données', exact: true }).click();
+    await expect(page.locator('#reading-panes')).toHaveClass('dual-reading');
+    await expect(page.locator('.checks-panel details').filter({ hasText: 'TTC = HT + TVA' }).locator('summary')).toContainText('Conforme au contrôle');
+    await expect(page.locator('.checks-panel details').filter({ hasText: 'Somme des lignes HT = total des lignes' }).locator('summary')).toContainText('Non vérifiable');
+    await page.getByLabel('Commentaire de la facture', { exact: true }).fill('Test natif P2');
+    await page.locator('#tab-data').getByLabel('Vérification de synthetic.pdf').selectOption('Vérifiée');
     await page.locator('#file-input').setInputFiles({ name: 'deposited.pdf', mimeType: 'application/pdf', buffer: invoicePdf() });
     await expect(page.locator('#fv-name')).toHaveText('deposited.pdf');
     await stop(page);
@@ -87,9 +100,12 @@ async function main() {
     await expect(page.locator('#fv-name')).toHaveText('deposited.pdf');
     await expect(page.locator('.pdf-page')).toHaveCount(2);
     await expect(page.locator('#workspace-message')).toContainText('1 document');
+    await page.getByRole('button', { name: 'PDF et données', exact: true }).click();
+    await expect(page.getByLabel('Commentaire de la facture', { exact: true })).toHaveValue('Test natif P2');
+    await expect(page.locator('#tab-data').getByLabel('Vérification de deposited.pdf')).toHaveValue('Vérifiée');
     if (errors.length) throw new Error(errors.join('\n'));
     await stop(page);
-    console.log('Native Windows OK : Rust, PDF 2 pages, zoom/position, fermeture et relance, IndexedDB, fichier manquant et recherche.');
+    console.log('Native Windows OK : Rust, PDF 2 pages, reprise, recherche, tableau CII, contrôles TTC et absence de lignes, double lecture, statut et commentaire.');
   } finally {
     if (child && child.exitCode === null) child.kill();
     if (browser) await browser.close().catch(() => {});

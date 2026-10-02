@@ -67,6 +67,12 @@
                 title="Replier le panneau" aria-label="Replier le panneau">‹</button>
       </span>
     </div>
+    <div class="batch-filters">
+      <input id="batch-query" type="search" placeholder="Fournisseur, numéro, montant, ligne…" aria-label="Filtrer les documents ouverts">
+      <select id="batch-status" aria-label="Filtrer par statut"><option value="">Tous les statuts</option><option>À vérifier</option><option>Vérifiée</option><option>Anomalie</option></select>
+      <label><input id="batch-xml" type="checkbox"> Masquer les PDF sans XML</label>
+      <span id="batch-count" role="status"></span>
+    </div>
     <ul id="file-list" class="file-list"></ul>
     <div class="side-hint">
       Glissez-déposez ici des fichiers factures (.pdf Factur-X, .xml UBL / CII, .zip)
@@ -75,6 +81,13 @@
   </aside>
 
   <main class="main">
+    <section id="overview-view" class="overview-view" hidden>
+      <h2>Toutes les factures ouvertes</h2>
+      <p>Les filtres de la liste s’appliquent au tableau et aux totaux. Cliquez sur un document pour le lire.</p>
+      <div id="overview-totals" role="status"></div>
+      <p class="overview-note">Contributions : signe XML des factures conservé, avoirs négatifs (valeur absolue). Les montants ci-dessous restent ceux du XML. Montants absents exclus, devises séparées. Aucun contrôle comptable automatique.</p>
+      <div class="table-wrap"><table class="grid-table" id="overview-table"><thead><tr><th>Document</th><th>Fournisseur</th><th>Numéro</th><th>Nature</th><th>Date</th><th>HT</th><th>TVA</th><th>TTC</th><th>Devise</th><th>Échéance</th><th>Vérification</th></tr></thead><tbody></tbody></table></div>
+    </section>
     <div id="empty-state" class="empty-state">
       <img class="empty-icon" src="logo/icon.svg" alt="">
       <h2>Votre espace de factures</h2>
@@ -104,12 +117,14 @@
 
       <nav class="tabs" id="tabs">
         <button class="tab active" data-tab="pdf">PDF</button>
-        <button class="tab" data-tab="xmlpdf" hidden title="PDF embarque dans le XML de la facture">PDF du XML</button>
+        <button class="tab" data-tab="xmlpdf" hidden title="PDF embarqué dans le XML de la facture">PDF du XML</button>
         <button class="tab" data-tab="data">Données</button>
+        <button class="tab" data-tab="dual" hidden>PDF et données</button>
         <button class="tab" data-tab="xml">XML complet</button>
         <button class="tab" data-tab="raw">XML brut</button>
       </nav>
 
+      <div id="reading-panes">
       <section id="tab-pdf" class="tabpane active">
         <div class="pdf-toolbar">
           <button id="pdf-prev" class="btn" title="Page précédente">‹</button>
@@ -158,6 +173,7 @@
         </div>
         <pre id="raw-xml" class="raw-xml"></pre>
       </section>
+      </div>
     </div>
   </main>
 </div>
@@ -250,5 +266,7 @@
 
 <script src="app.js"></script>
 <script src="workspace.js"></script>
+<script src="batch.js"></script>
+<script src="checks.js"></script>
 </body>
 </html>

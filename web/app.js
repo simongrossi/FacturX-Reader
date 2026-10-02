@@ -221,6 +221,7 @@ function fmtBadge(result) {
 }
 
 function renderList(preserveSearch = false) {
+  renderOverview();
   renderDocumentTabs();
   saveWorkspace();
   if (!preserveSearch) scheduleQuickSearch();
@@ -229,6 +230,7 @@ function renderList(preserveSearch = false) {
   for (const f of state.files) {
     const li = document.createElement("li");
     li.className = "file-item" + (f.id === state.selected ? " selected" : "");
+    li.hidden = !matchesBatchFilter(f);
     li.innerHTML =
       '<div class="fi-name">' + esc(f.name) + "</div>" +
       (f.status === "error"
@@ -291,6 +293,7 @@ function getFile(id) {
 
 function selectFile(id) {
   captureDocumentView();
+  state.overview = false;
   state.renderToken++;
   state.selected = id;
   state.tab = "pdf";
@@ -302,6 +305,14 @@ function selectFile(id) {
 
 function renderFileView() {
   state.renderToken++;
+  byId("overview-view").hidden = !state.overview;
+  if (state.overview) {
+    byId("empty-state").hidden = true;
+    byId("file-view").hidden = true;
+    document.querySelector(".layout").classList.remove("workspace-home");
+    renderOverview();
+    return;
+  }
   document.querySelector(".layout").classList.toggle("workspace-home", !state.selected);
   const f = getFile(state.selected);
   if (!f || f.status !== "ok") {
@@ -329,7 +340,7 @@ function renderFileView() {
   for (const c of r.header || []) {
     if ((c.title === "N° de facture" || c.title === "N° d'avoir") && c.value)
       badges.push('<span class="badge">' + esc(c.title) + " : " + esc(c.value) + "</span>");
-    if (c.title === "Date d'emission" && c.value)
+    if (c.title === "Date d'émission" && c.value)
       badges.push('<span class="badge">' + esc(c.value) + "</span>");
     if (c.title === "Profil" && c.value)
       badges.push('<span class="badge">' + esc(c.value) + (c.note ? " — " + esc(c.note) : "") + "</span>");
@@ -345,6 +356,7 @@ function renderFileView() {
 
   const dl = byId("btn-download-pdf");
   dl.disabled = !(r.pdf || r.xml_pdf);
+  document.querySelector('[data-tab="dual"]').hidden = !(r.pdf || r.xml_pdf);
 
   if (f.view?.tab) setTab(f.view.tab === "xmlpdf" && !r.xml_pdf ? "pdf" : f.view.tab, true);
   else if (settings.defaultTab === "data") setTab("data", true);
@@ -358,12 +370,19 @@ function setTab(name, force) {
   document.querySelectorAll(".tab").forEach((t) =>
     t.classList.toggle("active", t.dataset.tab === name));
   const paneId = (name === "xmlpdf") ? "tab-pdf" : "tab-" + name;
+  byId("reading-panes").classList.toggle("dual-reading", name === "dual");
   document.querySelectorAll(".tabpane").forEach((p) =>
-    p.classList.toggle("active", p.id === paneId));
+    p.classList.toggle("active", p.id === paneId || (name === "dual" && ["tab-pdf", "tab-data"].includes(p.id))));
   hidePopover();
   const f = getFile(state.selected);
   if (!f) return;
-  if (name === "pdf" || name === "xmlpdf") {
+  if (name === "dual") {
+    loadPointage(f).then(() => {
+      if (state.selected !== f.id || state.tab !== "dual") return;
+      renderData(f); f.rendered.data = true; restoreDocumentScroll(f);
+    });
+    renderPdf(f, f.result.pdf ? "pdf" : "xmlpdf");
+  } else if (name === "pdf" || name === "xmlpdf") {
     if (force || state.pdfSource !== name) renderPdf(f, name);
   } else if (name === "data") {
     requestAnimationFrame(() => syncStickyOffsets());
@@ -435,8 +454,10 @@ async function renderPdf(f, src) {
     if (state.fit) await fitWidth();
     else await renderAllPages(doc);
   } catch (e) {
-    if (state.selected === f.id && state.pdfSource === src)
+    if (state.selected === f.id && state.pdfSource === src) {
       pane.innerHTML = '<div class="notice error">Impossible d’afficher le PDF : ' + esc(String(e)) + "</div>";
+      f.rendered.pdf = true;
+    }
     if (state.selected === f.id) restoreDocumentScroll(f);
   }
 }
@@ -446,7 +467,7 @@ async function renderAllPages(doc) {
   const renderingFile = getFile(state.selected);
   if (renderingFile) {
     renderingFile.rendered.pdf = false;
-    if (state.tab === state.pdfSource) workspaceScrollTarget = { id: renderingFile.id, tab: state.tab };
+    if (state.tab === state.pdfSource || state.tab === "dual") workspaceScrollTarget = { id: renderingFile.id, tab: state.tab };
   }
   const pane = byId("pdf-pages");
   pane.innerHTML = "";
@@ -941,6 +962,8 @@ function renderData(f) {
   if (!r.lines?.length && !(r.sections || []).some((s) => s.rows?.length)) {
     pane.innerHTML = '<div class="notice">Aucune donnée structurée reconnue — consultez les onglets « XML complet » et « XML brut ».</div>';
   }
+  renderReview(f, pane);
+  renderChecks(f, pane);
 }
 
 /* ---------------- onglet XML complet ---------------- */
