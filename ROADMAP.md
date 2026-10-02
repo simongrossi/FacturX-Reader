@@ -68,8 +68,8 @@ Versions publiées (pré-versions, builds non signés) :
   et de la TVA de ligne reconstitués reste en `f64`.
 - [ ] Provenance des valeurs : distinguer ce qui est extrait du XML de ce qui est reconstitué,
   avec formule, valeur d'origine et chemin consultables.
-- [ ] Extraction PDF avec un vrai parseur, au-delà des expressions régulières : structures
-  complexes, pièces jointes multiples, choix du XML pertinent.
+- [x] Extraction PDF avec un vrai parseur, au-delà des expressions régulières : structures
+  complexes, pièces jointes multiples, choix du XML pertinent (`lopdf`, repli de secours).
 - [x] Protection des pointages et du suivi : sauvegarde quotidienne, restauration, export/import,
   erreur visible si un fichier est illisible ; une corruption n'est plus traitée comme un
   historique vide. Suivi de vérification déplacé dans `suivi.json`.
@@ -91,6 +91,8 @@ Versions publiées (pré-versions, builds non signés) :
 - [x] Tableau multi-factures : totaux par devise, avoirs déduits, tri, filtre, export CSV (0.3.0).
 - [x] Filtres d'anomalies : écart, alerte, échue, sans TVA, émise un week-end, doublon, avoirs,
   non lues (0.3.0) ; filtre par statut de vérification (0.4.0).
+- [x] Filtres métier : période (dates début / fin), montants (min / max) et fournisseur dans le
+  tableau multi-factures et la bibliothèque locale.
 - [x] Vue PDF et données côte à côte, défilements indépendants (0.4.0).
 - [x] Statuts « À vérifier », « Vérifiée », « Anomalie », commentaires par facture et par ligne,
   pointage de la facture entière ; distinct d'un paiement confirmé (0.4.0).
@@ -119,8 +121,8 @@ Versions publiées (pré-versions, builds non signés) :
 - [x] Alerte de changement d'IBAN par fournisseur (anti-fraude au virement).
 - [x] Doublons sur l'historique, au-delà des documents ouverts.
 - [x] Historique des prix unitaires par article et par fournisseur, variation signalée.
-- [ ] Bibliothèque : filtres par période et par fournisseur, recherche dans les commentaires,
-  graphique de prix, validation explicite d'un nouvel IBAN, sauvegarde et export de la base.
+- [x] Bibliothèque : filtres par période, montants et fournisseur. Reste : recherche dans les
+  commentaires, graphique de prix, validation explicite d'un nouvel IBAN, sauvegarde/export de la base.
 - [ ] Grille de prix négociés importée et alerte de dépassement.
 
 ## P3 — Conformité et distribution
@@ -131,12 +133,12 @@ Versions publiées (pré-versions, builds non signés) :
   TVA, reliées aux données concernées. Hors Schematron officiel.
 - [ ] Compléter les règles natives : listes de codes (pays, devises, unités, types de facture),
   remises et frais de ligne, règles nationales françaises (CIUS).
-- [ ] Validation XML XSD puis Schematron officiel EN 16931, selon le profil et la version ;
-  versions des jeux de règles traçables. Demande un moteur XSLT 2 ou une traduction des règles.
-- [ ] Validation du conteneur PDF/A-3, métadonnées XMP, association et cohérence avec le XML.
-- [x] Verdicts séparés : lecture réussie, calculs cohérents, règles EN 16931 respectées, avec la
-  mention de ce qui n'est pas contrôlé. Un fichier lisible n'est pas nécessairement conforme.
-- [ ] Ajouter aux verdicts la validation XML officielle et celle du conteneur quand elles existeront.
+- [x] Validation officielle par Schematron EN 16931 (CEN / Commission européenne v1.3.16)
+  exécutée 100 % localement dans la WebView via SaxonJS (SEF). Reste : validation schéma XSD.
+- [x] Validation du conteneur PDF/A-3, métadonnées XMP, pièces jointes déclarées (/AF) et
+  cohérence avec le profil XML annoncé.
+- [x] Verdicts séparés : lecture réussie, calculs cohérents, règles EN 16931 respectées, Schematron
+  officiel respecté, conteneur PDF/A-3 valide, avec mention de ce qui n'est pas contrôlé (schéma XSD).
 - [ ] Comparaison PDF vs XML : montants clés recherchés dans le texte du PDF, écart mis en
   évidence (PDF texte uniquement). Puis synchronisation au clic XML ↔ PDF.
 - [ ] Signature électronique du PDF : détecter sa présence, puis vérifier l'intégrité.

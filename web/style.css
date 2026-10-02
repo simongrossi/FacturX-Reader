@@ -914,6 +914,44 @@ tr.flash { animation: flash 1.8s ease-out; }
 /* ---------- tableau multi-factures ---------- */
 .batch-view { padding: 18px 22px 40px; }
 .batch-tools { margin: 0 0 12px; }
+.business-filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  font-size: 12.5px;
+}
+.filter-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.filter-group label {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.filter-input {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 5px 8px;
+  border-radius: 6px;
+  font-size: 12.5px;
+}
+.filter-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.filter-date { width: 130px; }
+.filter-amount { width: 85px; }
+.filter-seller { width: 140px; }
 .document-tab-batch { border-right: 1px solid var(--border); font-weight: 600; }
 #batch-table th { cursor: pointer; white-space: nowrap; }
 #batch-table tbody td:nth-child(n+3) { white-space: nowrap; }

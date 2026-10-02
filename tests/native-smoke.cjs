@@ -50,8 +50,8 @@ async function main() {
   async function stop(page) {
     // Fermer la fenêtre de notre processus, comme avec la croix de l'application.
     const exited = new Promise(resolve => child.once('exit', resolve));
-    const close = spawn('powershell.exe', ['-NoProfile', '-Command',
-      `(Get-Process -Id ${child.pid}).CloseMainWindow() | Out-Null`], { windowsHide: true, stdio: 'ignore' });
+    const closeHelper = path.resolve(__dirname, 'close-window.ps1');
+    const close = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', closeHelper, String(child.pid)], { windowsHide: true, stdio: 'ignore' });
     await new Promise(resolve => close.once('exit', resolve));
     let forced = false;
     const timeout = setTimeout(() => { forced = true; child.kill(); }, 5000);

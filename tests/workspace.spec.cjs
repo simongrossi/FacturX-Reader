@@ -289,7 +289,7 @@ test('tableau multi-factures : totaux, filtres, export et menu contextuel', asyn
   await expect(rows.first()).toContainText('1 écart');
   await expect(rows.first()).toContainText('Non évaluées');
   await expect(rows.first()).toContainText('doublon');
-  await expect(page.locator('#batch-note')).toContainText('ne valent pas conformité à la norme');
+  await expect(page.locator('#batch-note')).toContainText('Non contrôlé : schéma XSD');
   await expect(rows.first()).toContainText('échue depuis 31 j');
   await expect(rows.last()).toContainText('Non lue');
   await expect(page.locator('#batch-table tfoot tr')).toContainText('Total EUR — 2 documents');
@@ -302,6 +302,26 @@ test('tableau multi-factures : totaux, filtres, export et menu contextuel', asyn
   await page.locator('#batch-filter').selectOption('echue');
   await expect(rows).toHaveCount(2);
   await expect(page.locator('#batch-count')).toHaveText('2 / 3 documents');
+
+  // Filtres métier : fournisseur, montants et remise à zéro
+  await page.locator('#batch-filter').selectOption('all');
+  await expect(rows).toHaveCount(3);
+  await page.locator('#batch-seller').fill('Inconnu');
+  await expect(page.locator('.batch-empty')).toHaveText('Aucun document ne correspond au filtre.');
+  await page.locator('#batch-seller').fill('Test');
+  await expect(rows).toHaveCount(2);
+  await page.locator('#batch-amount-min').fill('1500');
+  await expect(page.locator('.batch-empty')).toHaveText('Aucun document ne correspond au filtre.');
+  await page.locator('#batch-amount-min').fill('500');
+  await page.locator('#batch-amount-max').fill('1300');
+  await expect(rows).toHaveCount(2);
+  await page.locator('#batch-reset-filters').click();
+  await expect(rows).toHaveCount(3);
+  await expect(page.locator('#batch-seller')).toHaveValue('');
+  await expect(page.locator('#batch-amount-min')).toHaveValue('');
+
+  await page.locator('#batch-filter').selectOption('echue');
+  await expect(rows).toHaveCount(2);
   await page.locator('#batch-export').click();
   await expect.poll(() => page.evaluate(() => window.__saved?.filename)).toBe('factures.csv');
   const csv = (await page.evaluate(() => window.__saved.content)).split('\r\n');
@@ -474,8 +494,8 @@ test('règles EN 16931 affichées, filtrées dans le tableau, et impression', as
   await expect(rules).toHaveAttribute('open', '');
   // Verdicts séparés : des calculs cohérents n'effacent pas une règle non respectée.
   const verdicts = page.locator('#verdicts .ctl-chip');
-  await expect(verdicts).toHaveText(['Lecture réussie', 'Calculs cohérents', '1 règle EN 16931 non respectée']);
-  await expect(page.locator('#verdicts .verdict-note')).toContainText('Non contrôlés : Schematron officiel, schéma XSD, conteneur PDF/A-3');
+  await expect(verdicts).toHaveText(['Lecture réussie', 'Calculs cohérents', '1 règle EN 16931 non respectée', 'Schematron officiel respecté']);
+  await expect(page.locator('#verdicts .verdict-note')).toContainText('Non contrôlé : schéma XSD');
   await expect(rules.locator('summary')).toContainText('1 non respectée');
   await expect(rules.locator('summary')).toContainText('2 respectées');
   await expect(rules.locator('tbody tr').first()).toContainText('BR-07');
@@ -503,7 +523,7 @@ test('règles EN 16931 affichées, filtrées dans le tableau, et impression', as
   await page.locator('#btn-control-report').click();
   await expect.poll(() => page.evaluate(() => window.__report?.report.regles_en16931?.non_conformes)).toBe(1);
   expect(await page.evaluate(() => window.__report.report.verdicts)).toEqual({ lecture: 'Lecture réussie', calculs: 'Calculs cohérents',
-    regles_en16931: '1 règle EN 16931 non respectée', autres_alertes: 0, non_controle: ['Schematron officiel', 'schéma XSD', 'conteneur PDF/A-3'] });
+    regles_en16931: '1 règle EN 16931 non respectée', autres_alertes: 0, non_controle: ['schéma XSD'] });
   await page.locator('#tab-batch').click();
   await expect(page.locator('#batch-table tbody tr.batch-row')).toContainText('1 non respectée');
   await expect(page.locator('#batch-table tbody tr.batch-row')).toContainText('Cohérents');

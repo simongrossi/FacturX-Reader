@@ -130,6 +130,9 @@ async function addSources(sources) {
       }
       entry.result = await sources[i].load();
       entry.status = "ok";
+      if (entry.result && (entry.result.format === "CII" || entry.result.format === "UBL")) {
+        triggerSchematronValidation(entry);
+      }
       libraryNotice(entry.result && entry.result.bibliotheque_erreur);
       rememberRecent(entry);
     } catch (e) {
@@ -318,6 +321,34 @@ function getFile(id) {
   return state.files.find((f) => f.id === id);
 }
 
+async function triggerSchematronValidation(entry) {
+  if (!entry || !entry.result || entry.result._schematronRunning || entry.result.schematron) return;
+  if (typeof SchematronValidator === "undefined") return;
+  entry.result._schematronRunning = true;
+  try {
+    const res = await SchematronValidator.validate(entry.result.xml_pretty, entry.result.format);
+    entry.result.schematron = res;
+    if (state.selected === entry.id) {
+      const pane = byId("pane-data");
+      const oldVerdicts = byId("verdicts");
+      if (oldVerdicts && pane) {
+        oldVerdicts.replaceWith(verdictStrip(entry));
+      }
+      const oldSch = byId("schematron-rules");
+      if (oldSch) {
+        const newSch = schematronSection(entry);
+        if (newSch) oldSch.replaceWith(newSch);
+      }
+    }
+    renderList();
+    if (state.batch) renderBatch();
+  } catch (err) {
+    console.error("Erreur Schematron :", err);
+  } finally {
+    entry.result._schematronRunning = false;
+  }
+}
+
 function selectFile(id) {
   captureDocumentView();
   state.renderToken++;
@@ -327,6 +358,10 @@ function selectFile(id) {
   state.tab = "pdf";
   state.pdfDoc = null;
   state.pdfSource = null;
+  const f = getFile(id);
+  if (f && f.result && !f.result.schematron && !f.result._schematronRunning) {
+    triggerSchematronValidation(f);
+  }
   renderList();
   renderFileView();
 }
@@ -1008,20 +1043,20 @@ function renderLinesOnly(f) {
 
 /* ---- verdicts : lecture, calculs et règles EN 16931 ne sont jamais confondus ---- */
 
-const NOT_CHECKED = ["Schematron officiel", "schéma XSD", "conteneur PDF/A-3"];
-const NOT_CHECKED_NOTE = "Non contrôlés : " + NOT_CHECKED.join(", ") + ". « Cohérent » et « respectées » ne valent pas conformité à la norme.";
+const NOT_CHECKED = ["schéma XSD"];
+const NOT_CHECKED_NOTE = "Non contrôlé : " + NOT_CHECKED.join(", ") + ". Schematron officiel CEN, conteneur PDF/A-3, calculs et règles métier contrôlés.";
 
-/* Trois verdicts indépendants d'un document, plus le nombre d'autres alertes. */
+/* Verdicts indépendants d'un document, plus le nombre d'autres alertes. */
 function invoiceVerdicts(f, extraAlerts = 0) {
   const r = f.result;
   const plural = (n, word) => n + " " + word + (n > 1 ? "s" : "");
   if (f.status === "error") {
     const none = { etat: "erreur", court: "Non lue", label: "Non lue" };
-    return { lecture: { etat: "erreur", court: "Non lue", label: "Lecture impossible" }, calculs: none, regles: none, alertes: 0 };
+    return { lecture: { etat: "erreur", court: "Non lue", label: "Lecture impossible" }, calculs: none, regles: none, schematron: null, conteneur: null, alertes: 0 };
   }
   if (!r || !r.synthese) {
     const none = { etat: "non_verifiable", court: "—", label: "Non évalué" };
-    return { lecture: { etat: "non_verifiable", court: "Non reconnue", label: "Structure non reconnue" }, calculs: none, regles: none, alertes: 0 };
+    return { lecture: { etat: "non_verifiable", court: "Non reconnue", label: "Structure non reconnue" }, calculs: none, regles: none, schematron: null, conteneur: null, alertes: 0 };
   }
   const checks = r.controles || [];
   const calc = checks.filter((c) => c.famille === "calcul");
@@ -1034,8 +1069,31 @@ function invoiceVerdicts(f, extraAlerts = 0) {
   const regles = !report || !report.evaluees ? { etat: "non_verifiable", court: "Non évaluées", label: "Règles EN 16931 non évaluées" }
     : broken ? { etat: "ecart", court: broken + " non respectée" + (broken > 1 ? "s" : ""), label: broken + " règle" + (broken > 1 ? "s" : "") + " EN 16931 non respectée" + (broken > 1 ? "s" : "") }
     : { etat: "conforme", court: "Respectées", label: "Règles EN 16931 respectées" };
+
+  let schematron = null;
+  if (r.schematron) {
+    const sch = r.schematron;
+    if (sch.evalue) {
+      schematron = sch.non_conformes > 0
+        ? { etat: "ecart", court: plural(sch.non_conformes, "non-conformité"), label: plural(sch.non_conformes, "règle") + " Schematron officiel non respectée" + (sch.non_conformes > 1 ? "s" : "") }
+        : { etat: "conforme", court: "Conforme", label: "Schematron officiel respecté" };
+    }
+  } else if (r._schematronRunning) {
+    schematron = { etat: "info", court: "En cours…", label: "Schematron officiel en cours…" };
+  }
+
+  let conteneur = null;
+  if (r.conteneur && r.conteneur.est_pdf) {
+    const c = r.conteneur;
+    if (c.est_pdfa && c.piece_jointe_declaree) {
+      conteneur = { etat: "conforme", court: c.pdfa_version || "PDF/A-3", label: "Conteneur " + (c.pdfa_version || "PDF/A-3") + " valide" };
+    } else {
+      conteneur = { etat: "alerte", court: "Conteneur", label: "Conteneur PDF non conforme PDF/A-3" };
+    }
+  }
+
   const alertes = checks.filter((c) => c.famille !== "calcul" && (c.etat === "alerte" || c.etat === "ecart")).length + extraAlerts;
-  return { lecture: { etat: "conforme", court: "Lue", label: "Lecture réussie" }, calculs, regles, alertes };
+  return { lecture: { etat: "conforme", court: "Lue", label: "Lecture réussie" }, calculs, regles, schematron, conteneur, alertes };
 }
 
 /* Bandeau de verdicts en tête de l'onglet Données. */
@@ -1046,10 +1104,17 @@ function verdictStrip(f) {
   strip.className = "verdicts";
   const chips = document.createElement("div");
   chips.className = "verdict-chips";
-  const chip = (verdict) => chips.appendChild(Object.assign(document.createElement("span"), {
-    className: "ctl-chip ctl-" + verdict.etat, textContent: verdict.label,
-  }));
-  chip(v.lecture); chip(v.calculs); chip(v.regles);
+  const chip = (verdict) => {
+    if (!verdict) return;
+    chips.appendChild(Object.assign(document.createElement("span"), {
+      className: "ctl-chip ctl-" + verdict.etat, textContent: verdict.label,
+    }));
+  };
+  chip(v.lecture);
+  chip(v.calculs);
+  chip(v.regles);
+  if (v.schematron) chip(v.schematron);
+  if (v.conteneur) chip(v.conteneur);
   if (v.alertes) chip({ etat: "alerte", label: v.alertes + " alerte" + (v.alertes > 1 ? "s" : "") });
   strip.appendChild(chips);
   strip.appendChild(Object.assign(document.createElement("p"), { className: "verdict-note", textContent: NOT_CHECKED_NOTE }));
@@ -1204,7 +1269,7 @@ function printView() {
   hideContextMenu();
   hidePopover();
   // Blocs repliés ouverts et thème clair le temps de l'impression.
-  const closed = [...document.querySelectorAll("#controls:not([open]), #rules:not([open])")];
+  const closed = [...document.querySelectorAll("#controls:not([open]), #rules:not([open]), #schematron-rules:not([open])")];
   closed.forEach((d) => { d.open = true; });
   const root = document.documentElement;
   const theme = root.getAttribute("data-theme");
@@ -1222,6 +1287,86 @@ function printView() {
   // Filet de sécurité si la fenêtre ne signale pas la fin de l'impression.
   document.addEventListener("pointerdown", restore, true);
   api.print().catch(() => window.print());
+}
+
+function schematronSection(f) {
+  const r = f.result;
+  if (!r || (r.format !== "CII" && r.format !== "UBL")) return null;
+  const sch = r.schematron;
+  const sec = document.createElement("details");
+  sec.id = "schematron-rules";
+  sec.className = "section controls";
+  sec.open = !!(sch && sch.non_conformes > 0);
+
+  const sum = document.createElement("summary");
+  sum.className = "section-title";
+
+  if (!sch) {
+    sum.innerHTML = '<span class="ctl-chip ctl-info">Schematron officiel</span> Évaluation officielle en arrière-plan…';
+    sec.appendChild(sum);
+    const p = document.createElement("p");
+    p.className = "notice";
+    p.textContent = "Le moteur SaxonJS exécute les règles Schematron officielles EN 16931 du CEN / Commission européenne localement…";
+    sec.appendChild(p);
+    return sec;
+  }
+
+  if (sch.erreur_moteur) {
+    sum.innerHTML = '<span class="ctl-chip ctl-alerte">Schematron officiel</span> Évaluation impossible : ' + esc(sch.erreur_moteur);
+    sec.appendChild(sum);
+    return sec;
+  }
+
+  const etat = sch.non_conformes ? "ecart" : "conforme";
+  const badgeTxt = sch.non_conformes
+    ? sch.non_conformes + " règle" + (sch.non_conformes > 1 ? "s" : "") + " non conforme" + (sch.non_conformes > 1 ? "s" : "")
+    : "Conforme (" + (sch.duree_ms != null ? sch.duree_ms + " ms" : "OK") + ")";
+  sum.innerHTML = '<span class="ctl-chip ctl-' + etat + '">Schematron officiel CEN</span> ' +
+    esc(badgeTxt) + (sch.avertissements ? ' · ' + sch.avertissements + ' avertissement' + (sch.avertissements > 1 ? "s" : "") : '');
+  sec.appendChild(sum);
+
+  if (sch.erreurs && sch.erreurs.length) {
+    const table = document.createElement("table");
+    table.className = "ctl-table";
+    const tbody = document.createElement("tbody");
+    for (const err of sch.erreurs) {
+      const tr = document.createElement("tr");
+      tr.className = "ctl-row ctl-" + (err.flag === "warning" ? "alerte" : "ecart");
+      const tdState = document.createElement("td");
+      tdState.className = "ctl-etat";
+      tdState.appendChild(Object.assign(document.createElement("span"), {
+        className: "ctl-chip ctl-" + (err.flag === "warning" ? "alerte" : "ecart"),
+        textContent: err.id || (err.flag === "warning" ? "Avertissement" : "Non-conforme"),
+      }));
+      const tdText = document.createElement("td");
+      tdText.className = "ctl-rule";
+      tdText.textContent = err.texte;
+      if (err.location) {
+        tdText.appendChild(Object.assign(document.createElement("span"), {
+          className: "note",
+          textContent: "Emplacement : " + err.location,
+        }));
+      }
+      tr.appendChild(tdState);
+      tr.appendChild(tdText);
+      tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+    sec.appendChild(table);
+  } else {
+    const okP = document.createElement("p");
+    okP.className = "notice";
+    okP.style.color = "var(--ok)";
+    okP.textContent = "Toutes les assertions Schematron officielles publiées par le CEN pour la norme EN 16931 sont respectées (durée d'exécution : " + (sch.duree_ms || 0) + " ms).";
+    sec.appendChild(okP);
+  }
+
+  const foot = document.createElement("p");
+  foot.className = "verdict-note";
+  foot.textContent = "Feuilles Schematron officielles v1.3.16 de la Commission européenne (EUPL 1.2), exécutées localement par SaxonJS (Saxonica).";
+  sec.appendChild(foot);
+
+  return sec;
 }
 
 function renderData(f) {
@@ -1262,6 +1407,8 @@ function renderData(f) {
   if (controls) pane.appendChild(controls);
   const rules = rulesSection(f);
   if (rules) pane.appendChild(rules);
+  const sch = schematronSection(f);
+  if (sch) pane.appendChild(sch);
   pane.appendChild(reviewPanel(f));
 
   if (r.lines && r.lines.length) {

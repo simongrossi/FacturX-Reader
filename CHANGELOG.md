@@ -5,15 +5,16 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 
 ## [Non publié]
 
+### Ajouté
+
+- **Validation officielle par Schematron** : exécution 100 % locale dans la WebView via le moteur SaxonJS des règles officielles CEN EN 16931 v1.3.16 (Commission européenne / ConnectingEurope, licence EUPL 1.2) précompilées au format SEF pour CII et UBL. Affichage des assertions non conformes, de leur chemin et de leur texte officiel dans l'onglet Données.
+- **Conteneur PDF et extraction robuste** : remplacement de l'extraction par expressions régulières par un vrai parseur PDF structurel (`lopdf`, avec repli de secours). Détection et contrôles de la conformité PDF/A-3, présence de la pièce jointe déclarée (`/AF` et `/EmbeddedFiles`), métadonnées XMP et concordance du profil annoncé.
+- **Filtres métier** : filtres par période (dates début et fin), plage de montants TTC (min et max) et fournisseur, intégrés au tableau multi-factures et à la bibliothèque locale avec bouton de réinitialisation.
+
 ### Modifié
 
-- **Verdicts séparés** : lecture, calculs et règles EN 16931 ne sont plus résumés par un seul
-  « Conforme ». L'onglet Données affiche trois verdicts distincts en tête, le tableau a trois
-  colonnes (Calculs, Règles EN 16931, Alertes), et le rapport JSON porte un bloc `verdicts`.
-  Partout, une mention rappelle ce qui n'est pas contrôlé : Schematron officiel, schéma XSD,
-  conteneur PDF/A-3.
-- Chaque contrôle porte sa famille (`calcul`, `mention`, `date`, `historique`) ; la pastille
-  rouge de la liste ne compte plus que les écarts de calcul.
+- **Verdicts enrichis et séparés** : lecture, calculs, règles EN 16931, Schematron officiel et conteneur PDF/A-3 disposent chacun de leur verdict dédié. Seul le schéma XSD reste mentionné comme non contrôlé.
+- Chaque contrôle porte sa famille (`calcul`, `mention`, `date`, `historique`, `conteneur`) ; la pastille rouge de la liste ne compte plus que les écarts de calcul.
 
 ## [0.5.0] - 2026-10-02
 
