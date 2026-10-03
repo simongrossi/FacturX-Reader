@@ -8,7 +8,7 @@
 
 use std::collections::HashMap;
 use std::fmt;
-use std::io::{Cursor, Read};
+use std::io::Cursor;
 use std::sync::LazyLock;
 
 use base64::Engine;
@@ -21,6 +21,9 @@ use sha2::{Digest, Sha256};
 use crate::tables;
 
 mod controles;
+mod imports;
+pub use imports::ArchiveSelection;
+use imports::{decompress_candidates, read_bounded, MAX_EXPANDED, MAX_XML, MAX_METADATA};
 mod en16931;
 
 #[derive(Debug)]
@@ -1488,52 +1491,38 @@ struct Extracted {
     conteneur_pdf: Option<PdfContainerInfo>,
 }
 
-fn parse_zip(data: &[u8]) -> Result<Extracted, FacturXError> {
-    let mut zf = zip::ZipArchive::new(Cursor::new(data))
-        .map_err(|e| FacturXError(format!("Archive ZIP invalide : {e}")))?;
-    let names: Vec<String> = (0..zf.len())
-        .filter_map(|i| zf.by_index_raw(i).ok().map(|f| f.name().to_string()))
-        .collect();
-    let mut xml_name: Option<&String> = None;
-    for n in &names {
-        let ln = n.to_lowercase();
-        if ln.ends_with(".xml") && (xml_name.is_none() || ln.contains("factur") || ln.contains("en16931")) {
-            xml_name = Some(n);
-        }
-    }
-    let xml_name = xml_name.ok_or_else(|| FacturXError("Aucun fichier XML trouvé dans l'archive ZIP.".into()))?;
-    let mut read = |name: &str| -> Result<Vec<u8>, FacturXError> {
-        let mut buf = Vec::new();
-        zf.by_name(name)
-            .map_err(|e| FacturXError(format!("Archive ZIP invalide : {e}")))?
-            .read_to_end(&mut buf)
-            .map_err(|e| FacturXError(format!("Archive ZIP invalide : {e}")))?;
-        Ok(buf)
+fn parse_zip(data: &[u8], selection: Option<&ArchiveSelection>) -> Result<Extracted, FacturXError> {
+    let names = imports::archive_entries(data)?;
+    let xmls: Vec<_> = names.iter().filter(|(_, n)| n.to_lowercase().ends_with(".xml")).collect();
+    let pdfs: Vec<_> = names.iter().filter(|(_, n)| n.to_lowercase().ends_with(".pdf")).collect();
+    let xml = match selection {
+        Some(choice) => xmls.iter().copied().find(|(i, _)| *i == choice.xml),
+        None if xmls.len() == 1 && pdfs.len() <= 1 => xmls.first().copied(),
+        _ => None,
+    }.ok_or_else(|| FacturXError("Sélectionnez un XML valide dans l'archive.".into()))?;
+    let pdf = match selection {
+        Some(choice) => match choice.pdf {
+            Some(index) => Some(pdfs.iter().copied().find(|(i, _)| *i == index)
+                .ok_or_else(|| FacturXError("Sélection PDF invalide dans l'archive.".into()))?),
+            None => None,
+        },
+        None => pdfs.first().copied(),
     };
-    let xml = read(xml_name)?;
-    let pdf = match names.iter().find(|n| n.to_lowercase().ends_with(".pdf")) {
-        Some(n) => Some((read(n)?, n.clone())),
+    let mut zip = zip::ZipArchive::new(Cursor::new(data)).map_err(|e| FacturXError(e.to_string()))?;
+    let mut read = |index: usize, limit: usize| -> Result<Vec<u8>, FacturXError> {
+        let entry = zip.by_index(index).map_err(|e| FacturXError(e.to_string()))?;
+        if entry.size() > limit as u64 { return Err(FacturXError(format!("Entrée ZIP trop volumineuse après décompression : {}.", entry.name()))); }
+        read_bounded(entry, limit).map_err(|e| FacturXError(format!("Extraction ZIP impossible : {e}")))
+    };
+    let xml_bytes = read(xml.0, MAX_XML)?;
+    let pdf = match pdf {
+        Some((index, name)) => Some((read(*index, MAX_EXPANDED - MAX_XML)?, name.clone())),
         None => None,
     };
-    Ok(Extracted { xml, xml_name: Some(xml_name.clone()), pdf, conteneur_pdf: None })
+    Ok(Extracted { xml: xml_bytes, xml_name: Some(xml.1.clone()), pdf, conteneur_pdf: None })
 }
 
 // ------------------------------------------------------------------ PDF (Factur-X)
-
-/// Decodages plausibles d'un flux PDF (zlib, deflate brut, puis tel quel).
-fn decompress_candidates(blob: &[u8]) -> Vec<Vec<u8>> {
-    let mut out = Vec::new();
-    let mut buf = Vec::new();
-    if flate2::read::ZlibDecoder::new(blob).read_to_end(&mut buf).is_ok() {
-        out.push(std::mem::take(&mut buf));
-    }
-    buf.clear();
-    if flate2::read::DeflateDecoder::new(blob).read_to_end(&mut buf).is_ok() {
-        out.push(buf);
-    }
-    out.push(blob.to_vec());
-    out
-}
 
 /// Vrai si le blob est un XML de facture (UBL ou CII) — et non du XMP/binaire.
 fn is_invoice_xml(blob: &[u8]) -> bool {
@@ -1776,8 +1765,12 @@ fn pdf_structure(doc: &lopdf::Document, xmp: Option<&str>, attachment: &str, cii
 /// Analyse structurelle du PDF via `lopdf` : recherche des fichiers associés
 /// (/AF et /Names/EmbeddedFiles), métadonnées XMP (PDF/A-3, ConformanceLevel)
 /// et extraction du flux XML de facture.
-fn extract_pdf_with_lopdf(data: &[u8]) -> Option<(Vec<u8>, String, PdfContainerInfo)> {
-    let doc = lopdf::Document::load_mem(data).ok()?;
+fn extract_pdf_with_lopdf(data: &[u8]) -> Result<Option<(Vec<u8>, String, PdfContainerInfo)>, FacturXError> {
+    let doc = match lopdf::Document::load_mem_with_options(data, lopdf::LoadOptions::with_max_decompressed_size(MAX_XML)) {
+        Ok(doc) => doc,
+        Err(e @ lopdf::Error::Decompress(lopdf::DecompressError::MemoryLimitExceeded { .. })) => return Err(FacturXError(e.to_string())),
+        Err(_) => return Ok(None),
+    };
 
     let mut declared_files = Vec::new();
     let mut is_pdfa = false;
@@ -1833,7 +1826,7 @@ fn extract_pdf_with_lopdf(data: &[u8]) -> Option<(Vec<u8>, String, PdfContainerI
                 _ => None,
             };
             if let Some(ms) = meta_stream {
-                let bytes = ms.decompressed_content().unwrap_or_else(|_| ms.content.clone());
+                let bytes = imports::pdf_stream(ms, MAX_METADATA)?;
                 let text = String::from_utf8_lossy(&bytes);
                 if text.contains("pdfaid:part") {
                     is_pdfa = true;
@@ -1894,8 +1887,8 @@ fn extract_pdf_with_lopdf(data: &[u8]) -> Option<(Vec<u8>, String, PdfContainerI
                 let stream_ref = ef.get(b"UF").or_else(|_| ef.get(b"F")).ok().and_then(|o| o.as_reference().ok());
                 if let Some(sref) = stream_ref {
                     if let Ok(stream_obj) = doc.get_object(sref).and_then(|o| o.as_stream()) {
-                        let stream_bytes = stream_obj.decompressed_content().unwrap_or_else(|_| stream_obj.content.clone());
-                        for cand in decompress_candidates(&stream_bytes) {
+                        let stream_bytes = imports::pdf_stream(stream_obj, MAX_XML)?;
+                        for cand in decompress_candidates(&stream_bytes)? {
                             if is_invoice_xml(&cand) {
                                 let is_primary_name = name.to_lowercase().contains("factur-x")
                                     || name.to_lowercase().contains("zugferd")
@@ -1912,10 +1905,10 @@ fn extract_pdf_with_lopdf(data: &[u8]) -> Option<(Vec<u8>, String, PdfContainerI
         }
     }
 
-    let (xml, xml_name, piece_jointe_declaree, af_relationship, mime) = candidate_xml?;
+    let Some((xml, xml_name, piece_jointe_declaree, af_relationship, mime)) = candidate_xml else { return Ok(None); };
     let cii = xml.windows(20).any(|w| w == b"CrossIndustryInvoice");
     let structure = pdf_structure(&doc, xmp_text.as_deref(), &xml_name, cii, af_relationship.as_deref(), mime.as_deref());
-    Some((
+    Ok(Some((
         xml,
         xml_name.clone(),
         PdfContainerInfo {
@@ -1928,7 +1921,7 @@ fn extract_pdf_with_lopdf(data: &[u8]) -> Option<(Vec<u8>, String, PdfContainerI
             profil_xmp,
             structure,
         },
-    ))
+    )))
 }
 
 /// Extrait le XML de facture embarqué dans un PDF Factur-X.
@@ -1938,7 +1931,7 @@ fn extract_pdf_with_lopdf(data: &[u8]) -> Option<(Vec<u8>, String, PdfContainerI
 /// Repli robuste : scan des flux du PDF par expressions régulières.
 fn extract_pdf_xml(data: &[u8]) -> Result<(Vec<u8>, String, PdfContainerInfo), FacturXError> {
     // 1. Essai avec le parseur structurel lopdf
-    if let Some(res) = extract_pdf_with_lopdf(data) {
+    if let Some(res) = extract_pdf_with_lopdf(data)? {
         return Ok(res);
     }
 
@@ -1952,7 +1945,7 @@ fn extract_pdf_xml(data: &[u8]) -> Result<(Vec<u8>, String, PdfContainerInfo), F
     if let Some(name) = &xml_name {
         let stream = PDF_FILESPEC_REF.captures(data).and_then(|c| pdf_object_stream(data, &c[1]));
         if let Some(stream) = stream {
-            for cand in decompress_candidates(&stream) {
+            for cand in decompress_candidates(&stream)? {
                 if is_invoice_xml(&cand) {
                     return Ok((
                         cand,
@@ -1975,7 +1968,7 @@ fn extract_pdf_xml(data: &[u8]) -> Result<(Vec<u8>, String, PdfContainerInfo), F
     }
 
     for c in PDF_STREAM.captures_iter(data) {
-        for cand in decompress_candidates(&c[1]) {
+        for cand in decompress_candidates(&c[1])? {
             if is_invoice_xml(&cand) {
                 let name = xml_name.unwrap_or_else(|| "factur-x.xml".into());
                 return Ok((
@@ -2011,9 +2004,23 @@ fn pdf_entry(bytes: &[u8], filename: &str) -> Value {
 /// Analyse un fichier (PDF Factur-X, ZIP Factur-X ou XML UBL/CII) et retourne
 /// un objet JSON : données structurees + PDF en base64 + XML complet.
 pub fn parse_file(filename: &str, data: &[u8]) -> Result<Value, FacturXError> {
+    parse_file_selected(filename, data, None)
+}
+
+pub fn parse_file_selected(filename: &str, data: &[u8], selection: Option<&ArchiveSelection>) -> Result<Value, FacturXError> {
+    if data.len() > MAX_EXPANDED { return Err(FacturXError("Fichier trop volumineux (max 200 Mo).".into())); }
     let mut warnings: Vec<String> = Vec::new();
     let (kind, extracted) = if data.starts_with(b"PK\x03\x04") {
-        let extracted = parse_zip(data)?;
+        if selection.is_none() {
+            let entries = imports::archive_entries(data)?;
+            let xml: Vec<_> = entries.iter().filter(|(_, n)| n.to_lowercase().ends_with(".xml")).map(|(i,n)| json!({"index": i, "name": n})).collect();
+            let pdf: Vec<_> = entries.iter().filter(|(_, n)| n.to_lowercase().ends_with(".pdf")).map(|(i,n)| json!({"index": i, "name": n})).collect();
+            if xml.is_empty() { return Err(FacturXError("Aucun fichier XML trouvé dans l'archive ZIP.".into())); }
+            if xml.len() > 1 || pdf.len() > 1 {
+                return Ok(json!({"archive_choices": {"xml": xml, "pdf": pdf}}));
+            }
+        }
+        let extracted = parse_zip(data, selection)?;
         warnings.push(format!(
             "XML extrait de l'archive : {}",
             extracted.xml_name.as_deref().unwrap_or_default()
@@ -2105,6 +2112,7 @@ pub fn parse_file(filename: &str, data: &[u8]) -> Result<Value, FacturXError> {
     result.insert("xsd".into(), crate::xsd::validate_invoice(&source, &pretty, format));
     result.insert("xml_pretty".into(), pretty.into());
     result.insert("xml_source".into(), source.as_str().into());
+    if let Some(selection) = selection { result.insert("archive_selection".into(), serde_json::to_value(selection).map_err(|e| FacturXError(e.to_string()))?); }
     Ok(Value::Object(result))
 }
 
@@ -2265,6 +2273,47 @@ mod tests {
         assert_eq!(r["warnings"][0], "XML extrait de l'archive : factur-x.xml");
         let direct = parse_file("test-cii.xml", CII.as_bytes()).unwrap();
         assert_eq!(r["doc_hash"], direct["doc_hash"]);
+    }
+
+    #[test]
+    fn ambiguous_zip_requires_explicit_pair_and_can_open_xml_alone() {
+        let mut writer = zip::ZipWriter::new(Cursor::new(Vec::new()));
+        let options = zip::write::SimpleFileOptions::default();
+        for (name, bytes) in [("a.xml", CII.as_bytes()), ("b.xml", UBL.as_bytes()), ("b.pdf", &b"%PDF-B"[..]), ("a.pdf", &b"%PDF-A"[..])] {
+            writer.start_file(name, options).unwrap();
+            writer.write_all(bytes).unwrap();
+        }
+        let zip = writer.finish().unwrap().into_inner();
+        let choices = parse_file("archive.zip", &zip).unwrap();
+        assert_eq!(choices["archive_choices"]["xml"].as_array().unwrap().len(), 2);
+        assert!(choices.get("doc_hash").is_none());
+        let result = parse_file_selected("archive.zip", &zip, Some(&ArchiveSelection { xml: 0, pdf: Some(3) })).unwrap();
+        assert_eq!(result["pdf"]["filename"], "a.pdf");
+        assert_eq!(result["format"], "CII");
+        assert_eq!(result["archive_selection"]["pdf"], 3);
+        let alone = parse_file_selected("archive.zip", &zip, Some(&ArchiveSelection { xml: 1, pdf: None })).unwrap();
+        assert!(alone["pdf"].is_null());
+        assert_eq!(alone["format"], "UBL");
+        assert!(parse_file_selected("archive.zip", &zip, Some(&ArchiveSelection { xml: 3, pdf: None })).is_err());
+        assert!(parse_file_selected("archive.zip", &zip, Some(&ArchiveSelection { xml: 0, pdf: Some(1) })).is_err());
+    }
+
+    #[test]
+    fn compressed_zip_and_pdf_cannot_exceed_xml_limit() {
+        let inflated = vec![b'x'; MAX_XML + 1];
+        let mut writer = zip::ZipWriter::new(Cursor::new(Vec::new()));
+        writer.start_file("large.xml", zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated)).unwrap();
+        writer.write_all(&inflated).unwrap();
+        let zip = writer.finish().unwrap().into_inner();
+        assert!(zip.len() < 1024 * 1024);
+        assert!(parse_file("large.zip", &zip).unwrap_err().to_string().contains("volumineuse"));
+        let mut encoder = flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::default());
+        encoder.write_all(&inflated).unwrap();
+        let compressed = encoder.finish().unwrap();
+        let mut pdf = b"%PDF-1.7\n1 0 obj\n<< /Filter /FlateDecode >>\nstream\n".to_vec();
+        pdf.extend(compressed);
+        pdf.extend_from_slice(b"\nendstream\nendobj\n%%EOF");
+        assert!(parse_file("large.pdf", &pdf).unwrap_err().to_string().contains("décompression"));
     }
 
     #[test]

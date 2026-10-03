@@ -35,7 +35,14 @@ async function mockBackend(page, pdf = null, extra = {}) {
           { hash: 'h-drop', fichier: 'deposee.pdf', chemin: '', format: 'UBL', numero: 'AV-7', avoir: true, date: '2025-10-01', echeance: '', vendeur: 'Nordik Transport', acheteur: 'Buyer', devise: 'EUR', ht: '50.00', tva: '10.00', ttc: '60.00', a_payer: '60.00', vue_le: '2026-09-29 10:00:00', revue_le: '2026-09-29 10:00:00', lignes: 1 },
         ].filter(row => !(window.__libraryRemoved || []).includes(row.hash));
         const q = args.query.trim().toLowerCase();
-        return { factures: all.filter(row => !q || JSON.stringify(row).toLowerCase().includes(q)), total: all.length, tronque: false };
+        const f = args.filters || {};
+        const matching = all.filter(row => (!q || JSON.stringify(row).toLowerCase().includes(q))
+          && (!f.dateMin || row.date >= f.dateMin) && (!f.dateMax || row.date && row.date <= f.dateMax)
+          && (!f.fournisseur || row.vendeur.toLowerCase().includes(f.fournisseur.toLowerCase()))
+          && (f.montantMin == null || Number(row.ttc) >= f.montantMin)
+          && (f.montantMax == null || Number(row.ttc) <= f.montantMax));
+        return { factures: matching.slice(f.offset || 0, (f.offset || 0) + 1000), total: all.length,
+          correspondances: matching.length, offset: f.offset || 0, limite: 1000, tronque: false };
       }
       if (command === 'library_remove') { window.__libraryRemoved = [...(window.__libraryRemoved || []), args.hash]; return null; }
       if (command === 'library_reset') { window.__libraryBroken = false; return null; }
@@ -61,7 +68,8 @@ async function mockBackend(page, pdf = null, extra = {}) {
       if (command === 'import_data') return { pointages: 3, suivi: 1 };
       if (command === 'save_control_report') { window.__report = args; return true; }
       if (command === 'print_window') { window.__printed = { theme: document.documentElement.dataset.theme, rules: document.querySelector('#rules')?.open }; return null; }
-      if (command === 'parse_file' || command === 'parse_path') return {
+      if (command === 'parse_file' || command === 'parse_path' || command === 'library_open' || command === 'library_relink') return {
+        ...(command.startsWith('library_') ? { filename: 'ancienne.pdf', replacement_path: 'C:/archives/ancienne.pdf' } : {}),
         format: 'CII', root: 'CrossIndustryInvoice', doc_hash: 'fixture', header: [], lines: [],
         rows: [{ title: 'Référence', tag: 'ID', value: 'FAC-2026-123', path: 'Invoice/ID' }],
         xml_pretty: '<Invoice>FAC-2026-123</Invoice>', summary: [], sections: [], warnings: [],
@@ -329,8 +337,8 @@ test('tableau multi-factures : totaux, filtres, export et menu contextuel', asyn
   await page.locator('#batch-export').click();
   await expect.poll(() => page.evaluate(() => window.__saved?.filename)).toBe('factures.csv');
   const csv = (await page.evaluate(() => window.__saved.content)).split('\r\n');
-  expect(csv[0]).toBe('\uFEFFFichier;Vendeur;N°;Type;Date;Échéance;HT;TVA;TTC;À payer;Devise;Calculs;Règles EN 16931;Alertes;Vérification;Jours avant échéance;Détail des contrôles;Commentaire');
-  expect(csv[1]).toBe('one.xml;Test Seller;F-1;Facture;2026-10-03;2026-09-01;1000,00;200,00;1200,00;1200,00;EUR;1 écart;Non évaluées;doublon;À vérifier;-31;Total TTC = total HT + total TVA (0.01);');
+  expect(csv[0]).toBe('\uFEFFFichier;Vendeur;N°;Type;Date;Échéance;HT;TVA;TTC;À payer;Devise;Calculs;Règles EN 16931;Schematron;Schéma XSD;Règles françaises;Conteneur PDF;Alertes;Vérification;Jours avant échéance;Détail des contrôles;Commentaire');
+  expect(csv[1]).toBe('one.xml;Test Seller;F-1;Facture;2026-10-03;2026-09-01;1000,00;200,00;1200,00;1200,00;EUR;1 écart;Non évaluées;Non évalué;Non évalué;—;—;doublon;À vérifier;-31;Total TTC = total HT + total TVA (0.01);');
   expect(csv).toHaveLength(4);
 
   await page.evaluate(() => { clipboardWrite = async text => { window.__clip = text; }; });
@@ -538,7 +546,7 @@ test('règles EN 16931 affichées, filtrées dans le tableau, et impression', as
   await expect(rules).toHaveAttribute('open', '');
   // Verdicts séparés : des calculs cohérents n'effacent pas une règle non respectée.
   const verdicts = page.locator('#verdicts .ctl-chip');
-  await expect(verdicts).toHaveText(['Lecture réussie', 'Calculs cohérents', '1 règle EN 16931 non respectée', 'Schematron officiel non évalué']);
+  await expect(verdicts).toHaveText(['Lecture réussie', 'Calculs cohérents', '1 règle EN 16931 non respectée', 'Schematron officiel non évalué', 'Schéma XSD non évalué']);
   await expect(page.locator('#verdicts .verdict-note')).toContainText('Non contrôlés : conformité PDF/A-3 complète');
   await expect(page.locator('#verdicts .verdict-note')).toContainText('ne vaut certification');
   await expect(rules.locator('summary')).toContainText('1 non respectée');
@@ -568,7 +576,7 @@ test('règles EN 16931 affichées, filtrées dans le tableau, et impression', as
   await page.locator('#btn-control-report').click();
   await expect.poll(() => page.evaluate(() => window.__report?.report.regles_en16931?.non_conformes)).toBe(1);
   expect(await page.evaluate(() => window.__report.report.verdicts)).toEqual({ lecture: 'Lecture réussie', calculs: 'Calculs cohérents',
-    regles_en16931: '1 règle EN 16931 non respectée', schema_xsd: null, regles_francaises: null, autres_alertes: 0, non_controle: ['conformité PDF/A-3 complète du fichier (ses déclarations et quelques points de structure sont contrôlés)', 'règles nationales autres que françaises (XRechnung, Peppol…)'] });
+    regles_en16931: '1 règle EN 16931 non respectée', schema_xsd: 'Schéma XSD non évalué', schematron: 'Schematron officiel non évalué', conteneur: null, regles_francaises: null, autres_alertes: 0, non_controle: ['conformité PDF/A-3 complète du fichier (ses déclarations et quelques points de structure sont contrôlés)', 'règles nationales autres que françaises (XRechnung, Peppol…)'] });
   await page.locator('#tab-batch').click();
   await expect(page.locator('#batch-table tbody tr.batch-row')).toContainText('1 non respectée');
   await expect(page.locator('#batch-table tbody tr.batch-row')).toContainText('Cohérents');
@@ -648,13 +656,13 @@ test('bibliothèque : recherche, ouverture, retrait, historique des prix, régla
   await page.locator('#tab-library').click();
   const rows = page.locator('#library-table tbody tr');
   await expect(rows).toHaveCount(2);
-  await expect(page.locator('#library-count')).toHaveText('2 factures');
+  await expect(page.locator('#library-count')).toHaveText('2 résultats / 2 factures');
   await expect(rows.first()).toContainText('Papeterie Durand SAS');
   await expect(rows.first()).toContainText('1 200,00');
   await expect(rows.nth(1)).toContainText('Avoir');
   await page.locator('#library-search').fill('nordik');
   await expect(rows).toHaveCount(1);
-  await expect(page.locator('#library-count')).toHaveText('1 / 2 factures');
+  await expect(page.locator('#library-count')).toHaveText('1 résultat / 2 factures');
   await page.locator('#library-search').fill('introuvable');
   await expect(page.locator('#library-empty')).toHaveText('Aucune facture ne correspond à la recherche.');
   await page.locator('#library-search').fill('');
@@ -818,4 +826,115 @@ test('schéma XSD : erreurs listées avec leur ligne, verdict dédié', async ({
   await expect(section).toContainText('Schéma Factur-X 1.09.2, profil BASIC');
   await expect(section).toContainText("Les lignes sont celles de l'onglet « XML brut »");
   expect(errors).toEqual([]);
+});
+
+
+test('contrôles partagés : tableau, filtres, rapport complet et synthèse navigable', async ({ page }) => {
+  const sch = { evalue: true, non_conformes: 1, non_evaluables: ['BR-X'], erreurs: [{ id: 'BR-1', flag: 'fatal', texte: 'Erreur métier' }],
+    br_fr: { ok: false, non_conformes: 1, non_evaluables: [], erreurs: [{ id: 'BR-FR-1', texte: 'Mention absente', flag: 'fatal' }] } };
+  await mockBackend(page, null, {
+    synthese: { numero: 'TEST', vendeur: 'V', devise: 'EUR' },
+    controles: [{ famille: 'calcul', etat: 'conforme', regle: 'Total', attendu: '120', constate: '120' }],
+    regles: { evaluees: 1, non_conformes: 0, liste: [] },
+    xsd: { evalue: true, ok: false, total: 1, erreurs: [{ ligne: 2, message: 'Élément inattendu' }] }, schematron: sch,
+  });
+  await page.goto(url);
+  await page.locator('#file-input').setInputFiles({ name: 'controle.xml', mimeType: 'text/xml', buffer: Buffer.from('<Invoice/>') });
+  await page.getByRole('button', { name: 'Données', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Synthèse des vérifications' })).toContainText('contrôle incomplet');
+  await page.screenshot({ path: 'test-results/control-summary.png' });
+  await page.locator('.action-summary').getByRole('button', { name: '1 erreur de schéma XSD' }).click();
+  await expect(page.locator('#xsd-errors')).toBeFocused();
+  await page.locator('#btn-control-report').click();
+  const report = await page.evaluate(() => window.__report.report);
+  expect(report.schematron).toEqual(sch);
+  expect(report.regles_francaises).toEqual(sch.br_fr);
+  expect(report.etats_controles.schematron.partiel).toBe(true);
+  expect(report.etats_controles.xsd.etat).toBe('ecart');
+  await page.locator('#tab-batch').click();
+  for (const filter of ['xsd', 'schematron', 'france', 'incomplet']) {
+    await page.locator('#batch-filter').selectOption(filter);
+    await expect(page.locator('#batch-table tbody tr.batch-row')).toHaveCount(1);
+  }
+  await page.locator('#batch-export').click();
+  expect(await page.evaluate(() => window.__saved.content)).toContain('1 non-conformité;1 erreur;1 règle BR-FR');
+  const absent = await page.evaluate(() => invoiceVerdicts({ status: 'ok', result: { synthese: {} } }));
+  expect(absent.schematron.etat).toBe('non_verifiable');
+  expect(absent.xsd.etat).toBe('non_verifiable');
+  const pending = await page.evaluate(() => invoiceVerdicts({ status: 'ok', result: { synthese: {}, _schematronRunning: true } }));
+  expect(pending.schematron.etat).toBe('info');
+});
+
+test('bibliothèque : navigation des pages et filtres transmis au moteur', async ({ page }) => {
+  await mockBackend(page);
+  await page.goto(url);
+  await page.evaluate(() => {
+    window.__filterCalls = [];
+    api.librarySearch = async (query, filters) => {
+      window.__filterCalls.push({ query, ...filters });
+      const filtered = !!filters.dateMax;
+      const all = ['A', 'B', 'C'].map(hash => ({ hash, fichier: hash + '.xml', numero: hash }));
+      const rows = filtered ? all.slice(2) : all;
+      return { total: 3, correspondances: rows.length, offset: filters.offset, limite: 2, factures: rows.slice(filters.offset, filters.offset + 2) };
+    };
+  });
+  await page.locator('#tab-library').click();
+  await expect(page.locator('#library-table tbody tr')).toHaveCount(2);
+  await page.locator('#library-pagination').getByRole('button', { name: 'Suivant' }).click();
+  await expect(page.locator('#library-table tbody')).toContainText('C.xml');
+  await expect(page.locator('#library-pagination')).toContainText('3–3 sur 3');
+  await page.locator('#library-date-to').fill('2020-12-31');
+  await page.locator('#library-date-to').dispatchEvent('change');
+  await expect(page.locator('#library-pagination')).toBeHidden();
+  await expect(page.locator('#library-count')).toHaveText('1 résultat / 3 factures');
+  expect(await page.evaluate(() => window.__filterCalls.at(-1))).toMatchObject({ dateMax: '2020-12-31', offset: 0 });
+});
+
+test('archive ambiguë : choix explicite, XML seul, annulation et reprise', async ({ page }) => {
+  await mockBackend(page);
+  await page.addInitScript(() => {
+    const original = window.__TAURI__.core.invoke;
+    window.__TAURI__.core.invoke = async (command, args, options) => {
+      if (command === 'parse_file') {
+        const selection = options?.headers?.['x-archive-selection'];
+        if (!selection) return { archive_choices: { xml: [{ index: 0, name: 'a.xml' }, { index: 1, name: 'b.xml' }], pdf: [{ index: 2, name: 'a.pdf' }] } };
+        window.__selection = JSON.parse(selection);
+        return { ...await original(command, args, options), archive_selection: window.__selection };
+      }
+      return original(command, args, options);
+    };
+  });
+  await page.goto(url);
+  await page.locator('#file-input').setInputFiles({ name: 'lot.zip', mimeType: 'application/zip', buffer: Buffer.from('archive') });
+  const dialog = page.getByRole('dialog', { name: 'Choisir une facture dans l’archive' });
+  await expect(dialog).toBeVisible();
+  await dialog.getByLabel('XML', { exact: true }).selectOption('1');
+  await dialog.getByRole('button', { name: 'Ouvrir la sélection' }).click();
+  await expect(page.locator('#fv-name')).toHaveText('lot.zip');
+  expect(await page.evaluate(() => window.__selection)).toEqual({ xml: 1, pdf: null });
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('fx-workspace')).files[0].source.selection)).toEqual({ xml: 1, pdf: null });
+  await page.reload();
+  await expect(page.locator('#fv-name')).toHaveText('lot.zip');
+  await expect(dialog).toHaveCount(0);
+  await page.locator('#file-input').setInputFiles({ name: 'annule.zip', mimeType: 'application/zip', buffer: Buffer.from('archive2') });
+  await dialog.getByRole('button', { name: 'Annuler', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => state.files.find(f => f.name === 'annule.zip')?.error)).toContain('annulée');
+});
+
+test('retrouver un fichier : annulation et erreur préservent la bibliothèque, succès ouvre la facture', async ({ page }) => {
+  await mockBackend(page);
+  await page.goto(url);
+  await page.locator('#tab-library').click();
+  const locate = page.getByRole('button', { name: 'Retrouver le fichier deposee.pdf', exact: true });
+  await page.evaluate(() => { api.libraryRelink = async () => null; });
+  await locate.click();
+  await expect(page.locator('#library-table tbody tr')).toHaveCount(2);
+  await page.evaluate(() => { api.libraryRelink = async () => { throw new Error('Empreinte XML différente'); }; });
+  await locate.click();
+  await expect(page.locator('#workspace-message')).toContainText('Empreinte XML différente');
+  await expect(locate).toBeEnabled();
+  await page.evaluate(() => { api.libraryRelink = async () => ({ filename: 'retrouve.xml', replacement_path: 'C:/retrouve.xml', doc_hash: 'h-drop', format: 'XML', rows: [], sections: [] }); });
+  await locate.click();
+  await expect(page.locator('#fv-name')).toHaveText('retrouve.xml');
+  await expect(page.locator('#workspace-message')).toContainText('empreinte XML vérifiée');
 });

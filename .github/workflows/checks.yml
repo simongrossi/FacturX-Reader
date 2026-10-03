@@ -17,6 +17,7 @@ jobs:
       - run: npm run test:ui
   rust:
     runs-on: windows-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -24,3 +25,12 @@ jobs:
         with:
           workspaces: src-tauri
       - run: cargo test --manifest-path src-tauri/Cargo.toml
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+      - run: npm ci
+      - name: Build native Windows application
+        run: cargo build --manifest-path src-tauri/Cargo.toml
+      - name: Test real Rust commands and WebView2
+        run: npm run test:native

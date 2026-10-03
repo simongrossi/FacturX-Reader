@@ -5,6 +5,31 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 
 ## [Non publié]
 
+### Ajouté
+
+- **Synthèse des vérifications** en tête de l'onglet Données : nombre de familles de contrôles à
+  examiner et de contrôles incomplets, avec accès direct au bloc concerné.
+- **Tableau** : colonnes et filtres Schematron, schéma XSD, règles françaises, conteneur PDF et
+  contrôle incomplet.
+- **Bibliothèque** : « Retrouver le fichier » rétablit le lien vers une facture dont
+  l'emplacement est inconnu ou a changé, après vérification de l'empreinte du XML ; pagination.
+- **Archive ZIP ambiguë** (plusieurs XML ou plusieurs PDF) : le XML à lire et son PDF sont
+  choisis explicitement, au lieu d'être associés d'office.
+
+### Modifié
+
+- **Rapport JSON** : il contient désormais le résultat du Schematron, le détail des règles
+  françaises, le conteneur et les doublons.
+- Les verdicts sont calculés par un module commun à la fiche, au tableau et au rapport.
+
+### Corrigé
+
+- **Bibliothèque** : les filtres de date, de montant et de fournisseur étaient appliqués après la
+  limite de 1000 résultats ; une facture au-delà de la millième restait introuvable. Ils sont
+  appliqués dans la base, et le nombre de résultats affiché est exact.
+- **Imports** : la taille des données décompressées d'un ZIP ou d'un PDF n'était pas plafonnée.
+  Un XML est limité à 32 Mo après décompression, une archive à 2000 entrées.
+
 ## [0.7.0] - 2026-10-03
 
 ### Ajouté

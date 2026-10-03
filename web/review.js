@@ -122,11 +122,15 @@ function controlReport(f) {
     format: r.format,
     genere_le: new Date().toISOString(),
     verdicts: (() => {
-      const v = invoiceVerdicts(f);
-      return { lecture: v.lecture.label, calculs: v.calculs.label, regles_en16931: v.regles.label, schema_xsd: v.xsd ? v.xsd.label : null, regles_francaises: v.france ? v.france.label : null, autres_alertes: v.alertes, non_controle: NOT_CHECKED };
+      const v = invoiceVerdicts(f, duplicateChecks(f).length);
+      return { schematron: v.schematron?.label || null, conteneur: v.conteneur?.label || null, lecture: v.lecture.label, calculs: v.calculs.label, regles_en16931: v.regles.label, schema_xsd: v.xsd ? v.xsd.label : null, regles_francaises: v.france ? v.france.label : null, autres_alertes: v.alertes, non_controle: NOT_CHECKED };
     })(),
+    etats_controles: invoiceVerdicts(f, duplicateChecks(f).length),
+    schematron: r.schematron || null,
+    regles_francaises: r.schematron?.br_fr || null,
+    conteneur: r.conteneur || null,
     synthese: r.synthese || null,
-    controles: r.controles || [],
+    controles: [...duplicateChecks(f), ...(r.controles || [])],
     regles_en16931: r.regles || null,
     schema_xsd: r.xsd || null,
     suivi: { statut: review.status, commentaire: review.comment, lignes: review.lines },

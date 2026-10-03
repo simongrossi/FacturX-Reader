@@ -12,24 +12,28 @@ public class WinCloseHelper {
     [DllImport("user32.dll")] public static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
     [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
 
-    public static void CloseTauri(uint pid) {
+    public static int CloseTauri(uint pid) {
+        int posted = 0;
         EnumWindows((hWnd, lParam) => {
             uint procId;
             GetWindowThreadProcessId(hWnd, out procId);
             if (procId == pid) {
                 StringBuilder cls = new StringBuilder(256);
                 GetClassName(hWnd, cls, 256);
+                Console.WriteLine("Window " + hWnd + " class=" + cls.ToString());
                 if (cls.ToString() == "Tauri Window") {
-                    PostMessage(hWnd, 0x0010, IntPtr.Zero, IntPtr.Zero);
+                    if (PostMessage(hWnd, 0x0010, IntPtr.Zero, IntPtr.Zero)) posted++;
                 }
             }
             return true;
         }, IntPtr.Zero);
+        return posted;
     }
 }
 "@
 
 Add-Type -TypeDefinition $source
-[WinCloseHelper]::CloseTauri([uint32]$ProcessId)
+$posted = [WinCloseHelper]::CloseTauri([uint32]$ProcessId)
+Write-Output "Close requests posted: $posted"
 $proc = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
-if ($proc) { $proc.CloseMainWindow() | Out-Null }
+if ($proc -and $posted -eq 0) { Write-Output "Main window close: $($proc.CloseMainWindow())" }

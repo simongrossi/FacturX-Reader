@@ -98,7 +98,9 @@ fn parse_file(request: Request<'_>, library: tauri::State<'_, bibliotheque::Libr
         .and_then(|v| v.to_str().ok())
         .map(percent_decode)
         .unwrap_or_else(|| "fichier".into());
-    let mut result = facturx::parse_file(&name, data).map_err(|e| e.to_string())?;
+    let selection: Option<facturx::ArchiveSelection> = request.headers().get("x-archive-selection")
+        .and_then(|v| v.to_str().ok()).map(serde_json::from_str).transpose().map_err(|e| format!("Sélection invalide : {e}"))?;
+    let mut result = facturx::parse_file_selected(&name, data, selection.as_ref()).map_err(|e| e.to_string())?;
     // En-tete `x-library: 0` : l'utilisateur a desactive la bibliotheque.
     if request.headers().get("x-library").and_then(|v| v.to_str().ok()) != Some("0") {
         bibliotheque::annotate(&library, &mut result, None);
@@ -126,7 +128,7 @@ async fn pick_folder(app: tauri::AppHandle) -> Result<Value, String> {
 
 /// Analyse un fichier designe par son chemin sur le disque.
 #[tauri::command]
-async fn parse_path(path: String, library: Option<bool>, store: tauri::State<'_, bibliotheque::Library>) -> Result<Value, String> {
+async fn parse_path(path: String, library: Option<bool>, selection: Option<facturx::ArchiveSelection>, store: tauri::State<'_, bibliotheque::Library>) -> Result<Value, String> {
     let path = PathBuf::from(path);
     let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
     let size = std::fs::metadata(&path).map_err(|e| format!("Lecture impossible : {e}"))?.len();
@@ -134,7 +136,7 @@ async fn parse_path(path: String, library: Option<bool>, store: tauri::State<'_,
         return Err("Fichier trop volumineux (max 200 Mo).".into());
     }
     let data = std::fs::read(&path).map_err(|e| format!("Lecture impossible : {e}"))?;
-    let mut result = facturx::parse_file(&name, &data).map_err(|e| e.to_string())?;
+    let mut result = facturx::parse_file_selected(&name, &data, selection.as_ref()).map_err(|e| e.to_string())?;
     if library != Some(false) {
         bibliotheque::annotate(&store, &mut result, Some(&path.to_string_lossy()));
     }
@@ -259,6 +261,8 @@ pub fn run() {
             pointages::import_data,
             bibliotheque::library_status,
             bibliotheque::library_search,
+            bibliotheque::library_open,
+            bibliotheque::library_relink,
             bibliotheque::library_remove,
             bibliotheque::library_clear,
             bibliotheque::library_reset,

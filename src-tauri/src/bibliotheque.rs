@@ -12,6 +12,7 @@ use std::sync::Mutex;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{json, Value};
 use tauri::State;
+use tauri_plugin_dialog::DialogExt;
 
 const SCHEMA: &str = "
 CREATE TABLE IF NOT EXISTS invoices (
@@ -38,6 +39,20 @@ CREATE TABLE IF NOT EXISTS schematron (
 
 /// Nombre maximal de lignes renvoyees par une recherche.
 const SEARCH_LIMIT: usize = 1000;
+#[derive(Default, serde::Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct SearchFilters {
+    date_min: String,
+    date_max: String,
+    montant_min: Option<f64>,
+    montant_max: Option<f64>,
+    fournisseur: String,
+    offset: usize,
+}
+
+fn like_pattern(text: &str) -> String {
+    format!("%{}%", text.trim().replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_"))
+}
 /// Nombre maximal de variations de prix signalees par facture.
 const PRICE_NOTES: usize = 30;
 
@@ -60,6 +75,12 @@ fn open(path: &Path) -> Result<Connection, String> {
     }
     conn.execute_batch("PRAGMA foreign_keys = ON;").map_err(fail)?;
     conn.execute_batch(SCHEMA).map_err(fail)?;
+    // Conserver la recherche insensible à la casse Unicode de l'interface,
+    // y compris É/é, que le LIKE natif de SQLite ne rapproche pas.
+    conn.create_scalar_function("fx_contains", 2,
+        rusqlite::functions::FunctionFlags::SQLITE_UTF8 | rusqlite::functions::FunctionFlags::SQLITE_DETERMINISTIC,
+        |ctx| Ok(ctx.get::<String>(0)?.to_lowercase().contains(&ctx.get::<String>(1)?)))
+        .map_err(fail)?;
     Ok(conn)
 }
 
@@ -282,21 +303,43 @@ impl Library {
         self.with(|conn| conn.query_row("SELECT COUNT(*) FROM invoices", [], |r| r.get(0)))
     }
 
+    fn relink(&self, hash: &str, path: &str, result: &Value) -> Result<(), String> {
+        if result["doc_hash"].as_str() != Some(hash) {
+            return Err("Ce fichier ne correspond pas à la facture : l’empreinte XML est différente. Le lien existant est conservé.".into());
+        }
+        let changed = self.with(|conn| conn.execute("UPDATE invoices SET path = ?1 WHERE hash = ?2", params![path, hash]))?;
+        if changed != 1 { return Err("Cette facture n’est plus dans la bibliothèque.".into()); }
+        Ok(())
+    }
+
+    #[cfg(test)]
     fn search(&self, query: &str) -> Result<Value, String> {
-        let like = format!("%{}%", query.trim().replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_"));
-        self.with(|conn| {
-            let mut q = conn.prepare(
-                "SELECT hash, filename, path, format, numero, avoir, date, echeance, vendeur, acheteur, devise, ht, tva, ttc, a_payer,
-                        first_seen, last_seen, (SELECT COUNT(*) FROM lines l WHERE l.hash = i.hash)
-                 FROM invoices i
-                 WHERE ?1 = '%%'
+        self.search_filtered(query, &SearchFilters::default())
+    }
+
+    fn search_filtered(&self, query: &str, filters: &SearchFilters) -> Result<Value, String> {
+        let like = like_pattern(query);
+        let seller = filters.fournisseur.trim().to_lowercase();
+        let condition = "WHERE (?1 = '%%'
                     OR filename LIKE ?1 ESCAPE '\\' OR numero LIKE ?1 ESCAPE '\\' OR vendeur LIKE ?1 ESCAPE '\\'
                     OR acheteur LIKE ?1 ESCAPE '\\' OR date LIKE ?1 ESCAPE '\\' OR ttc LIKE ?1 ESCAPE '\\' OR ht LIKE ?1 ESCAPE '\\'
-                    OR hash IN (SELECT hash FROM lines WHERE ref LIKE ?1 ESCAPE '\\' OR nom LIKE ?1 ESCAPE '\\')
-                 ORDER BY date DESC, last_seen DESC LIMIT ?2",
-            )?;
+                    OR hash IN (SELECT hash FROM lines WHERE ref LIKE ?1 ESCAPE '\\' OR nom LIKE ?1 ESCAPE '\\'))
+                 AND (?2 = '' OR date >= ?2) AND (?3 = '' OR (date <> '' AND date <= ?3))
+                 AND (?4 IS NULL OR (ttc <> '' AND CAST(ttc AS REAL) >= ?4))
+                 AND (?5 IS NULL OR (ttc <> '' AND CAST(ttc AS REAL) <= ?5))
+                 AND fx_contains(vendeur, ?6)";
+        self.with(|conn| {
+            let matching: i64 = conn.query_row(&format!("SELECT COUNT(*) FROM invoices i {condition}"),
+                params![like, filters.date_min, filters.date_max, filters.montant_min, filters.montant_max, seller], |r| r.get(0))?;
+            let offset = filters.offset.min(matching.saturating_sub(1).max(0) as usize / SEARCH_LIMIT * SEARCH_LIMIT);
+            let mut q = conn.prepare(&format!(
+                "SELECT hash, filename, path, format, numero, avoir, date, echeance, vendeur, acheteur, devise, ht, tva, ttc, a_payer,
+                        first_seen, last_seen, (SELECT COUNT(*) FROM lines l WHERE l.hash = i.hash)
+                 FROM invoices i {condition}
+                 ORDER BY date DESC, last_seen DESC, hash LIMIT ?7 OFFSET ?8"
+            ))?;
             let rows: Vec<Value> = q
-                .query_map(params![like, SEARCH_LIMIT as i64 + 1], |r| {
+                .query_map(params![like, filters.date_min, filters.date_max, filters.montant_min, filters.montant_max, seller, SEARCH_LIMIT as i64, offset as i64], |r| {
                     Ok(json!({
                         "hash": r.get::<_, String>(0)?, "fichier": r.get::<_, String>(1)?, "chemin": r.get::<_, String>(2)?,
                         "format": r.get::<_, String>(3)?, "numero": r.get::<_, String>(4)?, "avoir": r.get::<_, bool>(5)?,
@@ -308,9 +351,8 @@ impl Library {
                 })?
                 .collect::<rusqlite::Result<_>>()?;
             let total: i64 = conn.query_row("SELECT COUNT(*) FROM invoices", [], |r| r.get(0))?;
-            let truncated = rows.len() > SEARCH_LIMIT;
-            let rows: Vec<Value> = rows.into_iter().take(SEARCH_LIMIT).collect();
-            Ok(json!({ "factures": rows, "total": total, "tronque": truncated }))
+            Ok(json!({ "factures": rows, "total": total, "correspondances": matching,
+                "offset": offset, "limite": SEARCH_LIMIT, "tronque": offset + rows.len() < matching as usize }))
         })
     }
 
@@ -381,8 +423,46 @@ pub fn library_status(library: State<'_, Library>) -> Value {
 }
 
 #[tauri::command]
-pub fn library_search(library: State<'_, Library>, query: String) -> Result<Value, String> {
-    library.search(&query)
+pub fn library_search(library: State<'_, Library>, query: String, filters: Option<SearchFilters>) -> Result<Value, String> {
+    library.search_filtered(&query, &filters.unwrap_or_default())
+}
+
+fn read_invoice_path(path: &Path, selection: Option<&crate::facturx::ArchiveSelection>) -> Result<Value, String> {
+    use std::io::Read;
+    let file = std::fs::File::open(path).map_err(|e| format!("Fichier introuvable ou inaccessible : {e}. Utilisez « Retrouver le fichier »."))?;
+    let mut bytes = Vec::new();
+    file.take(200 * 1024 * 1024 + 1).read_to_end(&mut bytes).map_err(|e| e.to_string())?;
+    crate::facturx::parse_file_selected(&path.file_name().unwrap_or_default().to_string_lossy(), &bytes, selection).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn library_open(library: State<'_, Library>, hash: String, remember: Option<bool>, selection: Option<crate::facturx::ArchiveSelection>) -> Result<Value, String> {
+    let path: String = library.with(|conn| conn.query_row("SELECT path FROM invoices WHERE hash = ?1", params![hash], |r| r.get(0)))?;
+    let mut result = read_invoice_path(Path::new(&path), selection.as_ref())?;
+    if result.get("archive_choices").is_none() && result["doc_hash"].as_str() != Some(&hash) {
+        return Err("Le contenu du fichier a changé : l’empreinte XML ne correspond plus. Utilisez « Retrouver le fichier ».".into());
+    }
+    if remember != Some(false) && result.get("archive_choices").is_none() { annotate(&library, &mut result, Some(&path)); }
+    result["replacement_path"] = path.into();
+    Ok(result)
+}
+
+#[tauri::command]
+pub async fn library_relink(app: tauri::AppHandle, library: State<'_, Library>, hash: String,
+    path: Option<String>, selection: Option<crate::facturx::ArchiveSelection>) -> Result<Value, String> {
+    let path = match path {
+        Some(path) => PathBuf::from(path),
+        None => {
+            let Some(file) = app.dialog().file().add_filter("Factures", &["pdf", "xml", "zip", "ciixml", "zxml"]).blocking_pick_file() else { return Ok(Value::Null); };
+            file.into_path().map_err(|e| e.to_string())?
+        }
+    };
+    let mut result = read_invoice_path(&path, selection.as_ref())?;
+    if result.get("archive_choices").is_none() {
+        library.relink(&hash, &path.to_string_lossy(), &result)?;
+    }
+    result["replacement_path"] = path.to_string_lossy().into_owned().into();
+    Ok(result)
 }
 
 #[tauri::command]
@@ -434,6 +514,55 @@ mod tests {
 
     fn rules(notes: &[Value]) -> Vec<&str> {
         notes.iter().map(|n| n["regle"].as_str().unwrap()).collect()
+    }
+
+    #[test]
+    fn filters_precede_pagination_and_count_matches() {
+        let dir = temp("pagination");
+        let lib = Library::new(dir.join("library.sqlite"));
+        lib.record(&invoice("old", "OLD", "2020-01-01", "", "50"), None).unwrap();
+        lib.with(|c| c.execute_batch("WITH RECURSIVE n(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM n WHERE x < 1001)
+            INSERT INTO invoices SELECT 'new-' || x, 'new-' || x || '.pdf', path, format, 'NEW-' || x, avoir, '2026-01-01', echeance,
+            'Autre vendeur', vendeur_cle, acheteur, devise, ht, tva, '500', a_payer, iban, first_seen, last_seen
+            FROM invoices, n WHERE hash = 'old';")).unwrap();
+        let all = lib.search("").unwrap();
+        assert_eq!(all["correspondances"], 1002);
+        assert_eq!(all["factures"].as_array().unwrap().len(), 1000);
+        let second = lib.search_filtered("", &SearchFilters { offset: 1000, ..Default::default() }).unwrap();
+        assert_eq!(second["factures"].as_array().unwrap().len(), 2);
+        for filters in [
+            SearchFilters { date_max: "2020-12-31".into(), ..Default::default() },
+            SearchFilters { montant_max: Some(120.0), ..Default::default() },
+            SearchFilters { fournisseur: "Durand".into(), ..Default::default() },
+        ] {
+            let found = lib.search_filtered("", &filters).unwrap();
+            assert_eq!(found["correspondances"], 1);
+            assert_eq!(found["factures"][0]["hash"], "old");
+        }
+        assert_eq!(lib.search("OLD").unwrap()["correspondances"], 1);
+        assert_eq!(lib.search_filtered("", &SearchFilters { fournisseur: "%".into(), ..Default::default() }).unwrap()["correspondances"], 0);
+        lib.with(|c| c.execute("UPDATE invoices SET vendeur = 'Électricité 100%' WHERE hash = 'old'", []).map(|_| ())).unwrap();
+        assert_eq!(lib.search_filtered("", &SearchFilters { fournisseur: "électricité 100%".into(), ..Default::default() }).unwrap()["correspondances"], 1);
+        drop(lib);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn relink_requires_same_xml_and_preserves_history() {
+        let dir = temp("relink");
+        let lib = Library::new(dir.join("library.sqlite"));
+        let original = invoice("hash-original", "INV-1", "2026-01-01", "", "50");
+        lib.record(&original, Some("ancien.pdf")).unwrap();
+        let other = invoice("hash-other", "INV-1", "2026-01-01", "", "50");
+        assert!(lib.relink("hash-original", "mauvais.pdf", &other).is_err());
+        assert_eq!(lib.search("").unwrap()["factures"][0]["chemin"], "ancien.pdf");
+        lib.relink("hash-original", "nouveau.pdf", &original).unwrap();
+        assert_eq!(lib.search("").unwrap()["factures"][0]["chemin"], "nouveau.pdf");
+        assert_eq!(lib.count().unwrap(), 1);
+        assert_eq!(lib.search("").unwrap()["factures"][0]["lignes"], 2);
+        assert!(lib.relink("absent", "nouveau.pdf", &json!({"doc_hash":"absent"})).is_err());
+        drop(lib);
+        std::fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]

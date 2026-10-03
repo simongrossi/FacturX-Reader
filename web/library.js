@@ -5,6 +5,7 @@
 
 const library = {
   query: "",
+  offset: 0,
   timer: null,
   token: 0,
   warned: new Set(),
@@ -43,7 +44,26 @@ async function openLibraryInvoice(row) {
     workspaceNotice("« " + row.fichier + " » a été ajouté par dépôt : son emplacement n'est pas connu. Rouvrez le fichier d'origine.");
     return;
   }
-  await addPaths({ files: [row.chemin] });
+  try { await openLibraryResult(await api.libraryOpen(row.hash)); }
+  catch (error) { workspaceNotice(String(error)); }
+}
+
+async function openLibraryResult(result) {
+  if (!result) return;
+  const path = result.replacement_path;
+  const name = result.filename || path.split(/[\\/]/).pop();
+  await addSources([{ name, source: { key: path, path, name, selection: result.archive_selection }, load: async () => result }]);
+}
+
+async function relinkLibraryInvoice(row, button) {
+  button.disabled = true;
+  try {
+    const result = await api.libraryRelink(row.hash);
+    if (!result) return;
+    workspaceNotice("Fichier retrouvé : empreinte XML vérifiée. Aucun original n’a été copié.");
+    await openLibraryResult(result);
+  } catch (error) { workspaceNotice(String(error)); }
+  finally { button.disabled = false; }
 }
 
 async function renderLibrary() {
@@ -51,34 +71,47 @@ async function renderLibrary() {
   const table = byId("library-table");
   const count = byId("library-count");
   let result;
-  try { result = await api.librarySearch(library.query); }
+  try { result = await api.librarySearch(library.query, {
+    dateMin: library.dateMin, dateMax: library.dateMax, fournisseur: library.fournisseur,
+    montantMin: library.montantMin === "" ? null : Number(library.montantMin),
+    montantMax: library.montantMax === "" ? null : Number(library.montantMax), offset: library.offset,
+  }); }
   catch (error) {
     if (token !== library.token) return;
     table.replaceChildren();
+    if (byId("library-pagination")) byId("library-pagination").hidden = true;
     count.textContent = "";
     byId("library-empty").hidden = false;
     byId("library-empty").textContent = String((error && error.message) || error);
     return;
   }
   if (token !== library.token) return;
-  let rows = (result && result.factures) || [];
-  if (library.dateMin) rows = rows.filter((r) => !r.date || r.date >= library.dateMin);
-  if (library.dateMax) rows = rows.filter((r) => !r.date || r.date <= library.dateMax);
-  if (library.fournisseur) {
-    const fn = library.fournisseur.toLowerCase();
-    rows = rows.filter((r) => r.vendeur && r.vendeur.toLowerCase().includes(fn));
+  const rows = (result && result.factures) || [];
+  const total = result.total || 0;
+  const matching = result.correspondances ?? rows.length;
+  library.offset = result.offset || 0;
+  const limit = result.limite || 1000;
+  count.textContent = matching + " résultat" + (matching > 1 ? "s" : "") + " / " + total + " factures";
+  let pager = byId("library-pagination");
+  if (!pager) {
+    pager = document.createElement("div");
+    pager.id = "library-pagination";
+    pager.className = "lines-tools";
+    table.closest(".section").after(pager);
   }
-  if (library.montantMin !== "" && !isNaN(parseFloat(library.montantMin))) {
-    const minVal = parseFloat(library.montantMin);
-    rows = rows.filter((r) => r.ttc !== "" && parseFloat(r.ttc) >= minVal);
+  pager.replaceChildren();
+  pager.hidden = matching <= limit;
+  for (const [label, offset, disabled] of [
+    ["Précédent", library.offset - limit, library.offset === 0],
+    ["Suivant", library.offset + limit, library.offset + rows.length >= matching],
+  ]) {
+    const button = Object.assign(document.createElement("button"), { type: "button", className: "btn", textContent: label, disabled });
+    button.addEventListener("click", () => { library.offset = offset; renderLibrary(); });
+    pager.appendChild(button);
   }
-  if (library.montantMax !== "" && !isNaN(parseFloat(library.montantMax))) {
-    const maxVal = parseFloat(library.montantMax);
-    rows = rows.filter((r) => r.ttc !== "" && parseFloat(r.ttc) <= maxVal);
-  }
-  const total = (result && result.total) || 0;
-  count.textContent = (rows.length === total ? total + " facture" + (total > 1 ? "s" : "")
-    : rows.length + " / " + total + " factures") + (result && result.tronque ? " (1000 premières)" : "");
+  pager.appendChild(Object.assign(document.createElement("span"), {
+    textContent: `${library.offset + 1}–${library.offset + rows.length} sur ${matching}`,
+  }));
   const empty = byId("library-empty");
   empty.hidden = rows.length > 0;
   empty.textContent = total ? "Aucune facture ne correspond à la recherche."
@@ -111,6 +144,10 @@ async function renderLibrary() {
     }
     const action = tr.insertCell();
     action.className = "col-detail";
+    const locate = Object.assign(document.createElement("button"), { type: "button", className: "btn btn-sm", textContent: "Retrouver le fichier" });
+    locate.setAttribute("aria-label", "Retrouver le fichier " + row.fichier);
+    locate.addEventListener("click", (e) => { e.stopPropagation(); relinkLibraryInvoice(row, locate); });
+    action.appendChild(locate);
     const remove = Object.assign(document.createElement("button"), { type: "button", className: "icon-btn", textContent: "✕" });
     remove.title = "Retirer de la bibliothèque";
     remove.setAttribute("aria-label", "Retirer " + row.fichier + " de la bibliothèque");
@@ -191,22 +228,24 @@ async function refreshLibraryStatus(warn) {
 
 function wireLibrary() {
   byId("library-search").addEventListener("input", (e) => {
+    library.offset = 0;
     library.query = e.target.value;
     clearTimeout(library.timer);
     library.timer = setTimeout(renderLibrary, 200);
   });
   const dateFrom = byId("library-date-from");
-  if (dateFrom) dateFrom.addEventListener("change", (e) => { library.dateMin = e.target.value; renderLibrary(); });
+  if (dateFrom) dateFrom.addEventListener("change", (e) => { library.dateMin = e.target.value; library.offset = 0; renderLibrary(); });
   const dateTo = byId("library-date-to");
-  if (dateTo) dateTo.addEventListener("change", (e) => { library.dateMax = e.target.value; renderLibrary(); });
+  if (dateTo) dateTo.addEventListener("change", (e) => { library.dateMax = e.target.value; library.offset = 0; renderLibrary(); });
   const amtMin = byId("library-amount-min");
-  if (amtMin) amtMin.addEventListener("input", (e) => { library.montantMin = e.target.value; renderLibrary(); });
+  if (amtMin) amtMin.addEventListener("input", (e) => { library.montantMin = e.target.value; library.offset = 0; renderLibrary(); });
   const amtMax = byId("library-amount-max");
-  if (amtMax) amtMax.addEventListener("input", (e) => { library.montantMax = e.target.value; renderLibrary(); });
+  if (amtMax) amtMax.addEventListener("input", (e) => { library.montantMax = e.target.value; library.offset = 0; renderLibrary(); });
   const seller = byId("library-seller");
-  if (seller) seller.addEventListener("input", (e) => { library.fournisseur = e.target.value.trim(); renderLibrary(); });
+  if (seller) seller.addEventListener("input", (e) => { library.fournisseur = e.target.value.trim(); library.offset = 0; renderLibrary(); });
   const resetBtn = byId("library-reset-filters");
   if (resetBtn) resetBtn.addEventListener("click", () => {
+    library.offset = 0;
     library.dateMin = "";
     library.dateMax = "";
     library.montantMin = "";

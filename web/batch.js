@@ -26,8 +26,12 @@ const BATCH_COLS = [
   { key: "ttc", title: "TTC", num: true },
   { key: "a_payer", title: "À payer", num: true },
   { key: "devise", title: "Devise" },
-  { key: "calculs", title: "Calculs", verdict: true },
-  { key: "regles_txt", title: "Règles EN 16931", verdict: true },
+  { key: "calculs", title: "Calculs", verdict: "calculs" },
+  { key: "regles_txt", title: "Règles EN 16931", verdict: "regles" },
+  { key: "schematron_txt", title: "Schematron", verdict: "schematron" },
+  { key: "xsd_txt", title: "Schéma XSD", verdict: "xsd" },
+  { key: "france_txt", title: "Règles françaises", verdict: "france" },
+  { key: "conteneur_txt", title: "Conteneur PDF", verdict: "conteneur" },
   { key: "alertes_txt", title: "Alertes", verdict: true },
   { key: "suivi", title: "Vérification" },
 ];
@@ -38,6 +42,10 @@ const BATCH_FILTERS = {
   ecart: (r) => r.verdicts.calculs.etat === "ecart",
   alerte: (r) => r.verdicts.alertes > 0,
   regles: (r) => r.regles > 0,
+  schematron: (r) => r.verdicts.schematron?.etat === "ecart",
+  xsd: (r) => r.verdicts.xsd?.etat === "ecart",
+  france: (r) => ["alerte", "ecart"].includes(r.verdicts.france?.etat),
+  incomplet: (r) => Object.values(r.verdicts).some(incompleteVerdict),
   echue: (r) => r.jours != null && r.jours < 0,
   sanstva: (r) => r.lu && !(parseFloat(r.tva) > 0),
   weekend: (r) => r.weekEnd,
@@ -50,20 +58,12 @@ const batchMoney = new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 2, ma
 
 function batchRows() {
   const files = state.files.filter((f) => f.status !== "loading");
-  // Doublons : même XML, ou même vendeur et même numéro.
-  const seen = new Map();
-  const keysOf = (f) => {
-    const r = f.result, s = r && r.synthese;
-    return [r && r.doc_hash && "h:" + r.doc_hash, s && s.numero && s.vendeur && "n:" + s.vendeur + "\u0000" + s.numero]
-      .filter(Boolean);
-  };
-  for (const f of files) for (const k of keysOf(f)) seen.set(k, (seen.get(k) || 0) + 1);
-
   return files.map((f) => {
     const r = f.result, s = (r && r.synthese) || null;
     const counts = { ecart: 0, alerte: 0, non_verifiable: 0, conforme: 0, info: 0 };
     for (const c of (r && r.controles) || []) counts[c.etat] = (counts[c.etat] || 0) + 1;
-    const doublon = keysOf(f).some((k) => seen.get(k) > 1);
+    const duplicates = duplicateChecks(f);
+    const doublon = duplicates.length > 0;
     const broken = ((r && r.regles && r.regles.liste) || []).filter((x) => x.etat === "non_conforme");
     const row = {
       f, lu: !!s, counts, doublon, regles: broken.length,
@@ -78,18 +78,22 @@ function batchRows() {
       suivi: f.status === "ok" ? readReview(f).status : "",
       commentaire: f.status === "ok" ? readReview(f).comment : "",
     };
-    // Trois verdicts séparés : un calcul cohérent ne dit rien de la conformité à la norme.
-    const v = invoiceVerdicts(f, doublon ? 1 : 0);
+    // Verdicts séparés : un calcul cohérent ne dit rien de la conformité à la norme.
+    const v = invoiceVerdicts(f, duplicates.length);
     row.verdicts = v;
     row.calculs = f.status === "error" ? "Non lue" : !s ? "Structure non reconnue" : v.calculs.court;
     row.regles_txt = s ? v.regles.court : "";
-    const others = v.alertes - (doublon ? 1 : 0);
+    for (const key of ["schematron", "xsd", "france", "conteneur"]) row[key + "_txt"] = v[key]?.court || "—";
+    const others = v.alertes - duplicates.length;
     row.alertes_txt = [others ? others + " alerte" + (others > 1 ? "s" : "") : "", doublon ? "doublon" : ""].filter(Boolean).join(", ");
     row.etatKey = v.calculs.etat;
     row.detail = f.status === "error" ? f.error
       : ((r && r.controles) || []).filter((c) => c.etat === "ecart" || c.etat === "alerte")
         .map((c) => c.regle + (c.ecart ? " (" + c.ecart + ")" : ""))
-        .concat([...new Set(broken.map((x) => x.id))]).join(" | ");
+        .concat([...new Set(broken.map((x) => x.id))])
+        .concat((r?.schematron?.erreurs || []).map((x) => x.id + ": " + x.texte))
+        .concat((r?.schematron?.br_fr?.erreurs || []).map((x) => x.id + ": " + x.texte))
+        .concat((r?.xsd?.erreurs || []).map((x) => "XSD : " + x.message)).join(" | ");
     return row;
   });
 }
@@ -189,7 +193,7 @@ function renderBatch() {
         select.addEventListener("change", () => renderBatch());
         td.appendChild(select);
       } else if (col.verdict) {
-        const etat = col.key === "calculs" ? r.verdicts.calculs.etat : col.key === "regles_txt" ? r.verdicts.regles.etat : "alerte";
+        const etat = r.verdicts[col.verdict]?.etat || (col.key === "alertes_txt" ? "alerte" : "non_verifiable");
         if (v) td.appendChild(Object.assign(document.createElement("span"), { className: "ctl-chip ctl-" + etat, textContent: v }));
         else td.textContent = "—";
       } else if (col.num) {

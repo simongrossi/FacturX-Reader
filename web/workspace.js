@@ -162,10 +162,10 @@ async function openWorkspaceSources(items) {
     if (existing) { selectFile(existing.id); continue; }
     sources.push({ name: source.name, source, view: item.view,
       load: async () => {
-        if (source.path) return api.parsePath(source.path);
+        if (source.path) return api.parsePath(source.path, source.selection);
         const blob = await workspaceBlob("get", source.key);
         if (!blob) throw new Error("Copie locale indisponible. Ouvrez à nouveau le fichier d’origine.");
-        return api.parse(new File([blob], source.name));
+        return api.parse(new File([blob], source.name), source.selection);
       },
     });
   }

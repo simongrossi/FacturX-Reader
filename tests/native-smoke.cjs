@@ -6,6 +6,7 @@ const os = require('node:os');
 const path = require('node:path');
 const net = require('node:net');
 const { invoicePdf } = require('./fixtures.cjs');
+const { deflateSync } = require('node:zlib');
 async function main() {
   if (process.platform !== 'win32') throw new Error('Ce scénario natif utilise WebView2 sous Windows.');
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'facturx-p0-'));
@@ -51,14 +52,19 @@ async function main() {
     // Fermer la fenêtre de notre processus, comme avec la croix de l'application.
     const exited = new Promise(resolve => child.once('exit', resolve));
     const closeHelper = path.resolve(__dirname, 'close-window.ps1');
-    const close = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', closeHelper, String(child.pid)], { windowsHide: true, stdio: 'ignore' });
-    await new Promise(resolve => close.once('exit', resolve));
+    const close = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', closeHelper, String(child.pid)], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    let closeOutput = '';
+    close.stdout.on('data', data => { closeOutput += data; });
+    close.stderr.on('data', data => { closeOutput += data; });
+    const closeCode = await new Promise((resolve, reject) => { close.once('exit', resolve); close.once('error', reject); });
+    if (closeCode !== 0) throw new Error('Échec de la fermeture native : ' + closeOutput);
     let forced = false;
-    const timeout = setTimeout(() => { forced = true; child.kill(); }, 5000);
+    // WebView2 et le moteur peuvent finir leurs écritures sur un runner Windows chargé.
+    const timeout = setTimeout(() => { forced = true; child.kill(); }, 15000);
     await exited; clearTimeout(timeout);
     await browser.close(); browser = null;
     await new Promise(resolve => setTimeout(resolve, 500));
-    if (forced) throw new Error('La fenêtre native ne s’est pas fermée normalement.');
+    if (forced) throw new Error('La fenêtre native ne s’est pas fermée normalement après 15 s. ' + closeOutput);
   }
   try {
     let page = await launch();
@@ -98,13 +104,46 @@ async function main() {
     await expect(page.locator('#verdicts .ctl-chip').first()).toHaveText('Lecture réussie');
     await expect(page.locator('#verdicts')).toContainText('Calculs cohérents');
     await expect(page.locator('#verdicts')).toContainText('EN 16931 non respectée');
-    // Le Schematron officiel s'exécute réellement dans la WebView (moteur XSLT embarqué, CSP de l'application).
+    // Le moteur Rust exécute réellement le Schematron, appelé depuis la WebView.
     await expect(page.locator('#verdicts')).toContainText(/Schematron officiel non respectée|règles? Schematron officiel non respectées?/, { timeout: 20000 });
     await expect(page.locator('#schematron-rules')).toContainText('BR-', { timeout: 20000 });
     // Le schéma XSD CII embarqué est réellement chargé et appliqué par l'exécutable.
     await expect(page.locator('#verdicts')).toContainText(/Schéma XSD respecté|erreurs? de schéma XSD/);
     await expect(page.locator('#xsd-errors')).toContainText(/Factur-X 1\.09\.2, profil|Cross Industry Invoice D22B/);
     await expect(page.locator('#controls tr').filter({ hasText: 'Mentions essentielles' })).toContainText('Nom de l\'acheteur');
+    // Les mêmes résultats sont exportés sans perdre les détails Schematron/XSD.
+    const report = await page.evaluate(() => controlReport(getFile(state.selected)));
+    if (!report.schematron?.evalue || !report.schema_xsd?.evalue || !report.etats_controles?.schematron)
+      throw new Error('Rapport natif incomplet.');
+    await expect(page.getByRole('region', { name: 'Synthèse des vérifications' })).toBeVisible();
+    const filtered = await page.evaluate(() => api.librarySearch('', { fournisseur: 'test seller', montantMin: 120, montantMax: 120, dateMax: '2026-12-31', offset: 0 }));
+    if (filtered.correspondances !== 1) throw new Error('Filtres natifs : facture correspondante absente.');
+    const excluded = await page.evaluate(() => api.librarySearch('', { montantMin: 121, offset: 0 }));
+    if (excluded.correspondances !== 0) throw new Error('Filtre natif de montant ignoré.');
+    // Réassociation : un autre XML est refusé, même si son numéro de facture est identique.
+    const wrong = path.join(root, 'wrong.xml');
+    const xml = invoicePdf().toString().match(/<rsm:CrossIndustryInvoice[\s\S]*?<\/rsm:CrossIndustryInvoice>/)[0];
+    fs.writeFileSync(wrong, xml.replace('Test Seller', 'Another Seller'));
+    const hash = report.empreinte_xml;
+    const relink = await page.evaluate(async ({ hash, wrong, fixture }) => {
+      let rejected = false;
+      try { await invoke('library_relink', { hash, path: wrong }); } catch (error) { rejected = String(error).includes('empreinte'); }
+      const result = await invoke('library_relink', { hash, path: fixture });
+      const reopened = await invoke('library_open', { hash });
+      return { rejected, same: result.doc_hash === hash && reopened.doc_hash === hash };
+    }, { hash, wrong, fixture });
+    if (!relink.rejected || !relink.same) throw new Error('Réassociation sans vérification correcte de l’empreinte.');
+    // Une petite entrée PDF qui gonfle au-delà du plafond doit échouer dans le vrai moteur.
+    const bomb = path.join(root, 'oversized.pdf');
+    fs.writeFileSync(bomb, Buffer.concat([
+      Buffer.from('%PDF-1.7\n1 0 obj\n<< /Filter /FlateDecode >>\nstream\n'),
+      deflateSync(Buffer.alloc(32 * 1024 * 1024 + 1, 120)), Buffer.from('\nendstream\nendobj\n%%EOF'),
+    ]));
+    const bounded = await page.evaluate(async path => {
+      try { await invoke('parse_path', { path, library: false }); return false; }
+      catch (error) { return String(error).includes('décompression'); }
+    }, bomb);
+    if (!bounded) throw new Error('Le plafond PDF natif n’a pas rejeté le flux.');
     await page.locator('#tab-data .review-panel summary span').click();
     await page.getByLabel('Commentaire de la facture', { exact: true }).fill('Test natif P2');
     await page.locator('#tab-data').getByLabel('Vérification de synthetic.pdf').selectOption('Vérifiée');
@@ -169,7 +208,7 @@ async function main() {
     if (!fs.readdirSync(dataDir).some(name => name.startsWith('pointages.illisible-'))) throw new Error('Fichier illisible non conservé.');
     if (errors.length) throw new Error(errors.join('\n'));
     await stop(page);
-    console.log('Native Windows OK : Rust, PDF 2 pages, reprise, recherche, tableau, contrôles du moteur, double lecture, suivi dans suivi.json, fichiers illisibles signalés puis restaurés.');
+    console.log('Native Windows OK : Rust/WebView2, PDF, reprise, filtres SQL, rapport complet, synthèse, empreinte de réassociation, plafond de décompression, suivi et restauration.');
   } finally {
     if (child && child.exitCode === null) child.kill();
     if (browser) await browser.close().catch(() => {});

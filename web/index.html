@@ -125,6 +125,10 @@
           <option value="ecart">Écart de calcul</option>
           <option value="alerte">Autre alerte</option>
           <option value="regles">Règle EN 16931 non respectée</option>
+          <option value="schematron">Schematron non respecté</option>
+          <option value="xsd">Schéma XSD non respecté</option>
+          <option value="france">Règles françaises à examiner</option>
+          <option value="incomplet">Contrôle incomplet ou en cours</option>
           <option value="echue">Échéance dépassée</option>
           <option value="sanstva">Sans TVA</option>
           <option value="weekend">Émise un week-end</option>
@@ -159,7 +163,7 @@
         </div>
       </div>
       <div class="section"><div class="table-wrap"><table id="batch-table"></table></div></div>
-      <p class="verdict-note" id="batch-note">Calculs, règles EN 16931 et Schematron officiel sont évalués localement ; pour le conteneur, seules les déclarations du PDF sont lues. Non contrôlés : schéma XSD, conformité PDF/A-3 réelle, règles nationales. Aucun verdict ne vaut certification.</p>
+      <p class="verdict-note" id="batch-note">Calculs, règles EN 16931, Schematron, schéma XSD et règles françaises sont distingués dans le tableau. La conformité PDF/A-3 complète et les autres règles nationales ne sont pas contrôlées. Aucun verdict ne vaut certification.</p>
     </div>
 
     <div id="library-view" class="batch-view" hidden>
@@ -389,6 +393,8 @@
   </div>
 </dialog>
 
+<script src="imports.js"></script>
+<script src="controls.js"></script>
 <script src="app.js"></script>
 <script src="workspace.js"></script>
 <script src="review.js"></script>
