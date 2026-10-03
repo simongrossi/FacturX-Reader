@@ -737,6 +737,11 @@ test('Schematron officiel : verdicts respecté, non respecté, partiel et non é
   await expect(section).toContainText('42 contextes examinés, résultat repris de la bibliothèque.');
   await expect(section).not.toContainText('120 ms');
 
+  // Profil Factur-X autre qu'EN 16931 : le jeu de règles appliqué est nommé.
+  await open('extended.xml', { ...base, ok: true, jeu_regles: 'Factur-X, profil EXTENDED', version_regles: '1.09.2' });
+  await expect(section).toContainText('Règles Schematron officielles Factur-X, profil EXTENDED, v1.09.2 (FNFE-MPE et FeRD, Apache 2.0)');
+  await expect(section).not.toContainText('Commission européenne');
+
   await open('enfreint.xml', { ...base, ok: false, non_conformes: 1, avertissements: 1, erreurs: [
     { id: 'BR-CO-15', flag: 'fatal', texte: '[BR-CO-15]-Invoice total amount with VAT = Invoice total amount without VAT + Invoice total VAT amount.', location: '/rsm:CrossIndustryInvoice' },
     { id: 'CII-SR-173', flag: 'warning', texte: '[CII-SR-173]-Avertissement de syntaxe', location: '/rsm:CrossIndustryInvoice/x' },
@@ -764,7 +769,7 @@ test('Schematron officiel : verdicts respecté, non respecté, partiel et non é
 
   // Le tableau reprend les verdicts.
   await page.locator('#tab-batch').click();
-  await expect(page.locator('#batch-table tbody tr.batch-row')).toHaveCount(6);
+  await expect(page.locator('#batch-table tbody tr.batch-row')).toHaveCount(7);
   expect(errors).toEqual([]);
 });
 

@@ -21,6 +21,19 @@ elle doit être respectée (`success`), enfreinte (`error`) ou signalée en aver
 règle bloquante. Elle est presque entièrement UBL : la Commission n'y fournit que deux cas CII.
 Ils restent sous EUPL 1.2 : la licence PolyForm Noncommercial de Factur-X Reader ne s'y applique pas.
 
+## Règles Factur-X
+
+`factur-x/` : règles Schematron (`FACTUR-X_*.sch`) et listes de codes (`*_codedb.xml`) des profils
+MINIMUM, BASIC WL, BASIC et EXTENDED, reprises sans modification du paquet officiel
+**Factur-X 1.09.2 / ZUGFeRD 2.5.2** du 4 août 2026 (FNFE-MPE et FeRD), dossier
+`4. FACTUR-X_1.09.2_XSD_SCHEMATRON`. Licence Apache 2.0, d'après l'avertissement de la
+spécification ; texte dans `../xsd/LICENSE-APACHE-2.0.txt`.
+
+Elles sont appliquées aux factures CII qui annoncent l'un de ces profils. Au chargement,
+`src/schematron.rs` traite un `report` comme une assertion inversée et écrit dans chaque test de
+liste de codes la liste que la règle va chercher dans le fichier `codedb`. Pour une nouvelle
+version : remplacer les huit fichiers, mettre à jour `FX_VERSION`, lancer `cargo test`.
+
 ## Mettre à jour les règles
 
 Remplacer les deux fichiers `.sch` et le dossier `tests-officiels/` par ceux d'une nouvelle

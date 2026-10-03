@@ -90,7 +90,7 @@ une case est cochée des deux côtés, le niveau de détail peut différer.
 | Recherche | ✅ texte et regex | ✅ | — | Texte du PDF |
 | Impression | ✅ | ✅ | — | ✅ |
 | Contrôles arithmétiques détaillés | ✅ | — | Via la validation | — |
-| Schematron officiel EN 16931 | ✅ hors ligne | ✅ en ligne | ✅ | — |
+| Schematron officiel EN 16931 et profils Factur-X | ✅ hors ligne | ✅ en ligne | ✅ | — |
 | Validation XSD | CII hors ligne, pas UBL | ✅ en ligne | ✅ | — |
 | Validation PDF/A-3 du fichier | Déclarations lues seulement | ✅ en ligne | ✅ | — |
 | Tableau multi-factures avec totaux | ✅ | — | — | — |
@@ -104,8 +104,8 @@ une case est cochée des deux côtés, le niveau de détail peut différer.
 
 <sub>Établi le 3 octobre 2026 d'après la documentation publique de chaque projet ; une case vide
 signifie « non documenté à cette date », pas forcément « impossible ». Corrections bienvenues.
-Factur-X Reader exécute le Schematron officiel EN 16931 et contrôle le schéma XSD des factures
-CII, mais ne contrôle ni le schéma XSD des factures UBL, ni la conformité PDF/A-3 réelle du
+Factur-X Reader exécute le Schematron officiel EN 16931 et celui des profils Factur-X, et contrôle
+le schéma XSD des factures CII, mais ne contrôle ni le schéma XSD des factures UBL, ni la conformité PDF/A-3 réelle du
 fichier, ni les règles nationales : pour une validation complète, Mustang ou Quba restent les bons
 outils.</sub>
 
@@ -234,7 +234,7 @@ En tête de l'onglet **Données**, des verdicts indépendants, jamais fondus en 
 | **Lecture réussie** | Le XML a été trouvé et ses données extraites | Que le fichier est un Factur-X valide |
 | **Calculs cohérents** | Les montants du XML se recalculent sans écart | Que la facture respecte la norme |
 | **Règles EN 16931 respectées** | Les règles métier évaluées par le moteur de l'application passent | Que le Schematron officiel passerait |
-| **Schematron officiel respecté** | Aucune règle bloquante du Schematron officiel EN 16931 n'est enfreinte | Que le XML respecte le schéma XSD ou les règles nationales |
+| **Schematron officiel respecté** | Aucune règle bloquante du Schematron officiel (EN 16931, ou profil Factur-X annoncé) n'est enfreinte | Que le XML respecte le schéma XSD ou les règles nationales |
 | **Schéma XSD respecté** (CII) | La structure du XML suit le schéma officiel : éléments connus, à leur place, valeurs du bon type | Que les montants sont justes ou les règles métier respectées |
 | **PDF/A-3 déclaré, pièce jointe déclarée** | Le PDF s'annonce PDF/A-3 et déclare sa pièce jointe XML | Que le fichier est réellement conforme à ISO 19005-3 |
 
@@ -272,8 +272,17 @@ le texte de la règle et son emplacement dans le XML.
 - si une valeur du XML n'a pas le format attendu (un montant non numérique, par exemple), les
   règles qui en dépendent sont listées comme **non évaluables** et le verdict n'est pas
   « respecté » ;
-- les profils Factur-X **MINIMUM** et **BASIC WL** ne sont pas des factures EN 16931 complètes :
-  le Schematron EN 16931 y signale des règles non respectées, ce qui est attendu.
+- une facture CII qui annonce un profil Factur-X **MINIMUM**, **BASIC WL**, **BASIC** ou
+  **EXTENDED** est évaluée avec les règles officielles Factur-X de ce profil (version 1.09.2,
+  publiées par FNFE-MPE et FeRD), et non avec celles de la Commission : 66, 337, 472 et 1464
+  règles. Le pied du bloc nomme le jeu de règles appliqué. Le profil EN 16931, les extensions
+  nationales (EXTENDED-CTC-FR, XRechnung) et tout autre CII gardent les règles de la Commission ;
+- le profil EXTENDED tolère un centime d'écart sur certains calculs : une facture EXTENDED peut
+  respecter son Schematron alors que les [règles natives](#règles-en-16931), qui appliquent la
+  norme EN 16931 stricte, signalent cet écart ;
+- les règles Factur-X signalent sans identifiant les éléments qu'un profil n'emploie pas ;
+  l'application les liste sous `FX-NON-UTILISE`. Leurs listes de codes, publiées dans un fichier
+  à part, sont intégrées aux règles au chargement, à sens égal.
 
 Ce moteur n'est pas l'implémentation de référence : c'est une évaluation directe des règles
 officielles. Il a été comparé à SaxonJS, le moteur XSLT de référence, sur 583 documents (exemples
@@ -373,7 +382,7 @@ Limites, à connaître avant de s'y fier :
 - **non couverts** par ce moteur natif : les listes de codes (hors catégories de TVA) et les
   règles de syntaxe ;
 - pour les profils Factur-X **MINIMUM** et **BASIC WL**, hors norme EN 16931, seules les règles
-  qui ont un objet sont évaluées.
+  qui ont un objet sont évaluées ; le Schematron officiel, lui, applique les règles de ces profils.
 
 Les factures qui enfreignent une règle portent une pastille dans la liste et se filtrent dans le
 tableau. Le rapport JSON contient le détail de toutes les règles.
@@ -555,7 +564,7 @@ src-tauri/
   src/facturx/controles.rs contrôles de cohérence (décimaux exacts)
   src/facturx/en16931.rs   règles métier EN 16931
   src/schematron.rs        Schematron officiel EN 16931 (évaluation XPath, fils de travail)
-  schematron/              règles officielles (.sch, EUPL 1.2), exemples et suite de tests officielle
+  schematron/              règles officielles EN 16931 (EUPL 1.2) et Factur-X (Apache 2.0), exemples, suite de tests
   src/xsd.rs               schéma XSD des factures CII
   xsd/                     schémas XSD officiels : profils Factur-X 1.09.2 et CII D22B
   src/tables.rs            libellés français et tables de codes

@@ -43,10 +43,12 @@ La licence PolyForm Noncommercial ne couvre que le code de Factur-X Reader.
 - Ces fichiers restent sous EUPL 1.2 : la restriction d'usage non commercial de Factur-X Reader ne
   s'y applique pas, et chacun peut les réutiliser aux conditions de l'EUPL.
 
-### Schémas XSD Factur-X et Cross Industry Invoice
+### Règles et schémas XSD Factur-X, schémas du Cross Industry Invoice
 
-- Fichiers : `src-tauri/xsd/factur-x/` (un schéma par profil) et `src-tauri/xsd/cii-d22b/`
-  (schéma UN/CEFACT complet du Cross Industry Invoice D22B), embarqués dans l'application.
+- Fichiers : `src-tauri/schematron/factur-x/` (règles Schematron et listes de codes des profils
+  MINIMUM, BASIC WL, BASIC et EXTENDED), `src-tauri/xsd/factur-x/` (un schéma par profil) et
+  `src-tauri/xsd/cii-d22b/` (schéma UN/CEFACT complet du Cross Industry Invoice D22B), embarqués
+  dans l'application.
   © FNFE-MPE | FeRD ; schémas CII © UN/CEFACT.
 - Source : paquet officiel **Factur-X 1.09.2 / ZUGFeRD 2.5.2** du 4 août 2026, dossier
   `4. FACTUR-X_1.09.2_XSD_SCHEMATRON`, téléchargé sur [fnfe-mpe.org](https://fnfe-mpe.org/factur-x/).

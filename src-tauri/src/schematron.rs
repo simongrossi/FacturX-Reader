@@ -8,6 +8,11 @@
 //!
 //! Semantique Schematron appliquee : dans un motif (`pattern`), un noeud n'est
 //! traite que par la premiere regle dont le contexte le reconnait.
+//!
+//! Une facture CII aux profils Factur-X MINIMUM, BASIC WL, BASIC ou EXTENDED est evaluee avec
+//! les regles publiees pour ce profil par FNFE-MPE et FeRD (Factur-X 1.09.2, licence Apache
+//! 2.0), embarquees elles aussi telles quelles. Tout autre CII (dont le profil EN 16931) et
+//! les factures UBL le sont avec les regles de la Commission.
 
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::{mpsc, Arc, Condvar, Mutex, OnceLock};
@@ -28,6 +33,26 @@ pub const RULES_VERSION: &str = "1.3.16";
 const ENGINE_VERSION: &str = env!("CARGO_PKG_VERSION");
 const CII_RULES: &str = include_str!("../schematron/EN16931-CII-validation-preprocessed.sch");
 const UBL_RULES: &str = include_str!("../schematron/EN16931-UBL-validation-preprocessed.sch");
+/// Version des regles Factur-X embarquees.
+const FX_VERSION: &str = "1.09.2";
+const FX_MINIMUM: (&str, &str) = (
+    include_str!("../schematron/factur-x/FACTUR-X_MINIMUM.sch"),
+    include_str!("../schematron/factur-x/FACTUR-X_MINIMUM_codedb.xml"),
+);
+const FX_BASIC_WL: (&str, &str) = (
+    include_str!("../schematron/factur-x/FACTUR-X_BASIC-WL.sch"),
+    include_str!("../schematron/factur-x/FACTUR-X_BASIC-WL_codedb.xml"),
+);
+const FX_BASIC: (&str, &str) = (
+    include_str!("../schematron/factur-x/FACTUR-X_BASIC.sch"),
+    include_str!("../schematron/factur-x/FACTUR-X_BASIC_codedb.xml"),
+);
+const FX_EXTENDED: (&str, &str) = (
+    include_str!("../schematron/factur-x/FACTUR-X_EXTENDED.sch"),
+    include_str!("../schematron/factur-x/FACTUR-X_EXTENDED_codedb.xml"),
+);
+/// Identifiant donne aux constats `report` des regles Factur-X, qui n'en portent pas.
+const FX_REPORT_ID: &str = "FX-NON-UTILISE";
 
 /// Chemin lisible d'un noeud, calcule seulement pour les assertions en echec.
 const PATH_QUERY: &str = "string-join(for $a in ancestor-or-self::* return concat('/', name($a), \
@@ -37,6 +62,56 @@ const PATH_QUERY: &str = "string-join(for $a in ancestor-or-self::* return conca
 enum Format {
     Cii,
     Ubl,
+    FxMinimum,
+    FxBasicWl,
+    FxBasic,
+    FxExtended,
+}
+
+impl Format {
+    /// Jeu de regles d'une facture CII, d'apres le profil qu'elle annonce (BT-24).
+    fn for_cii(xml: &str) -> Format {
+        match crate::xsd::profile(xml).to_ascii_lowercase().as_str() {
+            "urn:factur-x.eu:1p0:minimum" => Format::FxMinimum,
+            "urn:factur-x.eu:1p0:basicwl" => Format::FxBasicWl,
+            "urn:cen.eu:en16931:2017#compliant#urn:factur-x.eu:1p0:basic" => Format::FxBasic,
+            "urn:cen.eu:en16931:2017#conformant#urn:factur-x.eu:1p0:extended" => Format::FxExtended,
+            _ => Format::Cii,
+        }
+    }
+
+    fn is_cii(self) -> bool {
+        self != Format::Ubl
+    }
+
+    /// Nom court, pour la cle des resultats gardes.
+    fn key(self) -> &'static str {
+        match self {
+            Format::Cii => "CII",
+            Format::Ubl => "UBL",
+            Format::FxMinimum => "FX-MINIMUM",
+            Format::FxBasicWl => "FX-BASICWL",
+            Format::FxBasic => "FX-BASIC",
+            Format::FxExtended => "FX-EXTENDED",
+        }
+    }
+
+    fn label(self) -> &'static str {
+        match self {
+            Format::Cii | Format::Ubl => "EN 16931 (Commission européenne)",
+            Format::FxMinimum => "Factur-X, profil MINIMUM",
+            Format::FxBasicWl => "Factur-X, profil BASIC WL",
+            Format::FxBasic => "Factur-X, profil BASIC",
+            Format::FxExtended => "Factur-X, profil EXTENDED",
+        }
+    }
+
+    fn version(self) -> &'static str {
+        match self {
+            Format::Cii | Format::Ubl => RULES_VERSION,
+            _ => FX_VERSION,
+        }
+    }
 }
 
 struct Assert {
@@ -56,8 +131,44 @@ struct Rules {
     patterns: Vec<Vec<Rule>>,
 }
 
-fn parse_rules(source: &str) -> Rules {
+/// Listes de codes d'un fichier `codedb` Factur-X, par identifiant de liste.
+fn parse_code_lists(source: &str) -> HashMap<String, Vec<String>> {
+    let doc = roxmltree::Document::parse(source).expect("listes de codes embarquees invalides");
+    doc.descendants()
+        .filter(|n| n.is_element() && n.tag_name().name() == "cl")
+        .filter_map(|cl| {
+            let values = cl.children().filter_map(|e| e.attribute("value").map(str::to_string)).collect();
+            Some((cl.attribute("id")?.to_string(), values))
+        })
+        .collect()
+}
+
+/// Les regles Factur-X controlent les listes de codes par
+/// `string-length($v)=0 or document('…codedb.xml')/codedb/cl[@id=N]/enumeration[@value=$v]`,
+/// ou `$v` est une variable `let` de la regle. Le moteur XPath n'ouvre pas de document
+/// externe : le test est reecrit, a sens egal, avec la liste N ecrite dans l'expression.
+fn inline_code_list(test: &str, lets: &HashMap<&str, &str>, lists: &HashMap<String, Vec<String>>) -> Option<String> {
+    let rest = test.trim().strip_prefix("string-length($")?;
+    let (name, rest) = rest.split_once(")=0 or document('")?;
+    let (_, rest) = rest.split_once("')/codedb/cl[@id=")?;
+    let (list, rest) = rest.split_once("]/enumeration[@value=$")?;
+    if rest != format!("{name}]") {
+        return None;
+    }
+    let (value, codes) = (lets.get(name)?, lists.get(list)?);
+    // Les codes sont separes par un saut de ligne, qu'aucun code ne contient.
+    if codes.iter().any(|c| c.contains('\n')) {
+        return None;
+    }
+    let joined = codes.join("\n").replace('\'', "''");
+    Some(format!(
+        "string-length({value})=0 or (not(contains(string({value}), '\n')) and contains('\n{joined}\n', concat('\n', string({value}), '\n')))"
+    ))
+}
+
+fn parse_rules(source: &str, code_lists: Option<&str>) -> Rules {
     let doc = roxmltree::Document::parse(source).expect("regles Schematron embarquees invalides");
+    let lists = code_lists.map(parse_code_lists).unwrap_or_default();
     let is = |n: roxmltree::Node, name: &str| n.is_element() && n.tag_name().name() == name;
     let text = |n: roxmltree::Node| -> String {
         let raw: String = n.descendants().filter_map(|d| d.text()).collect();
@@ -75,18 +186,35 @@ fn parse_rules(source: &str) -> Rules {
             .map(|p| {
                 p.children()
                     .filter(|n| is(*n, "rule"))
-                    .map(|r| Rule {
-                        context: r.attribute("context").unwrap_or("").to_string(),
-                        asserts: r
+                    .map(|r| {
+                        let lets: HashMap<&str, &str> = r
                             .children()
-                            .filter(|n| is(*n, "assert"))
-                            .map(|a| Assert {
-                                id: a.attribute("id").unwrap_or("").to_string(),
-                                fatal: a.attribute("flag").unwrap_or("fatal") == "fatal",
-                                test: a.attribute("test").unwrap_or("").to_string(),
-                                text: text(a),
-                            })
-                            .collect(),
+                            .filter(|n| is(*n, "let"))
+                            .filter_map(|l| Some((l.attribute("name")?, l.attribute("value")?)))
+                            .collect();
+                        Rule {
+                            // Le moteur XPath refuse `normalize-space()` sans argument, qui vaut `normalize-space(.)`.
+                            context: r.attribute("context").unwrap_or("").replace("normalize-space()", "normalize-space(.)"),
+                            asserts: r
+                                .children()
+                                .filter(|n| is(*n, "assert") || is(*n, "report"))
+                                .map(|a| {
+                                    let test = a.attribute("test").unwrap_or("");
+                                    let report = is(a, "report");
+                                    Assert {
+                                        id: a.attribute("id").unwrap_or(if report { FX_REPORT_ID } else { "" }).to_string(),
+                                        fatal: a.attribute("flag").unwrap_or("fatal") == "fatal",
+                                        // Un `report` signale un test vrai ; une assertion, un test faux.
+                                        test: if report {
+                                            format!("not({test})")
+                                        } else {
+                                            inline_code_list(test, &lets, &lists).unwrap_or_else(|| test.to_string())
+                                        },
+                                        text: text(a),
+                                    }
+                                })
+                                .collect(),
+                        }
                     })
                     .collect()
             })
@@ -97,9 +225,15 @@ fn parse_rules(source: &str) -> Rules {
 fn rules(format: Format) -> &'static Rules {
     static CII: OnceLock<Rules> = OnceLock::new();
     static UBL: OnceLock<Rules> = OnceLock::new();
+    static FX: [OnceLock<Rules>; 4] = [const { OnceLock::new() }; 4];
+    let factur_x = |slot: usize, (rules, codes): (&str, &str)| FX[slot].get_or_init(|| parse_rules(rules, Some(codes)));
     match format {
-        Format::Cii => CII.get_or_init(|| parse_rules(CII_RULES)),
-        Format::Ubl => UBL.get_or_init(|| parse_rules(UBL_RULES)),
+        Format::Cii => CII.get_or_init(|| parse_rules(CII_RULES, None)),
+        Format::Ubl => UBL.get_or_init(|| parse_rules(UBL_RULES, None)),
+        Format::FxMinimum => factur_x(0, FX_MINIMUM),
+        Format::FxBasicWl => factur_x(1, FX_BASIC_WL),
+        Format::FxBasic => factur_x(2, FX_BASIC),
+        Format::FxExtended => factur_x(3, FX_EXTENDED),
     }
 }
 
@@ -422,6 +556,7 @@ struct CompiledRule {
 
 /// Regles compilees d'un format. Propre a un fil : les programmes ne sont pas partageables.
 struct Engine {
+    format: Format,
     rules: &'static Rules,
     compiled: Vec<Vec<CompiledRule>>,
     path: Option<OneQuery<String, Convert<String>>>,
@@ -489,7 +624,7 @@ impl Engine {
             })
             .collect();
         let path = queries.one(PATH_QUERY, to_string as Convert<String>).ok();
-        Engine { rules, compiled, path, uncompiled }
+        Engine { format, rules, compiled, path, uncompiled }
     }
 
     fn validate(&self, xml: &str) -> Value {
@@ -592,7 +727,8 @@ impl Engine {
         json!({
             "evalue": true,
             "ok": fatals == 0 && unevaluated.is_empty(),
-            "version_regles": RULES_VERSION,
+            "jeu_regles": self.format.label(),
+            "version_regles": self.format.version(),
             "regles_declenchees": fired,
             "total": failed.len(),
             "non_conformes": fatals,
@@ -637,20 +773,19 @@ fn recognized(xml: &str, format: Format) -> bool {
     let Ok(doc) = roxmltree::Document::parse(xml) else { return false };
     let root = doc.root_element();
     let (ns, name) = (root.tag_name().namespace().unwrap_or(""), root.tag_name().name());
-    match format {
-        Format::Cii => ns == "urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100" && name == "CrossIndustryInvoice",
-        Format::Ubl => {
-            (ns == "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2" && name == "Invoice")
-                || (ns == "urn:oasis:names:specification:ubl:schema:xsd:CreditNote-2" && name == "CreditNote")
-        }
+    if format.is_cii() {
+        ns == "urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100" && name == "CrossIndustryInvoice"
+    } else {
+        (ns == "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2" && name == "Invoice")
+            || (ns == "urn:oasis:names:specification:ubl:schema:xsd:CreditNote-2" && name == "CreditNote")
     }
 }
 
-/// Cle d'un resultat : format et empreinte du XML.
+/// Cle d'un resultat : jeu de regles et empreinte du XML.
 fn cache_key(xml: &str, format: Format) -> String {
     format!(
         "{}:{}",
-        if format == Format::Cii { "CII" } else { "UBL" },
+        format.key(),
         Sha256::digest(xml.as_bytes()).iter().map(|b| format!("{b:02x}")).collect::<String>()
     )
 }
@@ -723,11 +858,13 @@ impl Validator {
         if !recognized(&xml, format) {
             return not_evaluated("Aucune règle officielle ne s'applique à ce document (racine ou espace de noms non reconnu)");
         }
+        // Un profil Factur-X autre qu'EN 16931 a ses propres regles.
+        let format = if format == Format::Cii { Format::for_cii(&xml) } else { format };
         let key = cache_key(&xml, format);
         if let Some(hit) = self.cache.lock().unwrap_or_else(|e| e.into_inner()).get(&key) {
             return hit.clone();
         }
-        if let Some(mut hit) = library.and_then(|l| l.schematron_get(&key, RULES_VERSION, ENGINE_VERSION)) {
+        if let Some(mut hit) = library.and_then(|l| l.schematron_get(&key, format.version(), ENGINE_VERSION)) {
             hit["depuis_cache"] = true.into();
             self.cache.lock().unwrap_or_else(|e| e.into_inner()).insert(key, hit.clone());
             return hit;
@@ -747,7 +884,7 @@ impl Validator {
         let value = result.recv().unwrap_or_else(|_| not_evaluated("Le moteur de validation s'est arrêté"));
         if value["evalue"] == true {
             if let Some(library) = library {
-                library.schematron_put(&key, RULES_VERSION, ENGINE_VERSION, &value);
+                library.schematron_put(&key, format.version(), ENGINE_VERSION, &value);
             }
             self.cache.lock().unwrap_or_else(|e| e.into_inner()).insert(key, value.clone());
         }
@@ -823,6 +960,47 @@ mod tests {
             assert_eq!(Engine::new(format).uncompiled, 0);
         }
         assert_eq!(context_to_xpath("ram:A | /rsm:B[x = 'a|b'] | //ram:C"), "//ram:A | /rsm:B[x = 'a|b'] | //ram:C");
+    }
+
+    /// Regles Factur-X de chaque profil : toutes compilees, `report` et listes de codes compris.
+    #[test]
+    fn regles_factur_x_chargees_et_compilees() {
+        for (format, asserts) in [(Format::FxMinimum, 66), (Format::FxBasicWl, 337), (Format::FxBasic, 472), (Format::FxExtended, 1464)] {
+            let engine = Engine::new(format);
+            let total: usize = engine.rules.patterns.iter().flatten().map(|r| r.asserts.len()).sum();
+            assert_eq!(total, asserts, "{}", format.label());
+            assert_eq!(engine.uncompiled, 0, "{}", format.label());
+            // Aucun test ne depend plus d'un document externe ni d'une variable de regle.
+            assert!(engine.rules.patterns.iter().flatten().flat_map(|r| &r.asserts).all(|a| !a.test.contains("document(")));
+        }
+    }
+
+    /// Le jeu de regles suit le profil annonce ; une liste de codes et un element hors profil
+    /// sont controles.
+    #[test]
+    fn regles_du_profil_factur_x_annonce() {
+        let validator = Validator::new();
+        let run = |xml: String| validator.validate(xml, "CII", false, None);
+        let en = run(CII.to_string());
+        assert_eq!(en["jeu_regles"], "EN 16931 (Commission européenne)");
+        assert_eq!(en["version_regles"], RULES_VERSION);
+
+        let extended = CII.replacen(">urn:cen.eu:en16931:2017<", ">urn:cen.eu:en16931:2017#conformant#urn:factur-x.eu:1p0:extended<", 1);
+        assert_ne!(extended, CII);
+        let report = run(extended.clone());
+        assert_eq!(report["jeu_regles"], "Factur-X, profil EXTENDED");
+        assert_eq!(report["version_regles"], "1.09.2");
+        assert!(fatals(&report).is_empty(), "{report}");
+        assert!(report["non_evaluables"].as_array().unwrap().is_empty(), "{report}");
+
+        // Devise hors liste de codes : la regle Factur-X correspondante est enfreinte.
+        let currency = run(extended.replacen("<ram:InvoiceCurrencyCode>EUR<", "<ram:InvoiceCurrencyCode>ZZZ<", 1));
+        assert!(fatals(&currency).iter().any(|id| id.starts_with("FX-SCH-A-") || id == "BR-CL-04"), "{currency}");
+
+        // Annoncee MINIMUM, la meme facture porte des elements que ce profil n'emploie pas.
+        let minimum = run(CII.replacen(">urn:cen.eu:en16931:2017<", ">urn:factur-x.eu:1p0:minimum<", 1));
+        assert_eq!(minimum["jeu_regles"], "Factur-X, profil MINIMUM");
+        assert!(fatals(&minimum).iter().any(|id| id == FX_REPORT_ID), "{minimum}");
     }
 
     #[test]
@@ -1028,7 +1206,10 @@ mod tests {
     /// l'evaluation litterale des regles. Retourne le nombre de documents compares.
     fn comparer(documents: &[(Format, String)]) -> usize {
         let mut compared = 0;
-        for format in [Format::Cii, Format::Ubl] {
+        for format in [Format::Cii, Format::Ubl, Format::FxMinimum, Format::FxBasicWl, Format::FxBasic, Format::FxExtended] {
+            if !documents.iter().any(|(f, _)| *f == format) {
+                continue;
+            }
             let (fast, reference) = (Engine::new(format), Engine::build(format, false));
             for (_, xml) in documents.iter().filter(|(f, _)| *f == format) {
                 for variant in variantes(xml) {
@@ -1054,7 +1235,9 @@ mod tests {
                 Some("UBL") => Format::Ubl,
                 _ => continue,
             };
-            out.push((format, r["xml_pretty"].as_str().unwrap_or_default().to_string()));
+            let xml = r["xml_pretty"].as_str().unwrap_or_default().to_string();
+            // Une facture CII est comparee avec les regles de son profil.
+            out.push((if format == Format::Cii { Format::for_cii(&xml) } else { format }, xml));
         }
         out
     }
@@ -1069,8 +1252,13 @@ mod tests {
             (Format::Cii, CII_OFFICIEL.to_string()),
             (Format::Cii, grande_facture(15)),
             (Format::Ubl, UBL.to_string()),
+            // Regles Factur-X : la meme facture, evaluee avec les regles de chaque profil.
+            (Format::FxMinimum, CII.to_string()),
+            (Format::FxBasicWl, CII.to_string()),
+            (Format::FxBasic, CII_OFFICIEL.to_string()),
+            (Format::FxExtended, CII_OFFICIEL.to_string()),
         ];
-        assert!(comparer(&documents) > 40);
+        assert!(comparer(&documents) > 80);
     }
 
     /// Meme comparaison sur les factures reelles de `samples/` et leurs variantes. Longue :

@@ -51,7 +51,7 @@ fn schema_for(profile: &str) -> usize {
 }
 
 /// Profil annonce par la facture : `GuidelineSpecifiedDocumentContextParameter/ID`.
-fn profile(xml: &str) -> String {
+pub(crate) fn profile(xml: &str) -> String {
     roxmltree::Document::parse(xml.trim_start_matches('\u{feff}'))
         .ok()
         .and_then(|doc| {

@@ -1451,7 +1451,11 @@ function schematronSection(f) {
 
   const foot = document.createElement("p");
   foot.className = "verdict-note";
-  foot.textContent = "Règles Schematron officielles EN 16931 v" + (sch.version_regles || "") + " de la Commission européenne (EUPL 1.2), évaluées sur ce poste" +
+  // Profils Factur-X MINIMUM, BASIC WL, BASIC et EXTENDED : règles Factur-X du profil annoncé.
+  const facturX = /^Factur-X/.test(sch.jeu_regles || "");
+  foot.textContent = (facturX
+    ? "Règles Schematron officielles " + sch.jeu_regles + ", v" + (sch.version_regles || "") + " (FNFE-MPE et FeRD, Apache 2.0), évaluées sur ce poste"
+    : "Règles Schematron officielles EN 16931 v" + (sch.version_regles || "") + " de la Commission européenne (EUPL 1.2), évaluées sur ce poste") +
     (sch.regles_declenchees ? " : " + sch.regles_declenchees + " contextes examinés" : "") +
     (sch.depuis_cache ? ", résultat repris de la bibliothèque" : sch.duree_ms != null ? " en " + sch.duree_ms + " ms" : "") + ".";
   sec.appendChild(foot);

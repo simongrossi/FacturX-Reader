@@ -8,7 +8,7 @@ Les commandes sont décrites dans [README.md](README.md#tests).
 | Vérification | Résultat / portée |
 |---|---|
 | `npm run check:js` | Syntaxe de tous les scripts de l'interface |
-| `npm run test:rust` | 48 tests unitaires : schéma XSD des factures CII (chargement des six schémas, choix d'après le profil, exemple officiel valide, élément inconnu, attribut inconnu, montant non numérique, jamais « valide » sans évaluation), Schematron officiel (compilation de toutes les règles, suite de tests officielle de la Commission, exemples officiels, règles enfreintes, file de travail, résultat repris de la bibliothèque entre deux sessions, résultats identiques avec et sans optimisations), moteur UBL/CII, contrôles en décimaux exacts, règles EN 16931, conteneur PDF (déclarations lues, écarts), pointages et suivi (corruption, sauvegarde, restauration, fusion), bibliothèque SQLite |
+| `npm run test:rust` | 50 tests unitaires : schéma XSD des factures CII (chargement des six schémas, choix d'après le profil, exemple officiel valide, élément inconnu, attribut inconnu, montant non numérique, jamais « valide » sans évaluation), Schematron officiel (compilation de toutes les règles, suite de tests officielle de la Commission, exemples officiels, règles enfreintes, file de travail, résultat repris de la bibliothèque entre deux sessions, résultats identiques avec et sans optimisations), moteur UBL/CII, contrôles en décimaux exacts, règles EN 16931, conteneur PDF (déclarations lues, écarts), pointages et suivi (corruption, sauvegarde, restauration, fusion), bibliothèque SQLite |
 | Test Rust `samples.rs` | Factures réelles locales, hors dépôt : toutes analysées, sauf celles marquées sans XML |
 | `npm run test:ui` | 14 scénarios navigateur (Edge le 3 octobre ; Chromium par la CI), commandes Rust simulées, PDF.js réel |
 | `npm run test:native` | Vrai exécutable Windows, vraies commandes Rust, profil WebView2 et dossier de données jetables |
@@ -26,6 +26,16 @@ démarrage, laissés intacts à l'écriture, puis restaurés depuis une sauvegar
 ### Schematron officiel
 
 - Les 806 règles CII et les 979 règles UBL officielles se compilent toutes (test automatisé).
+- **Règles Factur-X 1.09.2** des profils MINIMUM, BASIC WL, BASIC et EXTENDED : 66, 337, 472 et
+  1464 règles, toutes compilées. Le jeu appliqué suit le profil annoncé ; une devise hors liste
+  de codes et des lignes dans une facture annoncée MINIMUM sont signalées (tests automatisés).
+  L'évaluation optimisée donne les mêmes résultats que l'évaluation littérale sur ces règles.
+- Sur les trois factures réelles EXTENDED locales, aucune règle bloquante Factur-X n'est
+  enfreinte. L'une d'elles enfreignait trois règles EN 16931 de la Commission pour un centime
+  d'écart, que le profil EXTENDED tolère.
+- **Non fait** pour les règles Factur-X : aucune comparaison avec un moteur de référence, aucune
+  suite de tests officielle (le paquet n'en fournit pas), et aucun fichier réel ni exemple
+  officiel aux profils MINIMUM, BASIC WL ou BASIC.
 - Tests Rust : une facture CII fictive complète et les exemples officiels CII et UBL de la
   Commission ne enfreignent aucune règle bloquante ; un total faux d'un centime enfreint
   `BR-CO-15` ; un acheteur sans nom, `BR-07` ; une facture UBL sans date, `BR-03`.
@@ -96,8 +106,9 @@ remontent des écarts de ligne, le prix unitaire et les frais déclarés ne redo
 ## Limites de ce que l'application affirme
 
 - Le **Schematron officiel EN 16931** est exécuté sur le XML réindenté par l'application. Les
-  règles nationales ne sont pas contrôlées. Les profils MINIMUM et BASIC WL sont
-  évalués avec les règles EN 16931, faute des Schematron propres à Factur-X.
+  règles nationales ne sont pas contrôlées. Les règles appliquées dépendent du profil que la
+  facture annonce : un profil mal annoncé donne une évaluation avec le mauvais jeu de règles.
+  Les règles Factur-X n'ont pas été comparées à un moteur de référence.
 - Le **schéma XSD** n'est contrôlé que pour les factures CII, par un validateur jeune qui n'a
   pas été comparé à un validateur de référence. Le schéma est choisi d'après le profil que la
   facture annonce : un profil mal annoncé donne un contrôle contre le mauvais schéma. Les factures UBL ne sont pas contrôlées.

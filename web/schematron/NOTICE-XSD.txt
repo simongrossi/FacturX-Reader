@@ -1,9 +1,10 @@
-Schemas XSD Factur-X et Cross Industry Invoice
-==============================================
+Regles et schemas XSD Factur-X, schemas du Cross Industry Invoice
+=================================================================
 
-Fichiers embarques sans modification dans Factur-X Reader (src-tauri/xsd) : un schema par profil
-Factur-X (MINIMUM, BASIC WL, BASIC, EN 16931, EXTENDED) et le schema UN/CEFACT complet du Cross
-Industry Invoice D22B. Source : paquet officiel Factur-X 1.09.2 / ZUGFeRD 2.5.2 du 4 aout 2026,
+Fichiers embarques sans modification dans Factur-X Reader : les regles Schematron et les listes
+de codes des profils Factur-X MINIMUM, BASIC WL, BASIC et EXTENDED (src-tauri/schematron/factur-x),
+un schema XSD par profil Factur-X (MINIMUM, BASIC WL, BASIC, EN 16931, EXTENDED) et le schema
+UN/CEFACT complet du Cross Industry Invoice D22B (src-tauri/xsd). Source : paquet officiel Factur-X 1.09.2 / ZUGFeRD 2.5.2 du 4 aout 2026,
 publie par FNFE-MPE et FeRD (fnfe-mpe.org). (c) FNFE-MPE | FeRD ; schemas CII (c) UN/CEFACT.
 
 La specification Factur-X indique : « Ce document est libre de droit, sur une base TEL QUEL

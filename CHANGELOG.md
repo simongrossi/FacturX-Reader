@@ -16,6 +16,10 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 
 - **Suite de tests officielle** de la Commission (1169 cas) exécutée à chaque `cargo test` :
   chaque règle donne le résultat attendu.
+- **Schematron des profils Factur-X** : une facture CII annoncée MINIMUM, BASIC WL, BASIC ou
+  EXTENDED est évaluée avec les règles officielles Factur-X 1.09.2 de son profil, embarquées sans
+  modification, au lieu des règles EN 16931 de la Commission, qui y signalaient des erreurs sans
+  objet. Le bloc nomme le jeu de règles appliqué.
 - **Schéma XSD des factures CII** : la structure du XML est contrôlée contre le schéma du profil
   annoncé par la facture — MINIMUM, BASIC WL, BASIC, EN 16931 ou EXTENDED, schémas officiels
   Factur-X 1.09.2 — et, pour tout autre CII, contre le schéma UN/CEFACT complet D22B. Schémas

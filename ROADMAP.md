@@ -29,11 +29,10 @@ Versions publiées (pré-versions, builds non signés) :
 Ordre guidé par le [comparatif](README.md#comparatif) : fermer d'abord les cases où Quba et
 Mustang font mieux, en commençant par ce qui réutilise le moteur existant.
 
-1. **Schematron des profils Factur-X et XML d'origine** (P3) : MINIMUM, BASIC WL, BASIC et
-   EXTENDED évalués avec leurs propres règles, sur les octets d'origine plutôt que sur le XML
-   réindenté. Le moteur existe : il reste à embarquer les règles (Factur-X 1.09.2, licence Apache 2.0) et
-   à choisir le jeu de règles d'après le profil. Petit chantier, qui corrige des verdicts
-   aujourd'hui trompeurs sur ces profils.
+1. **Schematron, suite** (P3) : fait pour les profils Factur-X MINIMUM, BASIC WL, BASIC et
+   EXTENDED, évalués avec leurs propres règles. Reste : valider les octets d'origine plutôt que le
+   XML réindenté, essayer les exemples officiels Factur-X de chaque profil, et les règles
+   nationales françaises (EXTENDED-CTC-FR).
 2. **Validation XSD, suite** (P3) : fait pour les factures CII, en Rust pur avec `uppsala`, avec
    le schéma de chaque profil Factur-X. Reste : embarquer les schémas UBL 2.1 d'OASIS, et comparer
    le validateur à une référence (Xerces ou libxml2) sur un grand jeu de documents, dont les
@@ -53,7 +52,7 @@ de factures (hors périmètre).
 
 | Ligne du comparatif | Aujourd'hui | Pour cocher la case | Effort | Priorité |
 |---|---|---|---|---|
-| Schematron officiel EN 16931 | ✅ hors ligne, EN 16931 seul | Profils Factur-X, XML d'origine, règles nationales (CIUS) | Faible à moyen | 1 |
+| Schematron officiel EN 16931 | ✅ hors ligne, EN 16931 et profils Factur-X | XML d'origine, règles nationales (CIUS) | Faible à moyen | 1 |
 | Validation XSD | CII hors ligne, par profil Factur-X | Schémas UBL 2.1, comparaison à un validateur de référence | Faible à moyen | 2 |
 | Validation PDF/A-3 du fichier | Déclarations lues | Contrôles réels partiels, puis décision sur une validation complète | Moyen (partiel), élevé (complet) | 4 |
 | Conversion CII ↔ UBL, ZUGFeRD 1 → 2 | — | Table de correspondance complète des deux syntaxes | Élevé | Plus tard |
@@ -177,8 +176,9 @@ de factures (hors périmètre).
   vérifiés par test.
 - [x] Suite de tests officielle de la Commission embarquée et exécutée par `cargo test`, donc
   par la CI : 1169 cas, tous au résultat attendu.
-- [ ] Schematron des profils Factur-X (MINIMUM, BASIC WL, BASIC, EXTENDED), pour ne plus évaluer
-  ces profils avec les seules règles EN 16931.
+- [x] Schematron des profils Factur-X (MINIMUM, BASIC WL, BASIC, EXTENDED) : règles officielles
+  Factur-X 1.09.2 embarquées, choisies d'après le profil annoncé. Le moteur a appris les
+  constats `report` et les listes de codes externes.
 - [ ] Valider le XML d'origine plutôt que sa version réindentée.
 - [x] Validation du schéma XSD des factures CII : schémas officiels des cinq profils Factur-X
   1.09.2 et CII D22B embarqués, choisis d'après le profil annoncé, validateur `uppsala` en Rust
