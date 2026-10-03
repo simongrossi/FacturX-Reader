@@ -91,6 +91,7 @@ une case est cochée des deux côtés, le niveau de détail peut différer.
 | Impression | ✅ | ✅ | — | ✅ |
 | Contrôles arithmétiques détaillés | ✅ | — | Via la validation | — |
 | Schematron officiel EN 16931 et profils Factur-X | ✅ hors ligne | ✅ en ligne | ✅ | — |
+| Règles de la réforme française (EXTENDED-CTC-FR, BR-FR) | ✅ hors ligne | — | — | — |
 | Validation XSD | ✅ hors ligne | ✅ en ligne | ✅ | — |
 | Validation PDF/A-3 du fichier | Partielle : déclarations et sept points de structure | ✅ en ligne | ✅ | — |
 | Tableau multi-factures avec totaux | ✅ | — | — | — |
@@ -106,7 +107,7 @@ une case est cochée des deux côtés, le niveau de détail peut différer.
 signifie « non documenté à cette date », pas forcément « impossible ». Corrections bienvenues.
 Factur-X Reader exécute le Schematron officiel EN 16931 et celui des profils Factur-X, et contrôle
 le schéma XSD, mais ne contrôle ni la conformité PDF/A-3 complète du fichier, ni les règles
-nationales BR-FR ; son validateur XSD et son moteur Schematron ne sont pas les implémentations de
+nationales autres que françaises ; son validateur XSD et son moteur Schematron ne sont pas les implémentations de
 référence. Pour une validation qui fait foi, Mustang ou Quba restent les bons outils.</sub>
 
 ## Téléchargement
@@ -239,8 +240,8 @@ En tête de l'onglet **Données**, des verdicts indépendants, jamais fondus en 
 | **PDF/A-3 déclaré, structure sans anomalie relevée** | Le PDF s'annonce PDF/A-3, déclare sa pièce jointe XML et passe les sept contrôles de structure | Que le fichier est conforme à ISO 19005-3 : la norme comporte bien d'autres exigences |
 
 Les autres constats (identifiants, échéance, doublons, IBAN) sont comptés à part comme alertes.
-**Non contrôlés** : la conformité PDF/A-3 complète du fichier et les règles françaises BR-FR de
-la réforme (XP Z12-012). Aucun de ces verdicts ne vaut certification. Le tableau multi-factures reprend
+**Non contrôlés** : la conformité PDF/A-3 complète du fichier et les règles nationales autres
+que françaises (XRechnung, Peppol…). Aucun de ces verdicts ne vaut certification. Le tableau multi-factures reprend
 les verdicts en colonnes, et le rapport JSON dans un bloc `verdicts`.
 
 ### Schematron officiel
@@ -282,9 +283,15 @@ le texte de la règle et son emplacement dans le XML.
 - une facture CII ou UBL au profil français **EXTENDED-CTC-FR** (réforme de la facture
   électronique, norme XP Z12-012) est évaluée avec les règles de ce profil publiées par le
   FNFE-MPE (dépôt [`France_RFE`](https://github.com/fnfempe/France_RFE), version 1.4.0.04) : 773
-  règles CII, 953 règles UBL. Les règles **BR-FR** de la réforme (format du SIREN, mentions
-  propres à la France…), publiées dans un fichier distinct qui définit ses propres fonctions, ne
-  sont pas encore exécutées ;
+  règles CII, 953 règles UBL ;
+- les règles **BR-FR** de la réforme française (même dépôt, même version : 171 règles CII, 175
+  règles UBL — longueur et format des identifiants, SIREN et SIRET, mentions obligatoires en
+  France, cadre de facturation…) s'ajoutent au jeu de règles du profil quand la facture relève
+  de la réforme : profil EXTENDED-CTC-FR, ou **vendeur et acheteur tous deux en France**. Une
+  facture étrangère, ou adressée à l'étranger, n'y est pas soumise. Leurs identifiants commencent
+  par `BR-FR`, et le pied du bloc dit si elles ont été appliquées. Ce critère est un choix de
+  l'application : il ne tient pas compte des cas particuliers de la réforme (B2C, opérations
+  exonérées de l'obligation, calendrier d'entrée en vigueur selon la taille de l'entreprise) ;
 - le profil EN 16931, XRechnung et tout autre CII ou UBL gardent les règles de la Commission ;
 - le profil EXTENDED tolère un centime d'écart sur certains calculs : une facture EXTENDED peut
   respecter son Schematron alors que les [règles natives](#règles-en-16931), qui appliquent la

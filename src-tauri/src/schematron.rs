@@ -57,12 +57,18 @@ const FX_EXTENDED: (&str, &str) = (
 const CTC_FR_VERSION: &str = "1.4.0.04";
 const CTC_FR_CII: &str = include_str!("../schematron/france/EXTENDED-CTC-FR-CII.sch");
 const CTC_FR_UBL: &str = include_str!("../schematron/france/EXTENDED-CTC-FR-UBL.sch");
+/// Regles BR-FR de la reforme francaise (meme depot, meme version) : appliquees en plus du
+/// jeu de regles du profil aux factures qui relevent de la reforme (voir `french_scope`).
+const BR_FR_CII: &str = include_str!("../schematron/france/BR-FR-Flux2-Schematron-CII.sch");
+const BR_FR_UBL: &str = include_str!("../schematron/france/BR-FR-Flux2-Schematron-UBL.sch");
 const CTC_FR_PROFILE: &str = "urn:cen.eu:en16931:2017#conformant#urn.cpro.gouv.fr:1p0:extended-ctc-fr";
 /// Identifiant donne aux constats `report` des regles Factur-X, qui n'en portent pas.
 const FX_REPORT_ID: &str = "FX-NON-UTILISE";
 
 /// Chemin lisible d'un noeud, calcule seulement pour les assertions en echec.
-const PATH_QUERY: &str = "string-join(for $a in ancestor-or-self::* return concat('/', name($a), \
+/// Le moteur XPath parcourt `ancestor-or-self` de l'element vers la racine : l'union avec la
+/// sequence vide remet les ancetres dans l'ordre du document, racine en tete.
+const PATH_QUERY: &str = "string-join(for $a in (ancestor-or-self::* | ()) return concat('/', name($a), \
     if (count($a/../*[name() = name($a)]) > 1) then concat('[', count($a/preceding-sibling::*[name() = name($a)]) + 1, ']') else ''), '')";
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -75,6 +81,8 @@ enum Format {
     FxExtended,
     CtcFrCii,
     CtcFrUbl,
+    BrFrCii,
+    BrFrUbl,
 }
 
 impl Format {
@@ -106,7 +114,7 @@ impl Format {
     }
 
     fn is_cii(self) -> bool {
-        !matches!(self, Format::Ubl | Format::CtcFrUbl)
+        !matches!(self, Format::Ubl | Format::CtcFrUbl | Format::BrFrUbl)
     }
 
     /// Nom court, pour la cle des resultats gardes.
@@ -120,6 +128,8 @@ impl Format {
             Format::FxExtended => "FX-EXTENDED",
             Format::CtcFrCii => "CTC-FR-CII",
             Format::CtcFrUbl => "CTC-FR-UBL",
+            Format::BrFrCii => "BR-FR-CII",
+            Format::BrFrUbl => "BR-FR-UBL",
         }
     }
 
@@ -131,16 +141,71 @@ impl Format {
             Format::FxBasic => "Factur-X, profil BASIC",
             Format::FxExtended => "Factur-X, profil EXTENDED",
             Format::CtcFrCii | Format::CtcFrUbl => "EXTENDED-CTC-FR (FNFE-MPE, réforme française)",
+            Format::BrFrCii | Format::BrFrUbl => "BR-FR (FNFE-MPE, réforme française)",
         }
     }
 
     fn version(self) -> &'static str {
         match self {
             Format::Cii | Format::Ubl => RULES_VERSION,
-            Format::CtcFrCii | Format::CtcFrUbl => CTC_FR_VERSION,
+            Format::CtcFrCii | Format::CtcFrUbl | Format::BrFrCii | Format::BrFrUbl => CTC_FR_VERSION,
             _ => FX_VERSION,
         }
     }
+
+    /// Version sous laquelle un resultat est garde : celle du jeu de regles et celle des
+    /// regles BR-FR, qui peuvent s'y ajouter.
+    fn stamp(self) -> String {
+        format!("{}+br-fr-{CTC_FR_VERSION}", self.version())
+    }
+}
+
+/// Pays (code ISO) de l'adresse postale d'une partie, vendeur ou acheteur.
+fn party_country(doc: &roxmltree::Document, party: &[&str]) -> Option<String> {
+    doc.descendants()
+        .find(|n| party.contains(&n.tag_name().name()))?
+        .descendants()
+        .find(|n| matches!(n.tag_name().name(), "PostalTradeAddress" | "PostalAddress"))?
+        .descendants()
+        .find(|n| matches!(n.tag_name().name(), "CountryID" | "IdentificationCode"))
+        .and_then(|n| n.text().map(|t| t.trim().to_ascii_uppercase()))
+}
+
+/// Les regles BR-FR valent pour une facture de la reforme francaise : profil EXTENDED-CTC-FR,
+/// ou vendeur et acheteur tous deux etablis en France. Une facture etrangere, ou vers
+/// l'etranger, n'y est pas soumise.
+fn french_scope(xml: &str, format: Format) -> bool {
+    if matches!(format, Format::CtcFrCii | Format::CtcFrUbl) {
+        return true;
+    }
+    let Ok(doc) = roxmltree::Document::parse(xml.trim_start_matches('\u{feff}')) else { return false };
+    let france = |party: &[&str]| party_country(&doc, party).as_deref() == Some("FR");
+    france(&["SellerTradeParty", "AccountingSupplierParty"]) && france(&["BuyerTradeParty", "AccountingCustomerParty"])
+}
+
+/// Ajoute au resultat du jeu de regles principal celui des regles BR-FR.
+fn merge_br_fr(result: &mut Value, extra: Value) {
+    if result["evalue"] != true || extra["evalue"] != true {
+        return;
+    }
+    for key in ["regles_declenchees", "total", "non_conformes", "avertissements", "non_compilees", "duree_ms"] {
+        result[key] = (result[key].as_u64().unwrap_or(0) + extra[key].as_u64().unwrap_or(0)).into();
+    }
+    for key in ["erreurs", "non_evaluables"] {
+        let more = extra[key].as_array().cloned().unwrap_or_default();
+        if let Some(list) = result[key].as_array_mut() {
+            list.extend(more);
+        }
+    }
+    if let Some(list) = result["erreurs"].as_array_mut() {
+        list.sort_by_key(|f| f["flag"] != "fatal");
+    }
+    result["ok"] = (result["non_conformes"] == 0 && result["non_evaluables"].as_array().is_some_and(Vec::is_empty)).into();
+    result["br_fr"] = json!({
+        "version": CTC_FR_VERSION,
+        "non_conformes": extra["non_conformes"],
+        "avertissements": extra["avertissements"],
+    });
 }
 
 struct Assert {
@@ -195,12 +260,124 @@ fn inline_code_list(test: &str, lets: &[(&str, &str)], lists: &HashMap<String, V
     ))
 }
 
+/// Fonction `xsl:function` d'un fichier de regles : parametres, variables, expression rendue.
+struct Function {
+    name: String,
+    params: Vec<String>,
+    variables: Vec<(String, String)>,
+    body: String,
+}
+
+fn parse_functions(doc: &roxmltree::Document) -> Vec<Function> {
+    let named = |n: roxmltree::Node, name: &str| n.is_element() && n.tag_name().name() == name;
+    doc.descendants()
+        .filter(|n| named(*n, "function"))
+        .filter_map(|f| {
+            Some(Function {
+                name: f.attribute("name")?.to_string(),
+                params: f.children().filter(|n| named(*n, "param")).filter_map(|n| n.attribute("name").map(str::to_string)).collect(),
+                variables: f
+                    .children()
+                    .filter(|n| named(*n, "variable"))
+                    .filter_map(|n| Some((n.attribute("name")?.to_string(), n.attribute("select")?.to_string())))
+                    .collect(),
+                body: f.children().find(|n| named(*n, "sequence"))?.attribute("select")?.to_string(),
+            })
+        })
+        .collect()
+}
+
+fn variable_char(c: char) -> bool {
+    c.is_alphanumeric() || matches!(c, '_' | '-' | '.' | ':')
+}
+
+/// Remplace chaque emploi de la variable `$name` par `replacement`.
+fn replace_variable(expr: &str, name: &str, replacement: &str) -> String {
+    let needle = format!("${name}");
+    let mut out = String::with_capacity(expr.len());
+    let mut rest = expr;
+    while let Some(at) = rest.find(&needle) {
+        let after = &rest[at + needle.len()..];
+        out.push_str(&rest[..at]);
+        out.push_str(if after.starts_with(variable_char) { &needle } else { replacement });
+        rest = after;
+    }
+    out.push_str(rest);
+    out
+}
+
+/// Arguments d'un appel dont la parenthese ouvrante est en `open`, et position apres la
+/// parenthese fermante. Les virgules des sous-expressions et des chaines ne separent rien.
+fn call_arguments(expr: &str, open: usize) -> Option<(Vec<&str>, usize)> {
+    let (mut depth, mut quote, mut start, mut args) = (0i32, None::<char>, open + 1, Vec::new());
+    for (i, c) in expr[open..].char_indices().map(|(i, c)| (i + open, c)) {
+        match (quote, c) {
+            (Some(q), _) if c == q => quote = None,
+            (Some(_), _) => {}
+            (None, '\'' | '"') => quote = Some(c),
+            (None, '(' | '[') => depth += 1,
+            (None, ')' | ']') => {
+                depth -= 1;
+                if depth == 0 {
+                    args.push(expr[start..i].trim());
+                    return Some((args, i + 1));
+                }
+            }
+            (None, ',') if depth == 1 => {
+                args.push(expr[start..i].trim());
+                start = i + 1;
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+/// Le moteur XPath ne connait pas les fonctions `xsl:function` d'un fichier de regles. Chaque
+/// appel est remplace par le corps de la fonction, ses parametres et ses variables devenant
+/// des variables XPath : `f(a)` devient `(let $p := (a), $v := (…) return (corps))`. Les noms
+/// sont rendus uniques pour ne pas masquer une variable de l'expression appelante.
+fn inline_functions(expr: &str, functions: &[Function]) -> String {
+    let mut out = expr.to_string();
+    // Borne : une fonction peut en appeler une autre, mais pas indefiniment.
+    for serial in 0..500 {
+        let call = functions.iter().filter_map(|f| out.find(&format!("{}(", f.name)).map(|at| (at, f))).min_by_key(|(at, _)| *at);
+        let Some((at, function)) = call else { break };
+        let Some((args, end)) = call_arguments(&out, at + function.name.len()) else { break };
+        if args.len() != function.params.len() {
+            break;
+        }
+        let unique = |name: &str| format!("f{serial}_{}", name.replace(':', "_"));
+        let mut body = function.body.clone();
+        let mut variables = function.variables.clone();
+        let mut bindings = Vec::new();
+        for (param, arg) in function.params.iter().zip(&args) {
+            let fresh = format!("${}", unique(param));
+            body = replace_variable(&body, param, &fresh);
+            for (_, select) in variables.iter_mut() {
+                *select = replace_variable(select, param, &fresh);
+            }
+            bindings.push(format!("{fresh} := ({arg})"));
+        }
+        for i in 0..variables.len() {
+            let (name, select) = variables[i].clone();
+            let fresh = format!("${}", unique(&name));
+            body = replace_variable(&body, &name, &fresh);
+            for (_, later) in variables.iter_mut().skip(i + 1) {
+                *later = replace_variable(later, &name, &fresh);
+            }
+            bindings.push(format!("{fresh} := ({select})"));
+        }
+        let inlined = if bindings.is_empty() { format!("({body})") } else { format!("(let {} return ({body}))", bindings.join(", ")) };
+        out = format!("{}{inlined}{}", &out[..at], &out[end..]);
+    }
+    out
+}
+
 /// Vrai si `expr` emploie la variable `$name`.
 fn uses_variable(expr: &str, name: &str) -> bool {
     let needle = format!("${name}");
-    expr.match_indices(&needle).any(|(at, _)| {
-        !expr[at + needle.len()..].starts_with(|c: char| c.is_alphanumeric() || matches!(c, '_' | '-' | '.'))
-    })
+    expr.match_indices(&needle).any(|(at, _)| !expr[at + needle.len()..].starts_with(variable_char))
 }
 
 /// Variables `let` d'une regle : le test est precede des variables qu'il emploie, et de
@@ -222,6 +399,17 @@ fn bind_lets(test: &str, lets: &[(&str, &str)]) -> String {
 fn parse_rules(source: &str, code_lists: Option<&str>) -> Rules {
     let doc = roxmltree::Document::parse(source).expect("regles Schematron embarquees invalides");
     let lists = code_lists.map(parse_code_lists).unwrap_or_default();
+    let functions = parse_functions(&doc);
+    // Variables de schema et de motif : Schematron les evalue depuis la racine du document, et
+    // les moteurs XSLT les rendent visibles de toutes les regles, ce sur quoi comptent les
+    // regles BR-FR. Elles sont ecrites, sous cette forme, dans les expressions qui les emploient.
+    let mut pattern_lets: Vec<(String, String)> = Vec::new();
+    for l in doc.descendants().filter(|n| n.is_element() && n.tag_name().name() == "let" && n.parent().is_some_and(|p| p.tag_name().name() != "rule")) {
+        if let (Some(name), Some(value)) = (l.attribute("name"), l.attribute("value")) {
+            let value = pattern_lets.iter().fold(value.to_string(), |v, (n, r)| replace_variable(&v, n, r));
+            pattern_lets.push((name.to_string(), format!("(root(.)/({}))", inline_functions(&value, &functions))));
+        }
+    }
     let is = |n: roxmltree::Node, name: &str| n.is_element() && n.tag_name().name() == name;
     let text = |n: roxmltree::Node| -> String {
         let raw: String = n.descendants().filter_map(|d| d.text()).collect();
@@ -240,14 +428,24 @@ fn parse_rules(source: &str, code_lists: Option<&str>) -> Rules {
                 p.children()
                     .filter(|n| is(*n, "rule"))
                     .map(|r| {
-                        let lets: Vec<(&str, &str)> = r
+                        let raw_lets: Vec<(&str, &str)> = r
                             .children()
                             .filter(|n| is(*n, "let"))
                             .filter_map(|l| Some((l.attribute("name")?, l.attribute("value")?)))
                             .collect();
+                        // Variables de motif (sauf celles qu'une variable de la regle masque) et fonctions.
+                        let prepare = |expr: &str| {
+                            let expr = pattern_lets
+                                .iter()
+                                .filter(|(n, _)| !raw_lets.iter().any(|(own, _)| own == n))
+                                .fold(expr.to_string(), |e, (n, r)| replace_variable(&e, n, r));
+                            inline_functions(&expr, &functions)
+                        };
+                        let prepared: Vec<(&str, String)> = raw_lets.iter().map(|(n, v)| (*n, prepare(v))).collect();
+                        let lets: Vec<(&str, &str)> = prepared.iter().map(|(n, v)| (*n, v.as_str())).collect();
                         Rule {
                             // Le moteur XPath refuse `normalize-space()` sans argument, qui vaut `normalize-space(.)`.
-                            context: r.attribute("context").unwrap_or("").replace("normalize-space()", "normalize-space(.)"),
+                            context: prepare(&r.attribute("context").unwrap_or("").replace("normalize-space()", "normalize-space(.)")),
                             asserts: r
                                 .children()
                                 .filter(|n| is(*n, "assert") || is(*n, "report"))
@@ -259,9 +457,9 @@ fn parse_rules(source: &str, code_lists: Option<&str>) -> Rules {
                                         fatal: a.attribute("flag").unwrap_or("fatal") == "fatal",
                                         // Un `report` signale un test vrai ; une assertion, un test faux.
                                         test: if report {
-                                            format!("not({test})")
+                                            bind_lets(&format!("not({})", prepare(test)), &lets)
                                         } else {
-                                            inline_code_list(test, &lets, &lists).unwrap_or_else(|| bind_lets(test, &lets))
+                                            inline_code_list(test, &raw_lets, &lists).unwrap_or_else(|| bind_lets(&prepare(test), &lets))
                                         },
                                         text: text(a),
                                     }
@@ -280,6 +478,7 @@ fn rules(format: Format) -> &'static Rules {
     static UBL: OnceLock<Rules> = OnceLock::new();
     static FX: [OnceLock<Rules>; 4] = [const { OnceLock::new() }; 4];
     static CTC_FR: [OnceLock<Rules>; 2] = [const { OnceLock::new() }; 2];
+    static BR_FR: [OnceLock<Rules>; 2] = [const { OnceLock::new() }; 2];
     let factur_x = |slot: usize, (rules, codes): (&str, &str)| FX[slot].get_or_init(|| parse_rules(rules, Some(codes)));
     match format {
         Format::Cii => CII.get_or_init(|| parse_rules(CII_RULES, None)),
@@ -290,6 +489,8 @@ fn rules(format: Format) -> &'static Rules {
         Format::FxExtended => factur_x(3, FX_EXTENDED),
         Format::CtcFrCii => CTC_FR[0].get_or_init(|| parse_rules(CTC_FR_CII, None)),
         Format::CtcFrUbl => CTC_FR[1].get_or_init(|| parse_rules(CTC_FR_UBL, None)),
+        Format::BrFrCii => BR_FR[0].get_or_init(|| parse_rules(BR_FR_CII, None)),
+        Format::BrFrUbl => BR_FR[1].get_or_init(|| parse_rules(BR_FR_UBL, None)),
     }
 }
 
@@ -880,10 +1081,17 @@ fn worker(queue: Arc<Queue>) {
                 jobs = queue.ready.wait(jobs).unwrap_or_else(|e| e.into_inner());
             }
         };
-        let engine = engines.entry(job.format).or_insert_with(|| Engine::new(job.format));
         // Un echec inattendu du moteur ne doit pas emporter le fil de travail.
-        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| engine.validate(&job.xml)))
-            .unwrap_or_else(|_| not_evaluated("Le moteur de validation a rencontré une erreur interne"));
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let mut result = engines.entry(job.format).or_insert_with(|| Engine::new(job.format)).validate(&job.xml);
+            // Facture de la reforme francaise : les regles BR-FR s'ajoutent a celles du profil.
+            if french_scope(&job.xml, job.format) {
+                let extra = if job.format.is_cii() { Format::BrFrCii } else { Format::BrFrUbl };
+                merge_br_fr(&mut result, engines.entry(extra).or_insert_with(|| Engine::new(extra)).validate(&job.xml));
+            }
+            result
+        }))
+        .unwrap_or_else(|_| not_evaluated("Le moteur de validation a rencontré une erreur interne"));
         let _ = job.reply.send(result);
     }
 }
@@ -920,7 +1128,7 @@ impl Validator {
         if let Some(hit) = self.cache.lock().unwrap_or_else(|e| e.into_inner()).get(&key) {
             return hit.clone();
         }
-        if let Some(mut hit) = library.and_then(|l| l.schematron_get(&key, format.version(), ENGINE_VERSION)) {
+        if let Some(mut hit) = library.and_then(|l| l.schematron_get(&key, &format.stamp(), ENGINE_VERSION)) {
             hit["depuis_cache"] = true.into();
             self.cache.lock().unwrap_or_else(|e| e.into_inner()).insert(key, hit.clone());
             return hit;
@@ -940,7 +1148,7 @@ impl Validator {
         let value = result.recv().unwrap_or_else(|_| not_evaluated("Le moteur de validation s'est arrêté"));
         if value["evalue"] == true {
             if let Some(library) = library {
-                library.schematron_put(&key, format.version(), ENGINE_VERSION, &value);
+                library.schematron_put(&key, &format.stamp(), ENGINE_VERSION, &value);
             }
             self.cache.lock().unwrap_or_else(|e| e.into_inner()).insert(key, value.clone());
         }
@@ -979,7 +1187,7 @@ mod tests {
 <ram:IncludedSupplyChainTradeLineItem><ram:AssociatedDocumentLineDocument><ram:LineID>1</ram:LineID></ram:AssociatedDocumentLineDocument><ram:SpecifiedTradeProduct><ram:Name>Papier</ram:Name></ram:SpecifiedTradeProduct><ram:SpecifiedLineTradeAgreement><ram:NetPriceProductTradePrice><ram:ChargeAmount>50.00</ram:ChargeAmount></ram:NetPriceProductTradePrice></ram:SpecifiedLineTradeAgreement><ram:SpecifiedLineTradeDelivery><ram:BilledQuantity unitCode="C62">2</ram:BilledQuantity></ram:SpecifiedLineTradeDelivery><ram:SpecifiedLineTradeSettlement><ram:ApplicableTradeTax><ram:TypeCode>VAT</ram:TypeCode><ram:CategoryCode>S</ram:CategoryCode><ram:RateApplicablePercent>20.00</ram:RateApplicablePercent></ram:ApplicableTradeTax><ram:SpecifiedTradeSettlementLineMonetarySummation><ram:LineTotalAmount>100.00</ram:LineTotalAmount></ram:SpecifiedTradeSettlementLineMonetarySummation></ram:SpecifiedLineTradeSettlement></ram:IncludedSupplyChainTradeLineItem>
 <ram:ApplicableHeaderTradeAgreement>
 <ram:SellerTradeParty><ram:Name>Vendeur SAS</ram:Name><ram:PostalTradeAddress><ram:CountryID>FR</ram:CountryID></ram:PostalTradeAddress><ram:SpecifiedTaxRegistration><ram:ID schemeID="VA">FR11123456782</ram:ID></ram:SpecifiedTaxRegistration></ram:SellerTradeParty>
-<ram:BuyerTradeParty><ram:Name>Acheteur SARL</ram:Name><ram:PostalTradeAddress><ram:CountryID>FR</ram:CountryID></ram:PostalTradeAddress></ram:BuyerTradeParty>
+<ram:BuyerTradeParty><ram:Name>Acheteur SARL</ram:Name><ram:PostalTradeAddress><ram:CountryID>BE</ram:CountryID></ram:PostalTradeAddress></ram:BuyerTradeParty>
 </ram:ApplicableHeaderTradeAgreement>
 <ram:ApplicableHeaderTradeDelivery/>
 <ram:ApplicableHeaderTradeSettlement><ram:InvoiceCurrencyCode>EUR</ram:InvoiceCurrencyCode>
@@ -1050,6 +1258,70 @@ mod tests {
         assert_eq!(bind_lets("$b = 2", &lets), "let $a := (1), $b := ($a + 1) return ($b = 2)");
         assert_eq!(bind_lets("$ab = 4", &lets), "let $ab := (4) return ($ab = 4)");
         assert_eq!(bind_lets("true()", &lets), "true()");
+    }
+
+    /// Regles BR-FR : fonctions `xsl:function` et variables de motif ecrites dans les
+    /// expressions, toutes les regles compilees.
+    #[test]
+    fn regles_br_fr_chargees_et_compilees() {
+        for (format, asserts) in [(Format::BrFrCii, 171), (Format::BrFrUbl, 175)] {
+            let engine = Engine::new(format);
+            let rules: Vec<&Rule> = engine.rules.patterns.iter().flatten().collect();
+            assert_eq!(rules.iter().map(|r| r.asserts.len()).sum::<usize>(), asserts, "{}", format.key());
+            assert_eq!(engine.uncompiled, 0, "{}", format.key());
+            // Plus aucun appel de fonction du fichier, ni dans les tests ni dans les contextes.
+            assert!(rules.iter().all(|r| !r.context.contains("custom:") && r.asserts.iter().all(|a| !a.test.contains("custom:"))));
+        }
+
+        let functions = [
+            Function { name: "c:ok".into(), params: vec!["v".into()], variables: vec![("list".into(), "('A', 'B')".into())], body: "$v = $list".into() },
+            Function { name: "c:both".into(), params: vec!["a".into(), "b".into()], variables: vec![], body: "c:ok($a) and c:ok($b)".into() },
+        ];
+        assert_eq!(inline_functions("c:ok(x)", &functions), "(let $f0_v := (x), $f0_list := (('A', 'B')) return ($f0_v = $f0_list))");
+        // Appels imbriques, virgules dans une chaine ou une sous-expression.
+        let nested = inline_functions("c:both(concat(x, ','), y[1])", &functions);
+        assert!(nested.starts_with("(let $f0_a := (concat(x, ',')), $f0_b := (y[1]) return ((let $f1_v := ($f0_a)"), "{nested}");
+        assert!(!nested.contains("c:"));
+        assert_eq!(replace_variable("$id = $idx or $id", "id", "(.)"), "(.) = $idx or (.)");
+    }
+
+    /// Les regles BR-FR s'ajoutent pour une facture de la reforme francaise, et pour elle seule.
+    #[test]
+    fn regles_br_fr_pour_les_factures_francaises() {
+        let validator = Validator::new();
+        let run = |xml: String, format: &str| validator.validate(xml, format, false, None);
+
+        // Exemples officiels : profil EXTENDED-CTC-FR, regles BR-FR respectees.
+        for (xml, format) in [(FR_CII, "CII"), (FR_UBL, "UBL")] {
+            let report = run(xml.trim_start_matches('\u{feff}').to_string(), format);
+            assert_eq!(report["br_fr"]["non_conformes"], 0, "{:?}", fatals(&report));
+            assert!(fatals(&report).is_empty() && report["non_evaluables"].as_array().unwrap().is_empty(), "{report}");
+        }
+        // Numero de facture trop long pour la reforme : BR-FR-01 s'ajoute aux regles du profil.
+        let long = FR_CII.trim_start_matches('\u{feff}').replacen("<ram:ID>", "<ram:ID>0123456789012345678901234567890123456789", 1);
+        let report = run(long, "CII");
+        assert!(fatals(&report).iter().any(|id| id.starts_with("BR-FR-")), "{:?}", fatals(&report));
+        assert!(report["br_fr"]["non_conformes"].as_u64().unwrap() >= 1);
+        assert_eq!(report["ok"], false);
+
+        // Facture entre deux parties francaises, hors profil francais : BR-FR appliquees ; les
+        // mentions propres a la France lui manquent.
+        let domestic = CII.replacen("<ram:CountryID>BE<", "<ram:CountryID>FR<", 1);
+        assert_ne!(domestic, CII);
+        assert!(french_scope(&domestic, Format::Cii));
+        let report = run(domestic, "CII");
+        assert!(report["br_fr"]["non_conformes"].as_u64().unwrap() >= 1, "{report}");
+        assert!(fatals(&report).iter().any(|id| id.starts_with("BR-FR-05")), "{:?}", fatals(&report));
+        // L'emplacement d'une regle enfreinte se lit de la racine vers l'element.
+        let location = report["erreurs"].as_array().unwrap().iter().find(|e| e["id"] == "BR-FR-05_BT-22_PMT").unwrap()["location"].as_str().unwrap();
+        assert_eq!(location, "/rsm:CrossIndustryInvoice/rsm:ExchangedDocument");
+        // Acheteur etranger (la facture de test) : la reforme ne s'applique pas, aucune regle BR-FR.
+        assert!(!french_scope(CII, Format::Cii));
+        let report = run(CII.to_string(), "CII");
+        assert!(report["br_fr"].is_null());
+        assert!(fatals(&report).iter().all(|id| !id.starts_with("BR-FR")));
+        // Exemple officiel de la Commission, vendeur et acheteur hors de France.
+        assert!(!french_scope(UBL, Format::Ubl));
     }
 
     /// Exemples officiels du FNFE-MPE : aucune regle bloquante, aucune regle non evaluable,
@@ -1312,7 +1584,7 @@ mod tests {
     /// l'evaluation litterale des regles. Retourne le nombre de documents compares.
     fn comparer(documents: &[(Format, String)]) -> usize {
         let mut compared = 0;
-        for format in [Format::Cii, Format::Ubl, Format::FxMinimum, Format::FxBasicWl, Format::FxBasic, Format::FxExtended, Format::CtcFrCii, Format::CtcFrUbl] {
+        for format in [Format::Cii, Format::Ubl, Format::FxMinimum, Format::FxBasicWl, Format::FxBasic, Format::FxExtended, Format::CtcFrCii, Format::CtcFrUbl, Format::BrFrCii, Format::BrFrUbl] {
             if !documents.iter().any(|(f, _)| *f == format) {
                 continue;
             }
@@ -1366,6 +1638,8 @@ mod tests {
             // Regles francaises EXTENDED-CTC-FR, sur un exemple officiel de chaque syntaxe.
             (Format::CtcFrCii, FR_CII.to_string()),
             (Format::CtcFrUbl, FR_UBL.to_string()),
+            (Format::BrFrCii, FR_CII.to_string()),
+            (Format::BrFrUbl, FR_UBL.to_string()),
         ];
         assert!(comparer(&documents) > 100);
     }

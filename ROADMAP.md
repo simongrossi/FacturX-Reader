@@ -31,9 +31,9 @@ Mustang font mieux, en commençant par ce qui réutilise le moteur existant.
 
 1. **Schematron, suite** (P3) : fait pour les profils Factur-X MINIMUM, BASIC WL, BASIC et
    EXTENDED et pour le profil français EXTENDED-CTC-FR (CII et UBL), évalués avec leurs propres
-   règles, sur le XML d'origine. Reste : les règles BR-FR de la réforme française, dont le fichier
-   définit des fonctions XSLT que le moteur doit apprendre à exécuter, et décider à quelles
-   factures les appliquer.
+   règles, sur le XML d'origine, et pour les règles BR-FR de la réforme française. Reste : affiner
+   le périmètre des règles BR-FR (aujourd'hui : profil français, ou vendeur et acheteur en
+   France) et comparer ces jeux de règles à un moteur de référence.
 2. **Validation XSD, suite** (P3) : fait en Rust pur avec `uppsala`, pour le CII (schéma de
    chaque profil Factur-X) et pour l'UBL 2.1. Reste : comparer le validateur à une référence
    (Xerces ou libxml2) sur un grand jeu de documents, dont les exemples officiels Factur-X de
@@ -53,7 +53,7 @@ de factures (hors périmètre).
 
 | Ligne du comparatif | Aujourd'hui | Pour cocher la case | Effort | Priorité |
 |---|---|---|---|---|
-| Schematron officiel EN 16931 | ✅ hors ligne, EN 16931, profils Factur-X et EXTENDED-CTC-FR | Règles BR-FR de la réforme française | Moyen | 1 |
+| Schematron officiel EN 16931 | ✅ hors ligne, EN 16931, profils Factur-X, EXTENDED-CTC-FR et BR-FR | Comparaison des règles Factur-X et françaises à un moteur de référence | Moyen | 1 |
 | Validation XSD | ✅ hors ligne, CII par profil Factur-X et UBL 2.1 | Comparaison à un validateur de référence | Faible | 2 |
 | Validation PDF/A-3 du fichier | Partielle : déclarations et sept points de structure | Décision sur une validation complète (espaces colorimétriques, transparence, flux…) | Élevé | 4 |
 | Conversion CII ↔ UBL, ZUGFeRD 1 → 2 | — | Table de correspondance complète des deux syntaxes | Élevé | Plus tard |
@@ -182,8 +182,10 @@ de factures (hors périmètre).
   constats `report` et les listes de codes externes.
 - [x] Règles du profil français EXTENDED-CTC-FR (FNFE-MPE, dépôt France_RFE 1.4.0.04), CII et
   UBL ; le moteur exécute les variables `let`.
-- [ ] Règles BR-FR de la réforme française (fonctions XSLT à exécuter, périmètre d'application à
-  décider).
+- [x] Règles BR-FR de la réforme française : fonctions `xsl:function` et variables globales
+  écrites dans les expressions ; appliquées au profil EXTENDED-CTC-FR et aux factures dont
+  vendeur et acheteur sont en France.
+- [ ] Règles BR-FR : affiner le périmètre (B2C, opérations hors obligation, calendrier).
 - [x] Schematron et schéma XSD sur le XML d'origine plutôt que sur sa version réindentée, avec
   repli signalé si le moteur ne lit pas l'original.
 - [x] Validation du schéma XSD des factures CII : schémas officiels des cinq profils Factur-X
@@ -249,7 +251,7 @@ par projet. Ces deux derniers supposent plusieurs utilisateurs et un serveur : u
 
 - La recherche porte sur les données XML, pas sur le texte du PDF ni les contenus binaires.
 - Le Schematron officiel est exécuté et le schéma XSD contrôlé, mais ni la conformité PDF/A-3
-  complète du fichier, ni les règles françaises BR-FR ne sont contrôlées. Aucun appel réseau ne vérifie
+  complète du fichier, ni les règles nationales autres que françaises ne sont contrôlées. Aucun appel réseau ne vérifie
   l'existence d'un SIREN ni le titulaire d'un IBAN.
 - Le tableau porte sur les documents ouverts (500 au maximum). La bibliothèque ne connaît que les
   factures ouvertes au moins une fois sur ce poste : la première facture d'un fournisseur ne

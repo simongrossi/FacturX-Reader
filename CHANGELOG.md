@@ -19,7 +19,11 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 - **Règles françaises EXTENDED-CTC-FR** : une facture CII ou UBL au profil de la réforme
   française est évaluée avec les règles de ce profil publiées par le FNFE-MPE (dépôt France_RFE,
   version 1.4.0.04, Apache 2.0), embarquées sans modification. Le moteur a appris les variables
-  `let` des règles. Les règles BR-FR de la réforme ne sont pas encore exécutées.
+  `let` des règles.
+- **Règles BR-FR de la réforme française** (même dépôt, 171 règles CII et 175 règles UBL) :
+  ajoutées au jeu de règles du profil pour une facture au profil EXTENDED-CTC-FR ou dont le
+  vendeur et l'acheteur sont tous deux en France. Le moteur écrit dans les expressions les
+  fonctions et les variables globales que ces règles définissent.
 - **Schematron des profils Factur-X** : une facture CII annoncée MINIMUM, BASIC WL, BASIC ou
   EXTENDED est évaluée avec les règles officielles Factur-X 1.09.2 de son profil, embarquées sans
   modification, au lieu des règles EN 16931 de la Commission, qui y signalaient des erreurs sans
@@ -37,6 +41,8 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 
 ### Corrigé
 
+- Schematron : l'emplacement d'une règle enfreinte était écrit à l'envers, de l'élément vers la
+  racine (`/c/b/a` pour `/a/b/c`).
 - Conteneur PDF : la version de PDF/A et le profil Factur-X n'étaient pas lus quand les
   métadonnées XMP les écrivent en attributs à guillemets simples (`pdfaid:part='3'`). Ces
   fichiers étaient signalés à tort comme « PDF/A-3 attendu ».

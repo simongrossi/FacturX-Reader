@@ -1066,7 +1066,7 @@ function renderLinesOnly(f) {
 
 /* ---- verdicts : lecture, calculs et règles EN 16931 ne sont jamais confondus ---- */
 
-const NOT_CHECKED = ["conformité PDF/A-3 complète du fichier (ses déclarations et quelques points de structure sont contrôlés)", "règles françaises BR-FR de la réforme (XP Z12-012)"];
+const NOT_CHECKED = ["conformité PDF/A-3 complète du fichier (ses déclarations et quelques points de structure sont contrôlés)", "règles nationales autres que françaises (XRechnung, Peppol…)"];
 const NOT_CHECKED_NOTE = "Non contrôlés : " + NOT_CHECKED.join(" ; ") + ". Le Schematron officiel et le schéma XSD ont chacun leur verdict ; aucun de ces verdicts ne vaut certification.";
 
 /* Verdicts indépendants d'un document, plus le nombre d'autres alertes. */
@@ -1472,6 +1472,8 @@ function schematronSection(f) {
     : "Règles Schematron officielles EN 16931 v" + (sch.version_regles || "") + " de la Commission européenne (EUPL 1.2), évaluées sur ce poste") +
     (sch.regles_declenchees ? " : " + sch.regles_declenchees + " contextes examinés" : "") +
     (sch.depuis_cache ? ", résultat repris de la bibliothèque" : sch.duree_ms != null ? " en " + sch.duree_ms + " ms" : "") + "." +
+    (sch.br_fr ? " Règles françaises BR-FR v" + sch.br_fr.version + " appliquées en plus (facture de la réforme française) : " +
+      (sch.br_fr.non_conformes ? sch.br_fr.non_conformes + " non respectée" + (sch.br_fr.non_conformes > 1 ? "s" : "") : "toutes respectées") + "." : "") +
     (sch.sur_xml_reindente ? " Le moteur n'a pas pu lire le XML d'origine : c'est sa version réindentée qui a été évaluée." : "");
   sec.appendChild(foot);
 

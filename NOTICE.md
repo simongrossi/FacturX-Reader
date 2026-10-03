@@ -57,9 +57,10 @@ La licence PolyForm Noncommercial ne couvre que le code de Factur-X Reader.
   dans [src-tauri/xsd/LICENSE-APACHE-2.0.txt](src-tauri/xsd/LICENSE-APACHE-2.0.txt) et dans
   l'application installée (menu **Aide → Licences des composants tiers**).
 
-### Règles du profil français EXTENDED-CTC-FR
+### Règles françaises EXTENDED-CTC-FR et BR-FR
 
-- Fichiers : `src-tauri/schematron/france/EXTENDED-CTC-FR-CII.sch` et `EXTENDED-CTC-FR-UBL.sch`,
+- Fichiers : `src-tauri/schematron/france/EXTENDED-CTC-FR-CII.sch`, `EXTENDED-CTC-FR-UBL.sch`,
+  `BR-FR-Flux2-Schematron-CII.sch` et `BR-FR-Flux2-Schematron-UBL.sch`,
   embarqués dans l'application, plus trois factures d'exemple utilisées par les tests. Réalisés
   par Quentin Houard et Cyrille Sautereau pour le compte du FNFE-MPE, dérivés des règles
   EN 16931 de la Commission.

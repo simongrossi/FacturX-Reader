@@ -46,8 +46,11 @@ Elles sont appliquées aux factures qui annoncent ce profil. `src/schematron.rs`
 chaque test les variables `let` de la règle qu'il emploie. Pour une nouvelle version : remplacer
 les fichiers, mettre à jour `CTC_FR_VERSION`, lancer `cargo test`.
 
-Non embarqué : `BR-FR-Flux2-Schematron-*.sch`, les règles BR-FR de la réforme, qui définissent
-des fonctions XSLT que le moteur n'exécute pas encore.
+`BR-FR-Flux2-Schematron-CII.sch` et `-UBL.sch` (même dépôt, `{CII,UBL}/EN16931/schematron/`) :
+les règles BR-FR de la réforme, en mode bloquant. Elles s'ajoutent au jeu de règles du profil
+pour une facture au profil EXTENDED-CTC-FR ou dont vendeur et acheteur sont en France. Elles
+définissent des fonctions `xsl:function` et des variables globales, que le moteur XPath ne
+connaît pas : `src/schematron.rs` les écrit dans chaque expression qui les emploie.
 
 ## Mettre à jour les règles
 

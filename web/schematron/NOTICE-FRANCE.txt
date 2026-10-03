@@ -1,8 +1,9 @@
-Regles du profil francais EXTENDED-CTC-FR
-=========================================
+Regles francaises EXTENDED-CTC-FR et BR-FR
+==========================================
 
 Fichiers embarques sans modification dans Factur-X Reader (src-tauri/schematron/france) :
-EXTENDED-CTC-FR-CII.sch et EXTENDED-CTC-FR-UBL.sch, realises par Quentin Houard et Cyrille
+EXTENDED-CTC-FR-CII.sch, EXTENDED-CTC-FR-UBL.sch, BR-FR-Flux2-Schematron-CII.sch et
+BR-FR-Flux2-Schematron-UBL.sch, realises par Quentin Houard et Cyrille
 Sautereau pour le compte du FNFE-MPE, derives des regles EN 16931 de la Commission europeenne.
 Source : depot https://github.com/fnfempe/France_RFE, etiquette v1.4.0.04, publie sous licence
 Apache 2.0. Leur en-tete mentionne la licence EUPL, celle des regles dont ils derivent, dont le

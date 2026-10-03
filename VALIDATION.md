@@ -8,7 +8,7 @@ Les commandes sont décrites dans [README.md](README.md#tests).
 | Vérification | Résultat / portée |
 |---|---|
 | `npm run check:js` | Syntaxe de tous les scripts de l'interface |
-| `npm run test:rust` | 55 tests unitaires : exemples officiels français, conteneur PDF (déclarations, sept contrôles de structure), schéma XSD (XML d'origine validé, chargement des huit schémas, facture et avoir UBL, choix d'après le profil, exemple officiel valide, élément inconnu, attribut inconnu, montant non numérique, jamais « valide » sans évaluation), Schematron officiel (compilation de toutes les règles, suite de tests officielle de la Commission, exemples officiels, règles enfreintes, file de travail, résultat repris de la bibliothèque entre deux sessions, résultats identiques avec et sans optimisations), moteur UBL/CII, contrôles en décimaux exacts, règles EN 16931, conteneur PDF (déclarations lues, écarts), pointages et suivi (corruption, sauvegarde, restauration, fusion), bibliothèque SQLite |
+| `npm run test:rust` | 57 tests unitaires : exemples officiels français, règles BR-FR (fonctions, périmètre), conteneur PDF (déclarations, sept contrôles de structure), schéma XSD (XML d'origine validé, chargement des huit schémas, facture et avoir UBL, choix d'après le profil, exemple officiel valide, élément inconnu, attribut inconnu, montant non numérique, jamais « valide » sans évaluation), Schematron officiel (compilation de toutes les règles, suite de tests officielle de la Commission, exemples officiels, règles enfreintes, file de travail, résultat repris de la bibliothèque entre deux sessions, résultats identiques avec et sans optimisations), moteur UBL/CII, contrôles en décimaux exacts, règles EN 16931, conteneur PDF (déclarations lues, écarts), pointages et suivi (corruption, sauvegarde, restauration, fusion), bibliothèque SQLite |
 | Test Rust `samples.rs` | Factures réelles locales, hors dépôt : toutes analysées, sauf celles marquées sans XML |
 | `npm run test:ui` | 14 scénarios navigateur (Edge le 3 octobre ; Chromium par la CI), commandes Rust simulées, PDF.js réel |
 | `npm run test:native` | Vrai exécutable Windows, vraies commandes Rust, profil WebView2 et dossier de données jetables |
@@ -41,6 +41,12 @@ démarrage, laissés intacts à l'écriture, puis restaurés depuis une sauvegar
   EN 16931 et EXTENDED — n'enfreignent aucune règle bloquante du jeu de règles de leur profil,
   n'ont aucune règle non évaluable et sont valides contre leur schéma XSD. Les six factures
   réelles locales au profil EXTENDED-CTC-FR non plus.
+- **Règles BR-FR 1.4.0.04** : 171 règles CII et 175 règles UBL, toutes compilées, une fois leurs
+  dix-neuf fonctions et leurs variables globales écrites dans les expressions. Les 41 exemples
+  officiels les respectent toutes ; un numéro de facture trop long enfreint `BR-FR-01`, une
+  facture franco-française sans mentions obligatoires enfreint `BR-FR-05` ; une facture adressée
+  à l'étranger n'y est pas soumise (tests automatisés). Les 19 factures réelles locales, toutes
+  franco-françaises, n'en enfreignent aucune.
 - **Non fait** pour les règles Factur-X : aucune comparaison avec un moteur de référence, aucune
   suite de tests officielle (le paquet n'en fournit pas), et aucun fichier réel ni exemple
   officiel aux profils MINIMUM ou BASIC.
@@ -119,9 +125,12 @@ remontent des écarts de ligne, le prix unitaire et les frais déclarés ne redo
 - Le **Schematron officiel** et le schéma XSD portent sur le XML d'origine, décodé par
   l'application (UTF-8, UTF-16 ou Latin-1). Sur les 19 factures réelles locales, l'original est lu
   dans tous les cas et donne les mêmes résultats que la version réindentée. Les
-  règles françaises BR-FR de la réforme ne sont pas contrôlées. Les règles appliquées dépendent du profil que la
+  règles nationales autres que françaises ne sont pas contrôlées. Les règles BR-FR sont
+  appliquées selon un critère simple (profil français, ou vendeur et acheteur en France) qui
+  ignore les cas particuliers de la réforme. Les règles appliquées dépendent du profil que la
   facture annonce : un profil mal annoncé donne une évaluation avec le mauvais jeu de règles.
-  Les règles Factur-X n'ont pas été comparées à un moteur de référence.
+  Les règles Factur-X et les règles françaises n'ont pas été comparées à un moteur de
+  référence ; leur seul repère est qu'aucun exemple officiel ne les enfreint.
 - Le **schéma XSD** est contrôlé par un validateur jeune, qui n'a pas été comparé à un
   validateur de référence. Pour le CII, le schéma est choisi d'après le profil que la facture
   annonce : un profil mal annoncé donne un contrôle contre le mauvais schéma.

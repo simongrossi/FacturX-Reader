@@ -568,7 +568,7 @@ test('règles EN 16931 affichées, filtrées dans le tableau, et impression', as
   await page.locator('#btn-control-report').click();
   await expect.poll(() => page.evaluate(() => window.__report?.report.regles_en16931?.non_conformes)).toBe(1);
   expect(await page.evaluate(() => window.__report.report.verdicts)).toEqual({ lecture: 'Lecture réussie', calculs: 'Calculs cohérents',
-    regles_en16931: '1 règle EN 16931 non respectée', schema_xsd: null, autres_alertes: 0, non_controle: ['conformité PDF/A-3 complète du fichier (ses déclarations et quelques points de structure sont contrôlés)', 'règles françaises BR-FR de la réforme (XP Z12-012)'] });
+    regles_en16931: '1 règle EN 16931 non respectée', schema_xsd: null, autres_alertes: 0, non_controle: ['conformité PDF/A-3 complète du fichier (ses déclarations et quelques points de structure sont contrôlés)', 'règles nationales autres que françaises (XRechnung, Peppol…)'] });
   await page.locator('#tab-batch').click();
   await expect(page.locator('#batch-table tbody tr.batch-row')).toContainText('1 non respectée');
   await expect(page.locator('#batch-table tbody tr.batch-row')).toContainText('Cohérents');
@@ -742,8 +742,13 @@ test('Schematron officiel : verdicts respecté, non respecté, partiel et non é
   await expect(section).toContainText('Règles Schematron officielles Factur-X, profil EXTENDED, v1.09.2 (FNFE-MPE et FeRD, Apache 2.0)');
   await expect(section).not.toContainText('Commission européenne');
 
-  await open('ctc-fr.xml', { ...base, ok: true, jeu_regles: 'EXTENDED-CTC-FR (FNFE-MPE, réforme française)', version_regles: '1.4.0.04' });
+  await open('ctc-fr.xml', { ...base, ok: true, jeu_regles: 'EXTENDED-CTC-FR (FNFE-MPE, réforme française)', version_regles: '1.4.0.04',
+    br_fr: { version: '1.4.0.04', non_conformes: 0, avertissements: 0 } });
   await expect(section).toContainText('Règles Schematron officielles du profil français EXTENDED-CTC-FR, v1.4.0.04 (FNFE-MPE, dépôt France_RFE)');
+  await expect(section).toContainText('Règles françaises BR-FR v1.4.0.04 appliquées en plus (facture de la réforme française) : toutes respectées.');
+  // Facture hors réforme : aucune mention des règles françaises.
+  await open('hors-reforme.xml', { ...base, ok: true });
+  await expect(section).not.toContainText('BR-FR');
 
   await open('enfreint.xml', { ...base, ok: false, non_conformes: 1, avertissements: 1, erreurs: [
     { id: 'BR-CO-15', flag: 'fatal', texte: '[BR-CO-15]-Invoice total amount with VAT = Invoice total amount without VAT + Invoice total VAT amount.', location: '/rsm:CrossIndustryInvoice' },
@@ -772,7 +777,7 @@ test('Schematron officiel : verdicts respecté, non respecté, partiel et non é
 
   // Le tableau reprend les verdicts.
   await page.locator('#tab-batch').click();
-  await expect(page.locator('#batch-table tbody tr.batch-row')).toHaveCount(8);
+  await expect(page.locator('#batch-table tbody tr.batch-row')).toHaveCount(9);
   expect(errors).toEqual([]);
 });
 
