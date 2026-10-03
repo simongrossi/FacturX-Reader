@@ -34,7 +34,8 @@ tableaux lisibles en français, **recalcule les montants** et signale ce qui ne 
 
 - **100 % local** : aucun serveur, aucun appel réseau, aucun compte. La bibliothèque est un
   fichier sur votre poste, désactivable.
-- **Léger** : exécutable d'environ 15 Mo, moteur de validation et règles officielles compris.
+- **Léger** : installeur Windows d'environ 5 Mo, exécutable d'environ 19 Mo, moteur de validation
+  et règles officielles compris.
 - **Pensé pour vérifier**, pas seulement pour afficher : contrôles, pointage, suivi, exports.
 
 > Version de développement (0.y.z). Les builds ne sont pas signés : Windows SmartScreen et
@@ -98,6 +99,7 @@ une case est cochée des deux côtés, le niveau de détail peut différer.
 | Pointage, statuts et commentaires | ✅ | — | — | — |
 | Historique : alerte de changement d'IBAN, prix, doublons | ✅ | — | — | — |
 | Export CSV / rapport JSON | ✅ | — | — | — |
+| Lecture de ZUGFeRD 1.x | — | ✅ | ✅ | — |
 | Conversion (CII ↔ UBL, ZUGFeRD 1 → 2) | — | — | ✅ | — |
 | Création de factures | — | — | ✅ | — |
 | Interface en français | ✅ | ✅ | — | Selon l'outil |
@@ -109,6 +111,10 @@ Factur-X Reader exécute le Schematron officiel EN 16931 et celui des profils Fa
 le schéma XSD, mais ne contrôle ni la conformité PDF/A-3 complète du fichier, ni les règles
 nationales autres que françaises ; son validateur XSD et son moteur Schematron ne sont pas les implémentations de
 référence. Pour une validation qui fait foi, Mustang ou Quba restent les bons outils.</sub>
+
+[COMPARATIF.md](COMPARATIF.md) élargit la comparaison aux autres visionneuses (Treesoft, 7-PDF,
+Aloaha), aux logiciels de gestion et aux outils en ligne de commande, et liste ce qu'il manque
+à l'application.
 
 ## Téléchargement
 
@@ -777,3 +783,4 @@ pour l'historique.
 [VALIDATION.md](VALIDATION.md) dit ce qui a été vérifié pour la version courante, ce qui ne l'a
 pas été (installeurs, macOS, Linux) et les limites de ce que l'application affirme.
 [NOTICE.md](NOTICE.md) détaille les licences, dont celle des règles de validation officielles.
+[COMPARATIF.md](COMPARATIF.md) situe l'application face aux autres outils locaux.

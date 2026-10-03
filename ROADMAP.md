@@ -2,7 +2,8 @@
 
 Mise à jour : 4 octobre 2026, après la version 0.7.0 (travaux non publiés compris).
 Voir [CHANGELOG.md](CHANGELOG.md) pour le détail des versions, [README.md](README.md) pour
-l'utilisation et [VALIDATION.md](VALIDATION.md) pour le bilan de vérification P0.
+l'utilisation, [VALIDATION.md](VALIDATION.md) pour le bilan de vérification P0 et
+[COMPARATIF.md](COMPARATIF.md) pour le bilan face aux autres outils.
 
 ## Où on en est
 
@@ -80,6 +81,22 @@ de `app.js` et de `facturx.rs`. Le reste est à faire au fil des chantiers.
 | Validation PDF/A-3 du fichier | Partielle : déclarations et sept points de structure | Décision sur une validation complète (espaces colorimétriques, transparence, flux…) | Élevé | 4 |
 | Conversion CII ↔ UBL, ZUGFeRD 1 → 2 | — | Table de correspondance complète des deux syntaxes | Élevé | Plus tard |
 | Création de factures | — | Hors périmètre du lecteur | — | Non retenu |
+
+### Bilan face à la concurrence (4 octobre 2026)
+
+Détail dans [COMPARATIF.md](COMPARATIF.md). Parmi les outils dont la page publique a été
+consultée, aucun autre ne valide sans réseau, n'applique les règles françaises, ni ne traite un
+lot avec historique et suivi. Ce qui en ressort pour le plan :
+
+| Sujet | Décision proposée |
+|---|---|
+| Licence | À trancher d'abord par les auteurs : les concurrents gratuits sont utilisables en entreprise, pas Factur-X Reader sans accord |
+| Comparaison PDF ↔ XML (P3) | À remonter : aucun outil consulté ne la fait, et c'est le risque propre au format hybride |
+| Renommage et classement, rapport lisible (P2) | Confirmés : Treesoft et 7-PDF les proposent |
+| ZUGFeRD 1.x | Nouveau : un PDF ZUGFeRD 1.x est annoncé « sans XML de facture ». Le dire clairement, puis le lire si le besoin se présente |
+| Âge des règles embarquées | Nouveau : afficher version et date, avertir quand elles sont anciennes |
+| Chiffres mesurés | Nouveau : poids, démarrage et mémoire, à mesurer avant de les annoncer |
+| Order-X, règles XRechnung, ligne de commande | Notés, plus tard ; les deux derniers vont avec l'ouverture hors de France et `facturx-core` |
 
 ## P0 — Valider l'existant
 
@@ -227,6 +244,11 @@ de `app.js` et de `facturx.rs`. Le reste est à faire au fil des chantiers.
   évidence (PDF texte uniquement). Puis synchronisation au clic XML ↔ PDF.
 - [ ] Signature électronique du PDF : détecter sa présence, puis vérifier l'intégrité.
 - [ ] Conversion CII ↔ UBL.
+- [ ] ZUGFeRD 1.x (`CrossIndustryDocument`) : message explicite au lieu de « sans XML de
+  facture », puis lecture si des fichiers réels se présentent.
+- [ ] Version et date des règles embarquées affichées ; avertissement quand elles sont anciennes.
+- [ ] Mesurer le temps de démarrage et la mémoire, et publier les chiffres.
+- [ ] Order-X et règles nationales XRechnung : à décider avec l'ouverture hors de France.
 - [ ] Distribution portable Windows en ZIP ; le mode portable des pointages existe déjà.
 - [ ] Interface en anglais.
 
