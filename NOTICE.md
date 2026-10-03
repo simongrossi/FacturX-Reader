@@ -57,6 +57,30 @@ La licence PolyForm Noncommercial ne couvre que le code de Factur-X Reader.
   dans [src-tauri/xsd/LICENSE-APACHE-2.0.txt](src-tauri/xsd/LICENSE-APACHE-2.0.txt) et dans
   l'application installée (menu **Aide → Licences des composants tiers**).
 
+### Règles du profil français EXTENDED-CTC-FR
+
+- Fichiers : `src-tauri/schematron/france/EXTENDED-CTC-FR-CII.sch` et `EXTENDED-CTC-FR-UBL.sch`,
+  embarqués dans l'application, plus trois factures d'exemple utilisées par les tests. Réalisés
+  par Quentin Houard et Cyrille Sautereau pour le compte du FNFE-MPE, dérivés des règles
+  EN 16931 de la Commission.
+- Source : dépôt [fnfempe/France_RFE](https://github.com/fnfempe/France_RFE), étiquette
+  `v1.4.0.04`. Repris **sans modification**.
+- Licence : le dépôt est sous **Apache 2.0**
+  ([src-tauri/schematron/france/LICENSE-APACHE-2.0.txt](src-tauri/schematron/france/LICENSE-APACHE-2.0.txt)) ;
+  l'en-tête des fichiers mentionne l'EUPL, licence des règles dont ils dérivent
+  ([src-tauri/schematron/LICENSE-EUPL-1.2.txt](src-tauri/schematron/LICENSE-EUPL-1.2.txt)).
+
+### Schémas XSD UBL 2.1
+
+- Fichiers : `src-tauri/xsd/ubl-2.1/`, schémas de la facture et de l'avoir et leurs modules
+  communs, dans leur forme d'exécution (`xsdrt`), embarqués dans l'application. © OASIS Open
+  2001-2013.
+- Source : [OASIS UBL 2.1](http://docs.oasis-open.org/ubl/os-UBL-2.1/), archive `UBL-2.1.zip`.
+  Repris **sans modification**.
+- Conditions : copie et diffusion libres, sans modification, en conservant la mention OASIS,
+  reproduite dans [src-tauri/xsd/NOTICE-OASIS-UBL.txt](src-tauri/xsd/NOTICE-OASIS-UBL.txt) et
+  dans l'application installée.
+
 ### Bibliothèques
 
 Toutes les bibliothèques embarquées sont sous licences libres permissives et gardent leur

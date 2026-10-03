@@ -23,4 +23,13 @@ Remplacer les fichiers par ceux d'une nouvelle version du paquet, mettre à jour
 fichiers et les libellés dans `src/xsd.rs`, puis lancer `cargo test` : les tests vérifient que
 tous les schémas se chargent.
 
-Les schémas UBL 2.1 d'OASIS ne sont pas embarqués.
+## UBL 2.1
+
+`ubl-2.1/` : schémas OASIS UBL 2.1 de la facture et de l'avoir (`maindoc/`) et leurs modules
+communs (`common/`), repris sans modification du dossier `xsdrt/` de l'archive
+[UBL-2.1.zip](http://docs.oasis-open.org/ubl/os-UBL-2.1/UBL-2.1.zip). Mention OASIS dans
+`NOTICE-OASIS-UBL.txt`.
+
+Le validateur ne suit pas les imports en `../common/` : au chargement, `src/xsd.rs` copie le
+schéma principal à côté des modules communs, dans un dossier temporaire. Les fichiers du dépôt
+restent ceux d'OASIS.

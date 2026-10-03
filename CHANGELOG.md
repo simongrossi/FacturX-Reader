@@ -16,19 +16,30 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 
 - **Suite de tests officielle** de la Commission (1169 cas) exécutée à chaque `cargo test` :
   chaque règle donne le résultat attendu.
+- **Règles françaises EXTENDED-CTC-FR** : une facture CII ou UBL au profil de la réforme
+  française est évaluée avec les règles de ce profil publiées par le FNFE-MPE (dépôt France_RFE,
+  version 1.4.0.04, Apache 2.0), embarquées sans modification. Le moteur a appris les variables
+  `let` des règles. Les règles BR-FR de la réforme ne sont pas encore exécutées.
 - **Schematron des profils Factur-X** : une facture CII annoncée MINIMUM, BASIC WL, BASIC ou
   EXTENDED est évaluée avec les règles officielles Factur-X 1.09.2 de son profil, embarquées sans
   modification, au lieu des règles EN 16931 de la Commission, qui y signalaient des erreurs sans
   objet. Le bloc nomme le jeu de règles appliqué.
-- **Schéma XSD des factures CII** : la structure du XML est contrôlée contre le schéma du profil
+- **Conteneur PDF, contrôles de structure** : au-delà des déclarations, sept exigences de PDF/A-3
+  et de Factur-X sont vérifiées dans le fichier : absence de chiffrement, profil de sortie,
+  polices incorporées, identifiant, absence de script, métadonnées Factur-X, relation et type de
+  la pièce jointe. Contrôle partiel, annoncé comme tel ; le verdict du conteneur en tient compte.
+- **Schéma XSD** : la structure du XML est contrôlée contre le schéma officiel. Factures et
+  avoirs UBL : schémas OASIS UBL 2.1. Factures CII : schéma du profil
   annoncé par la facture — MINIMUM, BASIC WL, BASIC, EN 16931 ou EXTENDED, schémas officiels
   Factur-X 1.09.2 — et, pour tout autre CII, contre le schéma UN/CEFACT complet D22B. Schémas
   embarqués sans modification, appliqués par le validateur open source `uppsala`. Verdict dédié,
-  bloc listant chaque erreur avec sa ligne, détail dans le rapport JSON. Les factures UBL ne sont
-  pas contrôlées : schémas OASIS non embarqués.
+  bloc listant chaque erreur avec sa ligne, détail dans le rapport JSON.
 
 ### Corrigé
 
+- Conteneur PDF : la version de PDF/A et le profil Factur-X n'étaient pas lus quand les
+  métadonnées XMP les écrivent en attributs à guillemets simples (`pdfaid:part='3'`). Ces
+  fichiers étaient signalés à tort comme « PDF/A-3 attendu ».
 - Schematron : une règle de la forme « A et B » dont la seconde moitié ne pouvait pas être
   calculée était classée « non évaluable » même quand la première était déjà fausse ; elle est
   maintenant signalée comme enfreinte, comme le font les moteurs de référence (cas `BR-CO-15`
@@ -36,6 +47,10 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 
 ### Modifié
 
+- **Validation du XML d'origine** : le Schematron et le schéma XSD portent sur le XML tel qu'il
+  figure dans le fichier, et non plus sur la version réindentée affichée par l'application, où
+  les pièces jointes binaires sont abrégées. Si l'original est illisible par le moteur, la
+  version réindentée est évaluée à sa place et le bloc le signale.
 - **Schematron plus rapide** : les contextes des règles sont trouvés en un seul parcours du
   document, les assertions qui ne dépendent pas de la ligne ne sont évaluées qu'une fois, et les
   recherches dans tout le document sont réécrites sous une forme que le moteur XPath parcourt

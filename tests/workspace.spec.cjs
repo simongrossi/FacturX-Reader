@@ -539,7 +539,7 @@ test('règles EN 16931 affichées, filtrées dans le tableau, et impression', as
   // Verdicts séparés : des calculs cohérents n'effacent pas une règle non respectée.
   const verdicts = page.locator('#verdicts .ctl-chip');
   await expect(verdicts).toHaveText(['Lecture réussie', 'Calculs cohérents', '1 règle EN 16931 non respectée', 'Schematron officiel non évalué']);
-  await expect(page.locator('#verdicts .verdict-note')).toContainText('Non contrôlés : schéma XSD');
+  await expect(page.locator('#verdicts .verdict-note')).toContainText('Non contrôlés : conformité PDF/A-3 complète');
   await expect(page.locator('#verdicts .verdict-note')).toContainText('ne vaut certification');
   await expect(rules.locator('summary')).toContainText('1 non respectée');
   await expect(rules.locator('summary')).toContainText('2 respectées');
@@ -568,7 +568,7 @@ test('règles EN 16931 affichées, filtrées dans le tableau, et impression', as
   await page.locator('#btn-control-report').click();
   await expect.poll(() => page.evaluate(() => window.__report?.report.regles_en16931?.non_conformes)).toBe(1);
   expect(await page.evaluate(() => window.__report.report.verdicts)).toEqual({ lecture: 'Lecture réussie', calculs: 'Calculs cohérents',
-    regles_en16931: '1 règle EN 16931 non respectée', schema_xsd: null, autres_alertes: 0, non_controle: ['schéma XSD des factures UBL', 'conformité PDF/A-3 réelle du fichier (seules ses métadonnées déclarées sont lues)', 'règles nationales (CIUS)'] });
+    regles_en16931: '1 règle EN 16931 non respectée', schema_xsd: null, autres_alertes: 0, non_controle: ['conformité PDF/A-3 complète du fichier (ses déclarations et quelques points de structure sont contrôlés)', 'règles françaises BR-FR de la réforme (XP Z12-012)'] });
   await page.locator('#tab-batch').click();
   await expect(page.locator('#batch-table tbody tr.batch-row')).toContainText('1 non respectée');
   await expect(page.locator('#batch-table tbody tr.batch-row')).toContainText('Cohérents');
@@ -742,6 +742,9 @@ test('Schematron officiel : verdicts respecté, non respecté, partiel et non é
   await expect(section).toContainText('Règles Schematron officielles Factur-X, profil EXTENDED, v1.09.2 (FNFE-MPE et FeRD, Apache 2.0)');
   await expect(section).not.toContainText('Commission européenne');
 
+  await open('ctc-fr.xml', { ...base, ok: true, jeu_regles: 'EXTENDED-CTC-FR (FNFE-MPE, réforme française)', version_regles: '1.4.0.04' });
+  await expect(section).toContainText('Règles Schematron officielles du profil français EXTENDED-CTC-FR, v1.4.0.04 (FNFE-MPE, dépôt France_RFE)');
+
   await open('enfreint.xml', { ...base, ok: false, non_conformes: 1, avertissements: 1, erreurs: [
     { id: 'BR-CO-15', flag: 'fatal', texte: '[BR-CO-15]-Invoice total amount with VAT = Invoice total amount without VAT + Invoice total VAT amount.', location: '/rsm:CrossIndustryInvoice' },
     { id: 'CII-SR-173', flag: 'warning', texte: '[CII-SR-173]-Avertissement de syntaxe', location: '/rsm:CrossIndustryInvoice/x' },
@@ -769,7 +772,7 @@ test('Schematron officiel : verdicts respecté, non respecté, partiel et non é
 
   // Le tableau reprend les verdicts.
   await page.locator('#tab-batch').click();
-  await expect(page.locator('#batch-table tbody tr.batch-row')).toHaveCount(7);
+  await expect(page.locator('#batch-table tbody tr.batch-row')).toHaveCount(8);
   expect(errors).toEqual([]);
 });
 
@@ -795,5 +798,6 @@ test('schéma XSD : erreurs listées avec leur ligne, verdict dédié', async ({
   await expect(section.locator('li').first()).toHaveText("Ligne 23, colonne 41 : Unexpected element 'Inconnu' in sequence");
   await expect(section.locator('li').nth(1)).toHaveText("Ligne 25 : Attribute 'bidule' is not allowed");
   await expect(section).toContainText('Schéma Factur-X 1.09.2, profil BASIC');
+  await expect(section).toContainText("Les lignes sont celles de l'onglet « XML brut »");
   expect(errors).toEqual([]);
 });

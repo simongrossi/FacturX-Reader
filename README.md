@@ -46,8 +46,8 @@ tableaux lisibles en français, **recalcule les montants** et signale ce qui ne 
 |---|---|
 | 📄 **Lecture** | PDF Factur-X, archive ZIP, XML UBL 2.x et CII. PDF d'origine, données en tableaux, XML complet et XML brut. |
 | 🏛️ **Schematron officiel** | Les règles officielles EN 16931 de la Commission européenne, exécutées sur votre poste, sans envoyer la facture où que ce soit. |
-| 🧱 **Schéma XSD** | La structure du XML contrôlée contre le schéma officiel du profil Factur-X annoncé, pour les factures CII, sur votre poste. |
-| 📎 **Conteneur PDF** | PDF/A-3 annoncé, pièce jointe XML déclarée, profil annoncé comparé à celui du XML. |
+| 🧱 **Schéma XSD** | La structure du XML contrôlée contre le schéma officiel : celui du profil Factur-X annoncé pour le CII, UBL 2.1 pour l'UBL. Sur votre poste. |
+| 📎 **Conteneur PDF** | PDF/A-3 annoncé, pièce jointe XML déclarée, profil annoncé comparé à celui du XML ; polices incorporées, chiffrement, profil de sortie, métadonnées Factur-X contrôlés dans le fichier. |
 | 📐 **Règles EN 16931** | Une soixantaine de règles métier de la norme évaluées sur chaque facture : mentions obligatoires, calculs, décimales, catégories de TVA. |
 | ✅ **Contrôles de cohérence** | Calculs en décimaux exacts : lignes, HT, TVA par taux, TTC, net à payer. Mentions essentielles, clés SIREN/SIRET, n° de TVA et IBAN, échéance, escompte. |
 | 📊 **Tableau multi-factures** | Toutes les factures ouvertes sur une page : totaux par devise, avoirs déduits, filtres d'anomalies, de période, de montant et de fournisseur, export CSV. |
@@ -91,8 +91,8 @@ une case est cochée des deux côtés, le niveau de détail peut différer.
 | Impression | ✅ | ✅ | — | ✅ |
 | Contrôles arithmétiques détaillés | ✅ | — | Via la validation | — |
 | Schematron officiel EN 16931 et profils Factur-X | ✅ hors ligne | ✅ en ligne | ✅ | — |
-| Validation XSD | CII hors ligne, pas UBL | ✅ en ligne | ✅ | — |
-| Validation PDF/A-3 du fichier | Déclarations lues seulement | ✅ en ligne | ✅ | — |
+| Validation XSD | ✅ hors ligne | ✅ en ligne | ✅ | — |
+| Validation PDF/A-3 du fichier | Partielle : déclarations et sept points de structure | ✅ en ligne | ✅ | — |
 | Tableau multi-factures avec totaux | ✅ | — | — | — |
 | Pointage, statuts et commentaires | ✅ | — | — | — |
 | Historique : alerte de changement d'IBAN, prix, doublons | ✅ | — | — | — |
@@ -105,9 +105,9 @@ une case est cochée des deux côtés, le niveau de détail peut différer.
 <sub>Établi le 3 octobre 2026 d'après la documentation publique de chaque projet ; une case vide
 signifie « non documenté à cette date », pas forcément « impossible ». Corrections bienvenues.
 Factur-X Reader exécute le Schematron officiel EN 16931 et celui des profils Factur-X, et contrôle
-le schéma XSD des factures CII, mais ne contrôle ni le schéma XSD des factures UBL, ni la conformité PDF/A-3 réelle du
-fichier, ni les règles nationales : pour une validation complète, Mustang ou Quba restent les bons
-outils.</sub>
+le schéma XSD, mais ne contrôle ni la conformité PDF/A-3 complète du fichier, ni les règles
+nationales BR-FR ; son validateur XSD et son moteur Schematron ne sont pas les implémentations de
+référence. Pour une validation qui fait foi, Mustang ou Quba restent les bons outils.</sub>
 
 ## Téléchargement
 
@@ -234,13 +234,13 @@ En tête de l'onglet **Données**, des verdicts indépendants, jamais fondus en 
 | **Lecture réussie** | Le XML a été trouvé et ses données extraites | Que le fichier est un Factur-X valide |
 | **Calculs cohérents** | Les montants du XML se recalculent sans écart | Que la facture respecte la norme |
 | **Règles EN 16931 respectées** | Les règles métier évaluées par le moteur de l'application passent | Que le Schematron officiel passerait |
-| **Schematron officiel respecté** | Aucune règle bloquante du Schematron officiel (EN 16931, ou profil Factur-X annoncé) n'est enfreinte | Que le XML respecte le schéma XSD ou les règles nationales |
-| **Schéma XSD respecté** (CII) | La structure du XML suit le schéma officiel : éléments connus, à leur place, valeurs du bon type | Que les montants sont justes ou les règles métier respectées |
-| **PDF/A-3 déclaré, pièce jointe déclarée** | Le PDF s'annonce PDF/A-3 et déclare sa pièce jointe XML | Que le fichier est réellement conforme à ISO 19005-3 |
+| **Schematron officiel respecté** | Aucune règle bloquante du Schematron officiel (EN 16931, profil Factur-X ou EXTENDED-CTC-FR annoncé) n'est enfreinte | Que le XML respecte le schéma XSD ou les règles nationales |
+| **Schéma XSD respecté** | La structure du XML suit le schéma officiel : éléments connus, à leur place, valeurs du bon type | Que les montants sont justes ou les règles métier respectées |
+| **PDF/A-3 déclaré, structure sans anomalie relevée** | Le PDF s'annonce PDF/A-3, déclare sa pièce jointe XML et passe les sept contrôles de structure | Que le fichier est conforme à ISO 19005-3 : la norme comporte bien d'autres exigences |
 
 Les autres constats (identifiants, échéance, doublons, IBAN) sont comptés à part comme alertes.
-**Non contrôlés** : le schéma XSD des factures UBL, la conformité PDF/A-3 réelle du fichier et
-les règles nationales (CIUS). Aucun de ces verdicts ne vaut certification. Le tableau multi-factures reprend
+**Non contrôlés** : la conformité PDF/A-3 complète du fichier et les règles françaises BR-FR de
+la réforme (XP Z12-012). Aucun de ces verdicts ne vaut certification. Le tableau multi-factures reprend
 les verdicts en colonnes, et le rapport JSON dans un bloc `verdicts`.
 
 ### Schematron officiel
@@ -261,7 +261,10 @@ le texte de la règle et son emplacement dans le XML.
 - seules les factures dont la racine est un `CrossIndustryInvoice` CII ou un `Invoice` /
   `CreditNote` UBL aux espaces de noms standard sont validées. Sur tout autre document, le
   verdict est **« non évalué »**, jamais « respecté » ;
-- la validation porte sur le XML tel que réindenté par l'application, pas sur les octets d'origine ;
+- la validation porte sur le **XML d'origine**, tel qu'il figure dans le fichier, et non sur la
+  version réindentée que l'application affiche (où les pièces jointes binaires sont abrégées).
+  Si le moteur ne parvient pas à lire l'original, la version réindentée est évaluée à sa place et
+  le bloc le signale ;
 - elle tourne en arrière-plan, sans bloquer l'interface : quelques dizaines de millisecondes pour
   une facture courante, environ 0,4 s pour une facture de plus de cent lignes (huit à onze fois
   moins que dans la 0.6.0). À l'ouverture d'un dossier, plusieurs documents sont validés de
@@ -275,8 +278,14 @@ le texte de la règle et son emplacement dans le XML.
 - une facture CII qui annonce un profil Factur-X **MINIMUM**, **BASIC WL**, **BASIC** ou
   **EXTENDED** est évaluée avec les règles officielles Factur-X de ce profil (version 1.09.2,
   publiées par FNFE-MPE et FeRD), et non avec celles de la Commission : 66, 337, 472 et 1464
-  règles. Le pied du bloc nomme le jeu de règles appliqué. Le profil EN 16931, les extensions
-  nationales (EXTENDED-CTC-FR, XRechnung) et tout autre CII gardent les règles de la Commission ;
+  règles. Le pied du bloc nomme le jeu de règles appliqué ;
+- une facture CII ou UBL au profil français **EXTENDED-CTC-FR** (réforme de la facture
+  électronique, norme XP Z12-012) est évaluée avec les règles de ce profil publiées par le
+  FNFE-MPE (dépôt [`France_RFE`](https://github.com/fnfempe/France_RFE), version 1.4.0.04) : 773
+  règles CII, 953 règles UBL. Les règles **BR-FR** de la réforme (format du SIREN, mentions
+  propres à la France…), publiées dans un fichier distinct qui définit ses propres fonctions, ne
+  sont pas encore exécutées ;
+- le profil EN 16931, XRechnung et tout autre CII ou UBL gardent les règles de la Commission ;
 - le profil EXTENDED tolère un centime d'écart sur certains calculs : une facture EXTENDED peut
   respecter son Schematron alors que les [règles natives](#règles-en-16931), qui appliquent la
   norme EN 16931 stricte, signalent cet écart ;
@@ -305,17 +314,18 @@ le schéma officiel du profil que la facture annonce :
 | MINIMUM, BASIC WL, BASIC, EN 16931, EXTENDED | Le schéma de ce profil, publié par FNFE-MPE et FeRD (Factur-X 1.09.2) |
 | Autre CII : EXTENDED-CTC-FR, XRechnung, profil inconnu ou absent | Le schéma UN/CEFACT complet du Cross Industry Invoice D22B |
 
-Une facture annoncée BASIC qui contient un élément réservé à EXTENDED est donc signalée. Le
+Une facture annoncée BASIC qui contient un élément réservé à EXTENDED est donc signalée. Une
+facture ou un avoir **UBL** est contrôlé contre le schéma OASIS UBL 2.1 correspondant. Le
 bloc **Schéma XSD** de l'onglet Données liste chaque erreur avec sa
 ligne dans l'onglet « XML brut » : élément inconnu ou mal placé, attribut non prévu, valeur d'un
 mauvais type.
 
 À savoir :
 
-- les factures **UBL** ne sont pas contrôlées : les schémas UBL 2.1 d'OASIS ne sont pas encore
-  embarqués. Aucun verdict XSD n'est alors affiché ;
-- le contrôle porte sur le XML tel que réindenté par l'application, et prend environ une
-  milliseconde ;
+- le contrôle porte sur le **XML d'origine** et prend environ une milliseconde. Les numéros de
+  ligne affichés sont ceux de l'onglet « XML brut » ; si l'original et sa version réindentée ne
+  donnent pas les mêmes erreurs, ce sont celles de l'original qui sont listées, avec ses propres
+  numéros de ligne, et le bloc le précise ;
 - Factur-X repose depuis la version 1.0.07 sur le CII D22B, qui accepte toute facture D16B ; un
   destinataire resté au schéma D16B peut refuser une facture que l'application juge valide
   (plusieurs références à des factures antérieures, par exemple) ;
@@ -334,10 +344,25 @@ Pour une facture reçue en PDF, l'application lit la structure du fichier et sig
 | **Pièce jointe XML déclarée** | Présence du XML dans le catalogue du PDF (`/AF` ou `/EmbeddedFiles`) et sa relation (`AFRelationship`) |
 | **Profil Factur-X annoncé** | Le niveau annoncé dans les métadonnées, comparé au profil du XML |
 
-Ce sont les **déclarations** du fichier. L'application ne vérifie pas que le PDF respecte
-réellement la norme PDF/A-3 (polices incorporées, espaces colorimétriques, etc.) : cela demande un
-validateur dédié comme veraPDF. Un XML ou un ZIP n'a pas de conteneur : ces contrôles n'y
-apparaissent pas.
+Ces trois premiers contrôles portent sur les **déclarations** du fichier. Sept autres sont
+faits dans la structure du PDF lui-même :
+
+| Contrôle | Ce qui est vérifié |
+|---|---|
+| **PDF non chiffré** | Aucun chiffrement, interdit en PDF/A |
+| **Profil de sortie (couleurs)** | Un `OutputIntent` PDF/A avec son profil ICC incorporé |
+| **Polices incorporées** | Chaque police du fichier a son programme incorporé ; les polices manquantes sont nommées |
+| **Identifiant du fichier** | Présence de l'identifiant `/ID` |
+| **Aucun script ni lancement de programme** | Aucune action JavaScript ou `Launch` |
+| **Métadonnées Factur-X** | `DocumentType`, `DocumentFileName`, `Version` et `ConformanceLevel` présents, nom concordant avec la pièce jointe |
+| **Pièce jointe : relation et type** | Relation `Data`, `Source` ou `Alternative` ; type `text/xml` |
+
+C'est un **contrôle partiel** : ISO 19005-3 comporte bien d'autres exigences (espaces
+colorimétriques de chaque page, transparence, structure des flux, annotations…) que l'application
+ne vérifie pas. Un fichier sans anomalie relevée ici peut être refusé par un validateur complet
+comme veraPDF ; une anomalie relevée ici, en revanche, est une vraie non-conformité. Si le PDF
+n'est lisible que par le parseur de secours, ces sept contrôles ne sont pas faits. Un XML ou un
+ZIP n'a pas de conteneur : ces contrôles n'y apparaissent pas.
 
 ### Contrôles
 
@@ -565,8 +590,8 @@ src-tauri/
   src/facturx/en16931.rs   règles métier EN 16931
   src/schematron.rs        Schematron officiel EN 16931 (évaluation XPath, fils de travail)
   schematron/              règles officielles EN 16931 (EUPL 1.2) et Factur-X (Apache 2.0), exemples, suite de tests
-  src/xsd.rs               schéma XSD des factures CII
-  xsd/                     schémas XSD officiels : profils Factur-X 1.09.2 et CII D22B
+  src/xsd.rs               schéma XSD des factures CII et UBL
+  xsd/                     schémas XSD officiels : profils Factur-X 1.09.2, CII D22B, UBL 2.1
   src/tables.rs            libellés français et tables de codes
   src/pointages.rs         pointages et suivi : persistance, sauvegardes, export/import
   src/bibliotheque.rs      bibliothèque locale (SQLite) : historique, IBAN, doublons, prix

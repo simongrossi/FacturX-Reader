@@ -11,8 +11,10 @@
 //!
 //! Une facture CII aux profils Factur-X MINIMUM, BASIC WL, BASIC ou EXTENDED est evaluee avec
 //! les regles publiees pour ce profil par FNFE-MPE et FeRD (Factur-X 1.09.2, licence Apache
-//! 2.0), embarquees elles aussi telles quelles. Tout autre CII (dont le profil EN 16931) et
-//! les factures UBL le sont avec les regles de la Commission.
+//! 2.0), embarquees elles aussi telles quelles. Une facture CII ou UBL au profil francais
+//! EXTENDED-CTC-FR l'est avec les regles publiees par le FNFE-MPE pour la reforme de la
+//! facture electronique (depot France_RFE). Tout autre CII (dont le profil EN 16931) et les
+//! autres factures UBL le sont avec les regles de la Commission.
 
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::{mpsc, Arc, Condvar, Mutex, OnceLock};
@@ -51,6 +53,11 @@ const FX_EXTENDED: (&str, &str) = (
     include_str!("../schematron/factur-x/FACTUR-X_EXTENDED.sch"),
     include_str!("../schematron/factur-x/FACTUR-X_EXTENDED_codedb.xml"),
 );
+/// Regles du profil francais EXTENDED-CTC-FR (FNFE-MPE, depot France_RFE).
+const CTC_FR_VERSION: &str = "1.4.0.04";
+const CTC_FR_CII: &str = include_str!("../schematron/france/EXTENDED-CTC-FR-CII.sch");
+const CTC_FR_UBL: &str = include_str!("../schematron/france/EXTENDED-CTC-FR-UBL.sch");
+const CTC_FR_PROFILE: &str = "urn:cen.eu:en16931:2017#conformant#urn.cpro.gouv.fr:1p0:extended-ctc-fr";
 /// Identifiant donne aux constats `report` des regles Factur-X, qui n'en portent pas.
 const FX_REPORT_ID: &str = "FX-NON-UTILISE";
 
@@ -66,6 +73,8 @@ enum Format {
     FxBasicWl,
     FxBasic,
     FxExtended,
+    CtcFrCii,
+    CtcFrUbl,
 }
 
 impl Format {
@@ -76,12 +85,28 @@ impl Format {
             "urn:factur-x.eu:1p0:basicwl" => Format::FxBasicWl,
             "urn:cen.eu:en16931:2017#compliant#urn:factur-x.eu:1p0:basic" => Format::FxBasic,
             "urn:cen.eu:en16931:2017#conformant#urn:factur-x.eu:1p0:extended" => Format::FxExtended,
+            CTC_FR_PROFILE => Format::CtcFrCii,
             _ => Format::Cii,
         }
     }
 
+    /// Jeu de regles d'une facture UBL, d'apres son `CustomizationID` (BT-24).
+    fn for_ubl(xml: &str) -> Format {
+        let profile = roxmltree::Document::parse(xml.trim_start_matches('\u{feff}')).ok().and_then(|doc| {
+            doc.root_element()
+                .children()
+                .find(|n| n.tag_name().name() == "CustomizationID")
+                .and_then(|n| n.text().map(|t| t.trim().to_ascii_lowercase()))
+        });
+        if profile.as_deref() == Some(CTC_FR_PROFILE) {
+            Format::CtcFrUbl
+        } else {
+            Format::Ubl
+        }
+    }
+
     fn is_cii(self) -> bool {
-        self != Format::Ubl
+        !matches!(self, Format::Ubl | Format::CtcFrUbl)
     }
 
     /// Nom court, pour la cle des resultats gardes.
@@ -93,6 +118,8 @@ impl Format {
             Format::FxBasicWl => "FX-BASICWL",
             Format::FxBasic => "FX-BASIC",
             Format::FxExtended => "FX-EXTENDED",
+            Format::CtcFrCii => "CTC-FR-CII",
+            Format::CtcFrUbl => "CTC-FR-UBL",
         }
     }
 
@@ -103,12 +130,14 @@ impl Format {
             Format::FxBasicWl => "Factur-X, profil BASIC WL",
             Format::FxBasic => "Factur-X, profil BASIC",
             Format::FxExtended => "Factur-X, profil EXTENDED",
+            Format::CtcFrCii | Format::CtcFrUbl => "EXTENDED-CTC-FR (FNFE-MPE, réforme française)",
         }
     }
 
     fn version(self) -> &'static str {
         match self {
             Format::Cii | Format::Ubl => RULES_VERSION,
+            Format::CtcFrCii | Format::CtcFrUbl => CTC_FR_VERSION,
             _ => FX_VERSION,
         }
     }
@@ -147,7 +176,7 @@ fn parse_code_lists(source: &str) -> HashMap<String, Vec<String>> {
 /// `string-length($v)=0 or document('…codedb.xml')/codedb/cl[@id=N]/enumeration[@value=$v]`,
 /// ou `$v` est une variable `let` de la regle. Le moteur XPath n'ouvre pas de document
 /// externe : le test est reecrit, a sens egal, avec la liste N ecrite dans l'expression.
-fn inline_code_list(test: &str, lets: &HashMap<&str, &str>, lists: &HashMap<String, Vec<String>>) -> Option<String> {
+fn inline_code_list(test: &str, lets: &[(&str, &str)], lists: &HashMap<String, Vec<String>>) -> Option<String> {
     let rest = test.trim().strip_prefix("string-length($")?;
     let (name, rest) = rest.split_once(")=0 or document('")?;
     let (_, rest) = rest.split_once("')/codedb/cl[@id=")?;
@@ -155,7 +184,7 @@ fn inline_code_list(test: &str, lets: &HashMap<&str, &str>, lists: &HashMap<Stri
     if rest != format!("{name}]") {
         return None;
     }
-    let (value, codes) = (lets.get(name)?, lists.get(list)?);
+    let (value, codes) = (lets.iter().find(|(n, _)| *n == name).map(|(_, v)| v)?, lists.get(list)?);
     // Les codes sont separes par un saut de ligne, qu'aucun code ne contient.
     if codes.iter().any(|c| c.contains('\n')) {
         return None;
@@ -164,6 +193,30 @@ fn inline_code_list(test: &str, lets: &HashMap<&str, &str>, lists: &HashMap<Stri
     Some(format!(
         "string-length({value})=0 or (not(contains(string({value}), '\n')) and contains('\n{joined}\n', concat('\n', string({value}), '\n')))"
     ))
+}
+
+/// Vrai si `expr` emploie la variable `$name`.
+fn uses_variable(expr: &str, name: &str) -> bool {
+    let needle = format!("${name}");
+    expr.match_indices(&needle).any(|(at, _)| {
+        !expr[at + needle.len()..].starts_with(|c: char| c.is_alphanumeric() || matches!(c, '_' | '-' | '.'))
+    })
+}
+
+/// Variables `let` d'une regle : le test est precede des variables qu'il emploie, et de
+/// celles dont elles dependent, sous la forme XPath `let $a := …, $b := … return (test)`.
+fn bind_lets(test: &str, lets: &[(&str, &str)]) -> String {
+    let mut needed = vec![false; lets.len()];
+    // Une variable peut en employer une autre, declaree avant elle.
+    for i in (0..lets.len()).rev() {
+        needed[i] = uses_variable(test, lets[i].0) || (i + 1..lets.len()).any(|j| needed[j] && uses_variable(lets[j].1, lets[i].0));
+    }
+    let bindings: Vec<String> = lets.iter().zip(&needed).filter(|(_, n)| **n).map(|((name, value), _)| format!("${name} := ({value})")).collect();
+    if bindings.is_empty() {
+        test.to_string()
+    } else {
+        format!("let {} return ({test})", bindings.join(", "))
+    }
 }
 
 fn parse_rules(source: &str, code_lists: Option<&str>) -> Rules {
@@ -187,7 +240,7 @@ fn parse_rules(source: &str, code_lists: Option<&str>) -> Rules {
                 p.children()
                     .filter(|n| is(*n, "rule"))
                     .map(|r| {
-                        let lets: HashMap<&str, &str> = r
+                        let lets: Vec<(&str, &str)> = r
                             .children()
                             .filter(|n| is(*n, "let"))
                             .filter_map(|l| Some((l.attribute("name")?, l.attribute("value")?)))
@@ -208,7 +261,7 @@ fn parse_rules(source: &str, code_lists: Option<&str>) -> Rules {
                                         test: if report {
                                             format!("not({test})")
                                         } else {
-                                            inline_code_list(test, &lets, &lists).unwrap_or_else(|| test.to_string())
+                                            inline_code_list(test, &lets, &lists).unwrap_or_else(|| bind_lets(test, &lets))
                                         },
                                         text: text(a),
                                     }
@@ -226,6 +279,7 @@ fn rules(format: Format) -> &'static Rules {
     static CII: OnceLock<Rules> = OnceLock::new();
     static UBL: OnceLock<Rules> = OnceLock::new();
     static FX: [OnceLock<Rules>; 4] = [const { OnceLock::new() }; 4];
+    static CTC_FR: [OnceLock<Rules>; 2] = [const { OnceLock::new() }; 2];
     let factur_x = |slot: usize, (rules, codes): (&str, &str)| FX[slot].get_or_init(|| parse_rules(rules, Some(codes)));
     match format {
         Format::Cii => CII.get_or_init(|| parse_rules(CII_RULES, None)),
@@ -234,6 +288,8 @@ fn rules(format: Format) -> &'static Rules {
         Format::FxBasicWl => factur_x(1, FX_BASIC_WL),
         Format::FxBasic => factur_x(2, FX_BASIC),
         Format::FxExtended => factur_x(3, FX_EXTENDED),
+        Format::CtcFrCii => CTC_FR[0].get_or_init(|| parse_rules(CTC_FR_CII, None)),
+        Format::CtcFrUbl => CTC_FR[1].get_or_init(|| parse_rules(CTC_FR_UBL, None)),
     }
 }
 
@@ -858,8 +914,8 @@ impl Validator {
         if !recognized(&xml, format) {
             return not_evaluated("Aucune règle officielle ne s'applique à ce document (racine ou espace de noms non reconnu)");
         }
-        // Un profil Factur-X autre qu'EN 16931 a ses propres regles.
-        let format = if format == Format::Cii { Format::for_cii(&xml) } else { format };
+        // Un profil Factur-X autre qu'EN 16931, ou le profil francais, a ses propres regles.
+        let format = if format == Format::Cii { Format::for_cii(&xml) } else { Format::for_ubl(&xml) };
         let key = cache_key(&xml, format);
         if let Some(hit) = self.cache.lock().unwrap_or_else(|e| e.into_inner()).get(&key) {
             return hit.clone();
@@ -935,6 +991,11 @@ mod tests {
 
     const UBL: &str = include_str!("../schematron/exemples/ubl-tc434-example3.xml");
     const CII_OFFICIEL: &str = include_str!("../schematron/exemples/CII_example3.xml");
+    /// Exemples officiels du FNFE-MPE (depot France_RFE) : multi-vendeur EXTENDED-CTC-FR en CII
+    /// et en UBL, et une facture Factur-X BASIC WL.
+    const FR_CII: &str = include_str!("../schematron/france/exemples/UC10_F202600004_MULTI-VENDEUR_EXTENDED-CTC-FR_CII_Commentee.xml");
+    const FR_UBL: &str = include_str!("../schematron/france/exemples/UC10_F202600004_MULTI-VENDEUR_EXTENDED-CTC-FR_UBL_Commentee.xml");
+    const FX_BASIC_WL_OFFICIEL: &str = include_str!("../schematron/france/exemples/Facture_F20260023-LE_FOURNISSEUR-POUR-LE_CLIENT_BASICWL_FX_CII_Commentee.xml");
 
     fn fatals(report: &Value) -> Vec<String> {
         let mut ids: Vec<String> = report["erreurs"]
@@ -973,6 +1034,51 @@ mod tests {
             // Aucun test ne depend plus d'un document externe ni d'une variable de regle.
             assert!(engine.rules.patterns.iter().flatten().flat_map(|r| &r.asserts).all(|a| !a.test.contains("document(")));
         }
+    }
+
+    /// Regles francaises EXTENDED-CTC-FR : toutes compilees, variables `let` comprises.
+    #[test]
+    fn regles_extended_ctc_fr_chargees_et_compilees() {
+        for (format, asserts) in [(Format::CtcFrCii, 773), (Format::CtcFrUbl, 953)] {
+            let engine = Engine::new(format);
+            let total: usize = engine.rules.patterns.iter().flatten().map(|r| r.asserts.len()).sum();
+            assert_eq!(total, asserts, "{}", format.key());
+            assert_eq!(engine.uncompiled, 0, "{}", format.key());
+        }
+        // Seules les variables employees, et celles dont elles dependent, precedent le test.
+        let lets = [("a", "1"), ("b", "$a + 1"), ("c", "3"), ("ab", "4")];
+        assert_eq!(bind_lets("$b = 2", &lets), "let $a := (1), $b := ($a + 1) return ($b = 2)");
+        assert_eq!(bind_lets("$ab = 4", &lets), "let $ab := (4) return ($ab = 4)");
+        assert_eq!(bind_lets("true()", &lets), "true()");
+    }
+
+    /// Exemples officiels du FNFE-MPE : aucune regle bloquante, aucune regle non evaluable,
+    /// avec le jeu de regles et le schema XSD de leur profil.
+    #[test]
+    fn exemples_officiels_francais() {
+        let validator = Validator::new();
+        for (xml, format, rules, schema) in [
+            (FR_CII, "CII", "EXTENDED-CTC-FR (FNFE-MPE, réforme française)", "UN/CEFACT Cross Industry Invoice D22B"),
+            (FR_UBL, "UBL", "EXTENDED-CTC-FR (FNFE-MPE, réforme française)", "OASIS UBL 2.1, facture (Invoice)"),
+            (FX_BASIC_WL_OFFICIEL, "CII", "Factur-X, profil BASIC WL", "Factur-X 1.09.2, profil BASIC WL"),
+        ] {
+            let xml = xml.trim_start_matches('\u{feff}');
+            let report = validator.validate(xml.to_string(), format, false, None);
+            assert_eq!(report["jeu_regles"], rules);
+            assert!(fatals(&report).is_empty(), "{rules} : {:?}", fatals(&report));
+            assert!(report["non_evaluables"].as_array().unwrap().is_empty(), "{report}");
+            let xsd = crate::xsd::validate(xml, format);
+            assert_eq!(xsd["schema"], schema);
+            assert_eq!(xsd["ok"], true, "{xsd}");
+        }
+        assert_eq!(validator.validate(FR_CII.trim_start_matches('\u{feff}').to_string(), "CII", false, None)["version_regles"], CTC_FR_VERSION);
+
+        // Une regle a variables `let` (calcul de TVA par categorie) signale un total faux.
+        let broken = FR_CII.trim_start_matches('\u{feff}').replacen("<ram:CalculatedAmount>", "<ram:CalculatedAmount>9", 1);
+        assert_ne!(broken, FR_CII.trim_start_matches('\u{feff}'));
+        let report = validator.validate(broken, "CII", false, None);
+        assert!(!fatals(&report).is_empty(), "{report}");
+        assert!(report["non_evaluables"].as_array().unwrap().is_empty(), "{report}");
     }
 
     /// Le jeu de regles suit le profil annonce ; une liste de codes et un element hors profil
@@ -1206,7 +1312,7 @@ mod tests {
     /// l'evaluation litterale des regles. Retourne le nombre de documents compares.
     fn comparer(documents: &[(Format, String)]) -> usize {
         let mut compared = 0;
-        for format in [Format::Cii, Format::Ubl, Format::FxMinimum, Format::FxBasicWl, Format::FxBasic, Format::FxExtended] {
+        for format in [Format::Cii, Format::Ubl, Format::FxMinimum, Format::FxBasicWl, Format::FxBasic, Format::FxExtended, Format::CtcFrCii, Format::CtcFrUbl] {
             if !documents.iter().any(|(f, _)| *f == format) {
                 continue;
             }
@@ -1235,9 +1341,9 @@ mod tests {
                 Some("UBL") => Format::Ubl,
                 _ => continue,
             };
-            let xml = r["xml_pretty"].as_str().unwrap_or_default().to_string();
+            let xml = r["xml_source"].as_str().unwrap_or_default().to_string();
             // Une facture CII est comparee avec les regles de son profil.
-            out.push((if format == Format::Cii { Format::for_cii(&xml) } else { format }, xml));
+            out.push((if format == Format::Cii { Format::for_cii(&xml) } else { Format::for_ubl(&xml) }, xml));
         }
         out
     }
@@ -1257,8 +1363,11 @@ mod tests {
             (Format::FxBasicWl, CII.to_string()),
             (Format::FxBasic, CII_OFFICIEL.to_string()),
             (Format::FxExtended, CII_OFFICIEL.to_string()),
+            // Regles francaises EXTENDED-CTC-FR, sur un exemple officiel de chaque syntaxe.
+            (Format::CtcFrCii, FR_CII.to_string()),
+            (Format::CtcFrUbl, FR_UBL.to_string()),
         ];
-        assert!(comparer(&documents) > 80);
+        assert!(comparer(&documents) > 100);
     }
 
     /// Meme comparaison sur les factures reelles de `samples/` et leurs variantes. Longue :

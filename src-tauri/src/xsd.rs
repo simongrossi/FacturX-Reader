@@ -1,6 +1,6 @@
-//! Validation du schema XSD des factures CII.
+//! Validation du schema XSD des factures CII et UBL.
 //!
-//! Le schema applique depend du profil annonce par la facture (BT-24) : pour les cinq profils
+//! CII : le schema applique depend du profil annonce par la facture (BT-24) : pour les cinq profils
 //! Factur-X, le schema publie par FNFE-MPE et FeRD pour ce profil (Factur-X 1.09.2, licence
 //! Apache 2.0) ; pour tout autre CII, le schema UN/CEFACT complet du Cross Industry Invoice
 //! D22B, sur lequel Factur-X repose et qui accepte toute facture D16B. Ces schemas sont
@@ -9,7 +9,11 @@
 //! ils sont ecrits dans un dossier temporaire, le temps de les charger. La validation prend
 //! environ une milliseconde : elle est faite a l'analyse de la facture.
 //!
-//! Les schemas UBL 2.1 (OASIS) ne sont pas embarques : une facture UBL est « non evaluee ».
+//! UBL : schemas OASIS UBL 2.1 de la facture (`Invoice`) et de l'avoir (`CreditNote`), dans
+//! leur forme d'execution (`xsdrt`), embarques sans modification. Ils importent leurs modules
+//! communs par `../common/`, chemin que le validateur refuse de suivre : au chargement, le
+//! schema principal est copie a cote des modules communs, ses imports pointant alors sur le
+//! meme dossier.
 
 use std::sync::OnceLock;
 
@@ -24,17 +28,23 @@ const MAX_ERRORS: usize = 200;
 struct Schema {
     label: &'static str,
     root: &'static str,
+    /// Schema principal a copier dans ce dossier, celui de ses modules communs, avant chargement.
+    flatten_into: Option<&'static str>,
 }
 
-const SCHEMA_COUNT: usize = 6;
+const SCHEMA_COUNT: usize = 8;
 const D22B: usize = 5;
+const UBL_INVOICE: usize = 6;
+const UBL_CREDIT_NOTE: usize = 7;
 const SCHEMA_LIST: [Schema; SCHEMA_COUNT] = [
-    Schema { label: "Factur-X 1.09.2, profil MINIMUM", root: "factur-x/minimum/Factur-X_1.09.2_MINIMUM.xsd" },
-    Schema { label: "Factur-X 1.09.2, profil BASIC WL", root: "factur-x/basicwl/Factur-X_1.09.2_BASICWL.xsd" },
-    Schema { label: "Factur-X 1.09.2, profil BASIC", root: "factur-x/basic/Factur-X_1.09.2_BASIC.xsd" },
-    Schema { label: "Factur-X 1.09.2, profil EN 16931", root: "factur-x/en16931/Factur-X_1.09.2_EN16931.xsd" },
-    Schema { label: "Factur-X 1.09.2, profil EXTENDED", root: "factur-x/extended/Factur-X_1.09.2_EXTENDED.xsd" },
-    Schema { label: "UN/CEFACT Cross Industry Invoice D22B", root: "cii-d22b/CrossIndustryInvoice_100pD22B.xsd" },
+    Schema { label: "Factur-X 1.09.2, profil MINIMUM", root: "factur-x/minimum/Factur-X_1.09.2_MINIMUM.xsd", flatten_into: None },
+    Schema { label: "Factur-X 1.09.2, profil BASIC WL", root: "factur-x/basicwl/Factur-X_1.09.2_BASICWL.xsd", flatten_into: None },
+    Schema { label: "Factur-X 1.09.2, profil BASIC", root: "factur-x/basic/Factur-X_1.09.2_BASIC.xsd", flatten_into: None },
+    Schema { label: "Factur-X 1.09.2, profil EN 16931", root: "factur-x/en16931/Factur-X_1.09.2_EN16931.xsd", flatten_into: None },
+    Schema { label: "Factur-X 1.09.2, profil EXTENDED", root: "factur-x/extended/Factur-X_1.09.2_EXTENDED.xsd", flatten_into: None },
+    Schema { label: "UN/CEFACT Cross Industry Invoice D22B", root: "cii-d22b/CrossIndustryInvoice_100pD22B.xsd", flatten_into: None },
+    Schema { label: "OASIS UBL 2.1, facture (Invoice)", root: "ubl-2.1/maindoc/UBL-Invoice-2.1.xsd", flatten_into: Some("ubl-2.1/common") },
+    Schema { label: "OASIS UBL 2.1, avoir (CreditNote)", root: "ubl-2.1/maindoc/UBL-CreditNote-2.1.xsd", flatten_into: Some("ubl-2.1/common") },
 ];
 
 /// Schema a appliquer d'apres le profil annonce (BT-24). Un profil inconnu, une extension
@@ -75,9 +85,15 @@ fn validator(index: usize) -> Result<&'static XsdValidator, String> {
             // Dossier propre au processus et au schema : les schemas lus sont ceux de l'executable.
             let dir = std::env::temp_dir().join(format!("facturx-reader-xsd-{}-{index}", std::process::id()));
             std::fs::create_dir_all(&dir).and_then(|_| SCHEMAS.extract(&dir)).map_err(|e| format!("Schémas XSD non écrits : {e}"))?;
-            let root = dir.join(SCHEMA_LIST[index].root);
-            let built = std::fs::read_to_string(&root)
-                .map_err(|e| e.to_string())
+            let schema = &SCHEMA_LIST[index];
+            let mut root = dir.join(schema.root);
+            let mut source = std::fs::read_to_string(&root).map_err(|e| e.to_string());
+            if let (Some(common), Ok(text)) = (schema.flatten_into, &source) {
+                let flat = text.replace("schemaLocation=\"../common/", "schemaLocation=\"");
+                root = dir.join(common).join(root.file_name().unwrap_or_default());
+                source = std::fs::write(&root, &flat).map(|_| flat).map_err(|e| e.to_string());
+            }
+            let built = source
                 .and_then(|source| {
                     let doc = uppsala::parse(&source).map_err(|e| e.to_string())?;
                     XsdValidator::from_schema_with_base_path(&doc, root.parent()).map_err(|e| e.to_string())
@@ -100,15 +116,27 @@ fn decimal_false_positive(message: &str) -> bool {
         .is_some_and(|digits| !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit()))
 }
 
+/// Nom local de l'element racine.
+fn root_name(xml: &str) -> String {
+    roxmltree::Document::parse(xml.trim_start_matches('\u{feff}'))
+        .map(|doc| doc.root_element().tag_name().name().to_string())
+        .unwrap_or_default()
+}
+
 /// Valide le XML d'une facture contre le schema XSD de son format.
 pub fn validate(xml: &str, format: &str) -> Value {
-    match format {
-        "CII" => {}
-        "UBL" => return not_evaluated("Schémas XSD UBL non embarqués"),
+    let (index, profile) = match format {
+        "CII" => {
+            let profile = profile(xml);
+            (schema_for(&profile), profile)
+        }
+        "UBL" => match root_name(xml).as_str() {
+            "Invoice" => (UBL_INVOICE, String::new()),
+            "CreditNote" => (UBL_CREDIT_NOTE, String::new()),
+            _ => return not_evaluated("Document UBL sans schéma XSD embarqué"),
+        },
         _ => return not_evaluated("Format sans schéma XSD"),
-    }
-    let profile = profile(xml);
-    let index = schema_for(&profile);
+    };
     let validator = match validator(index) {
         Ok(v) => v,
         Err(e) => return not_evaluated(&e),
@@ -130,6 +158,33 @@ pub fn validate(xml: &str, format: &str) -> Value {
             .map(|e| json!({ "message": e.message, "ligne": e.line, "colonne": e.column }))
             .collect::<Vec<_>>(),
     })
+}
+
+/// Valide le XML d'origine d'une facture. Les erreurs sont listees avec leur ligne dans la
+/// version reindentee, celle que l'application affiche, quand elle donne les memes erreurs.
+/// Si le validateur ne lit pas le XML d'origine, la version reindentee est validee a sa place.
+pub fn validate_invoice(source: &str, pretty: &str, format: &str) -> Value {
+    let mut report = validate(source, format);
+    if report["evalue"] != true {
+        let mut fallback = validate(pretty, format);
+        if fallback["evalue"] == true {
+            fallback["valide_sur"] = "reindente".into();
+            return fallback;
+        }
+        return report;
+    }
+    report["valide_sur"] = "origine".into();
+    if report["ok"] == false {
+        let displayed = validate(pretty, format);
+        let messages = |r: &Value| r["erreurs"].as_array().map(|l| l.iter().map(|e| e["message"].clone()).collect::<Vec<_>>());
+        if displayed["total"] == report["total"] && messages(&displayed) == messages(&report) {
+            report["erreurs"] = displayed["erreurs"].clone();
+        } else {
+            // Les lignes sont alors celles du fichier d'origine, pas de la vue « XML brut ».
+            report["lignes_origine"] = true.into();
+        }
+    }
+    report
 }
 
 #[cfg(test)]
@@ -205,6 +260,51 @@ mod tests {
     }
 
     #[test]
+    fn xml_d_origine_valide_lignes_de_la_vue_affichee() {
+        // Version affichee abimee (bloc binaire abrege, par exemple) : seul l'original compte.
+        let displayed = CII_OFFICIEL.replacen("</ram:TypeCode>", "</ram:TypeCode><ram:Inconnu>x</ram:Inconnu>", 1);
+        let report = validate_invoice(CII_OFFICIEL, &displayed, "CII");
+        assert_eq!(report["ok"], true);
+        assert_eq!(report["valide_sur"], "origine");
+
+        // Original en erreur, sur une seule ligne : les lignes listees sont celles de la vue affichee.
+        let flat = displayed.replace('\n', " ");
+        let report = validate_invoice(&flat, &displayed, "CII");
+        assert_eq!(report["ok"], false);
+        assert!(report["lignes_origine"].is_null());
+        assert!(report["erreurs"][0]["ligne"].as_u64().unwrap() > 1, "{report}");
+
+        // Erreurs differentes entre l'original et la vue affichee : celles de l'original, signalees comme telles.
+        let report = validate_invoice(&flat, CII_OFFICIEL, "CII");
+        assert_eq!(report["ok"], false);
+        assert_eq!(report["lignes_origine"], true);
+
+        // Original illisible par le validateur : la vue affichee est validee, et c'est dit.
+        let report = validate_invoice("pas du xml", CII_OFFICIEL, "CII");
+        assert_eq!(report["ok"], true);
+        assert_eq!(report["valide_sur"], "reindente");
+    }
+
+    #[test]
+    fn ubl_facture_et_avoir() {
+        let report = validate(UBL, "UBL");
+        assert_eq!(report["schema"], "OASIS UBL 2.1, facture (Invoice)");
+        assert_eq!(report["ok"], true, "{}", messages(&report));
+
+        let unknown = UBL.replacen("<cbc:IssueDate>", "<cbc:Inconnu>x</cbc:Inconnu><cbc:IssueDate>", 1);
+        assert_ne!(unknown, UBL);
+        let report = validate(&unknown, "UBL");
+        assert_eq!(report["ok"], false);
+        assert!(messages(&report).contains("Inconnu"), "{}", messages(&report));
+
+        // Un avoir a son propre schema : la facture, renommee en avoir, n'y est pas valide.
+        let credit = UBL.replace("Invoice-2\"", "CreditNote-2\"").replace("<Invoice ", "<CreditNote ").replace("</Invoice>", "</CreditNote>");
+        let report = validate(&credit, "UBL");
+        assert_eq!(report["schema"], "OASIS UBL 2.1, avoir (CreditNote)");
+        assert_eq!(report["ok"], false);
+    }
+
+    #[test]
     fn decimal_sans_partie_fractionnaire_accepte() {
         assert!(decimal_false_positive("'100.' is not a valid decimal"));
         assert!(decimal_false_positive("'-64.' is not a valid decimal"));
@@ -215,7 +315,7 @@ mod tests {
 
     #[test]
     fn jamais_valide_sans_evaluation() {
-        for report in [validate(UBL, "UBL"), validate(CII_OFFICIEL, "PDF"), validate("pas du xml", "CII")] {
+        for report in [validate("<Order/>", "UBL"), validate(CII_OFFICIEL, "PDF"), validate("pas du xml", "CII"), validate("pas du xml", "UBL")] {
             assert_eq!(report["evalue"], false, "{report}");
             assert_eq!(report["ok"], false);
         }

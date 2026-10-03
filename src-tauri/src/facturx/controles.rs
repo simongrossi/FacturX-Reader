@@ -750,6 +750,9 @@ fn check_container(out: &mut Vec<Value>, conteneur: &super::PdfContainerInfo, xm
             "detail": "Les métadonnées XMP du PDF ne précisent pas de ConformanceLevel.",
         }));
     }
+
+    // 4. Structure du fichier : quelques exigences de PDF/A-3 lues dans le PDF lui-meme.
+    out.extend(conteneur.structure.iter().cloned());
 }
 
 /// Controles et synthese d'une facture UBL ou CII deja extraite (`structured`).

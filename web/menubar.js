@@ -116,7 +116,8 @@ function wireMenubar() {
 const THIRD_PARTY_LICENSES = [
   { title: "Règles de validation EN 16931 (© Union européenne), licence EUPL 1.2", file: "schematron/NOTICE-EINVOICING.txt" },
   { title: "Texte de la licence EUPL 1.2", file: "schematron/LICENSE-EUPL-1.2.txt" },
-  { title: "Règles et schémas XSD Factur-X (© FNFE-MPE | FeRD, Apache 2.0) et validateur XSD uppsala (BSD-2-Clause)", file: "schematron/NOTICE-XSD.txt" },
+  { title: "Règles du profil français EXTENDED-CTC-FR (FNFE-MPE, dépôt France_RFE), licence Apache 2.0", file: "schematron/NOTICE-FRANCE.txt" },
+  { title: "Règles et schémas XSD Factur-X (© FNFE-MPE | FeRD, Apache 2.0), schémas UBL 2.1 (© OASIS) et validateur XSD uppsala (BSD-2-Clause)", file: "schematron/NOTICE-XSD.txt" },
 ];
 
 async function showLicenses() {

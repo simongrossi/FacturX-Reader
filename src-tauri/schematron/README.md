@@ -34,6 +34,21 @@ Elles sont appliquées aux factures CII qui annoncent l'un de ces profils. Au ch
 liste de codes la liste que la règle va chercher dans le fichier `codedb`. Pour une nouvelle
 version : remplacer les huit fichiers, mettre à jour `FX_VERSION`, lancer `cargo test`.
 
+## Règles françaises EXTENDED-CTC-FR
+
+`france/` : règles Schematron du profil français EXTENDED-CTC-FR, en CII et en UBL, et trois
+factures d'exemple (`exemples/`), reprises sans modification du dépôt
+[fnfempe/France_RFE](https://github.com/fnfempe/France_RFE), étiquette `v1.4.0.04` :
+`FNFE_RFE_INVOICE/{CII,UBL}/EXTENDED-CTC-FR/schematron/` et `FNFE_RFE_INVOICE/Z.example/TEST/`.
+Dépôt sous Apache 2.0 (`france/LICENSE-APACHE-2.0.txt`).
+
+Elles sont appliquées aux factures qui annoncent ce profil. `src/schematron.rs` place devant
+chaque test les variables `let` de la règle qu'il emploie. Pour une nouvelle version : remplacer
+les fichiers, mettre à jour `CTC_FR_VERSION`, lancer `cargo test`.
+
+Non embarqué : `BR-FR-Flux2-Schematron-*.sch`, les règles BR-FR de la réforme, qui définissent
+des fonctions XSLT que le moteur n'exécute pas encore.
+
 ## Mettre à jour les règles
 
 Remplacer les deux fichiers `.sch` et le dossier `tests-officiels/` par ceux d'une nouvelle

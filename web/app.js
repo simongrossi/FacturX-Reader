@@ -349,8 +349,9 @@ function pumpSchematron() {
     if (!entry.result || entry.result.schematron || !state.files.includes(entry)) continue;
     schematronActive++;
     entry.result._schematronRunning = true;
-    SchematronValidator.validate(entry.result.xml_pretty, entry.result.format, first)
-      .then((res) => { entry.result.schematron = res; })
+    // Le XML d'origine ne sert qu'à cette validation : il n'est pas gardé en mémoire ensuite.
+    SchematronValidator.validate(entry.result.xml_source || entry.result.xml_pretty, entry.result.format, first, entry.result.xml_pretty)
+      .then((res) => { entry.result.schematron = res; delete entry.result.xml_source; })
       .catch((err) => { entry.result.schematron = { evalue: false, erreur_moteur: String(err) }; })
       .finally(() => {
         entry.result._schematronRunning = false;
@@ -1065,8 +1066,8 @@ function renderLinesOnly(f) {
 
 /* ---- verdicts : lecture, calculs et règles EN 16931 ne sont jamais confondus ---- */
 
-const NOT_CHECKED = ["schéma XSD des factures UBL", "conformité PDF/A-3 réelle du fichier (seules ses métadonnées déclarées sont lues)", "règles nationales (CIUS)"];
-const NOT_CHECKED_NOTE = "Non contrôlés : " + NOT_CHECKED.join(" ; ") + ". Le Schematron officiel EN 16931 et, pour le CII, le schéma XSD sont contrôlés sur le XML ; aucun de ces verdicts ne vaut certification.";
+const NOT_CHECKED = ["conformité PDF/A-3 complète du fichier (ses déclarations et quelques points de structure sont contrôlés)", "règles françaises BR-FR de la réforme (XP Z12-012)"];
+const NOT_CHECKED_NOTE = "Non contrôlés : " + NOT_CHECKED.join(" ; ") + ". Le Schematron officiel et le schéma XSD ont chacun leur verdict ; aucun de ces verdicts ne vaut certification.";
 
 /* Verdicts indépendants d'un document, plus le nombre d'autres alertes. */
 function invoiceVerdicts(f, extraAlerts = 0) {
@@ -1110,13 +1111,13 @@ function invoiceVerdicts(f, extraAlerts = 0) {
     schematron = { etat: "info", court: "En cours…", label: "Schematron officiel en cours…" };
   }
 
-  // Schéma XSD : contrôlé pour le CII ; sans schéma embarqué (UBL), aucun verdict n'est affiché.
+  // Schéma XSD : celui du profil Factur-X ou du CII, ou celui d'UBL 2.1.
   let xsd = null;
   if (r.xsd && r.xsd.evalue) {
     xsd = r.xsd.ok
       ? { etat: "conforme", court: "Respecté", label: "Schéma XSD respecté" }
       : { etat: "ecart", court: plural(r.xsd.total, "erreur"), label: plural(r.xsd.total, "erreur") + " de schéma XSD" };
-  } else if (r.xsd && r.format === "CII") {
+  } else if (r.xsd && (r.format === "CII" || r.format === "UBL")) {
     xsd = { etat: "non_verifiable", court: "Non évalué", label: "Schéma XSD non évalué" };
   }
 
@@ -1124,8 +1125,14 @@ function invoiceVerdicts(f, extraAlerts = 0) {
   if (r.conteneur && r.conteneur.est_pdf) {
     const c = r.conteneur;
     // Ce sont des déclarations lues dans le PDF, pas une validation ISO 19005-3 du fichier.
-    if (c.est_pdfa && c.pdfa_part === 3 && c.piece_jointe_declaree) {
-      conteneur = { etat: "conforme", court: "PDF/A-3 déclaré", label: "PDF/A-3 déclaré, pièce jointe XML déclarée" };
+    // Structure du fichier : quelques exigences de PDF/A-3 réellement contrôlées, pas toutes.
+    const flaws = (c.structure_ecarts || 0) + (c.structure_alertes || 0);
+    if (c.est_pdfa && c.pdfa_part === 3 && c.piece_jointe_declaree && flaws) {
+      conteneur = { etat: c.structure_ecarts ? "ecart" : "alerte", court: plural(flaws, "anomalie") + " PDF",
+        label: "PDF/A-3 déclaré, " + plural(flaws, "anomalie") + " de structure" };
+    } else if (c.est_pdfa && c.pdfa_part === 3 && c.piece_jointe_declaree) {
+      conteneur = { etat: "conforme", court: "PDF/A-3 déclaré", label: c.structure_controles
+        ? "PDF/A-3 déclaré, structure sans anomalie relevée" : "PDF/A-3 déclaré, pièce jointe XML déclarée" };
     } else if (!c.piece_jointe_declaree) {
       conteneur = { etat: "alerte", court: "Pièce jointe", label: "Pièce jointe XML non déclarée dans le PDF" };
     } else {
@@ -1334,7 +1341,7 @@ function printView() {
 /* Schéma XSD : erreurs de structure, avec leur ligne dans « XML brut ». */
 function xsdSection(f) {
   const x = f.result && f.result.xsd;
-  if (!x || (!x.evalue && f.result.format !== "CII")) return null;
+  if (!x || (!x.evalue && f.result.format !== "CII" && f.result.format !== "UBL")) return null;
   const sec = document.createElement("details");
   sec.id = "xsd-errors";
   sec.className = "section controls";
@@ -1361,7 +1368,10 @@ function xsdSection(f) {
   if (x.evalue) {
     sec.appendChild(Object.assign(document.createElement("p"), {
       className: "verdict-note",
-      textContent: "Schéma " + x.schema + ", contrôlé sur ce poste. Les lignes sont celles de l'onglet « XML brut » ; les messages viennent du validateur, en anglais.",
+      textContent: "Schéma " + x.schema + ", contrôlé sur ce poste" +
+        (x.valide_sur === "reindente" ? ", sur la version réindentée du XML faute d'avoir pu lire l'original. " : ", sur le XML d'origine. ") +
+        (x.lignes_origine ? "Les lignes sont celles du fichier d'origine, pas de l'onglet « XML brut »" : "Les lignes sont celles de l'onglet « XML brut »") +
+        " ; les messages viennent du validateur, en anglais.",
     }));
   }
   return sec;
@@ -1452,12 +1462,17 @@ function schematronSection(f) {
   const foot = document.createElement("p");
   foot.className = "verdict-note";
   // Profils Factur-X MINIMUM, BASIC WL, BASIC et EXTENDED : règles Factur-X du profil annoncé.
+  // Profil français EXTENDED-CTC-FR : règles du FNFE-MPE pour la réforme.
   const facturX = /^Factur-X/.test(sch.jeu_regles || "");
+  const france = /^EXTENDED-CTC-FR/.test(sch.jeu_regles || "");
   foot.textContent = (facturX
     ? "Règles Schematron officielles " + sch.jeu_regles + ", v" + (sch.version_regles || "") + " (FNFE-MPE et FeRD, Apache 2.0), évaluées sur ce poste"
+    : france
+    ? "Règles Schematron officielles du profil français EXTENDED-CTC-FR, v" + (sch.version_regles || "") + " (FNFE-MPE, dépôt France_RFE), évaluées sur ce poste"
     : "Règles Schematron officielles EN 16931 v" + (sch.version_regles || "") + " de la Commission européenne (EUPL 1.2), évaluées sur ce poste") +
     (sch.regles_declenchees ? " : " + sch.regles_declenchees + " contextes examinés" : "") +
-    (sch.depuis_cache ? ", résultat repris de la bibliothèque" : sch.duree_ms != null ? " en " + sch.duree_ms + " ms" : "") + ".";
+    (sch.depuis_cache ? ", résultat repris de la bibliothèque" : sch.duree_ms != null ? " en " + sch.duree_ms + " ms" : "") + "." +
+    (sch.sur_xml_reindente ? " Le moteur n'a pas pu lire le XML d'origine : c'est sa version réindentée qui a été évaluée." : "");
   sec.appendChild(foot);
 
   return sec;

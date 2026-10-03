@@ -1443,6 +1443,8 @@ pub struct PdfContainerInfo {
     pub nom_piece_jointe: Option<String>,
     pub af_relationship: Option<String>,
     pub profil_xmp: Option<String>,
+    /// Controles de structure lus dans le fichier (voir `pdf_structure`).
+    pub structure: Vec<Value>,
 }
 
 impl PdfContainerInfo {
@@ -1470,6 +1472,9 @@ impl PdfContainerInfo {
             "nom_piece_jointe": self.nom_piece_jointe,
             "af_relationship": self.af_relationship,
             "profil_xmp": self.profil_xmp,
+            "structure_controles": self.structure.len(),
+            "structure_ecarts": self.structure.iter().filter(|c| c["etat"] == "ecart").count(),
+            "structure_alertes": self.structure.iter().filter(|c| c["etat"] == "alerte").count(),
         })
     }
 }
@@ -1592,14 +1597,180 @@ fn extract_xmp_field<'a>(xmp: &'a str, tag: &str) -> Option<&'a str> {
             }
         }
     }
-    let attr_pat = format!("{tag}=\"");
-    if let Some(pos) = xmp.find(&attr_pat) {
-        let after_attr = &xmp[pos + attr_pat.len()..];
-        if let Some(quote) = after_attr.find('"') {
-            return Some(&after_attr[..quote]);
+    // Forme attribut, entre guillemets doubles ou simples.
+    for quote in ['"', '\''] {
+        let attr_pat = format!("{tag}={quote}");
+        if let Some(pos) = xmp.find(&attr_pat) {
+            let after_attr = &xmp[pos + attr_pat.len()..];
+            if let Some(end) = after_attr.find(quote) {
+                return Some(&after_attr[..end]);
+            }
         }
     }
     None
+}
+
+/// Suit une reference jusqu'a l'objet designe.
+fn pdf_resolve<'a>(doc: &'a lopdf::Document, object: &'a lopdf::Object) -> &'a lopdf::Object {
+    match object {
+        lopdf::Object::Reference(id) => doc.get_object(*id).unwrap_or(object),
+        other => other,
+    }
+}
+
+fn pdf_name(dict: &lopdf::Dictionary, key: &[u8]) -> Option<String> {
+    match dict.get(key).ok()? {
+        lopdf::Object::Name(n) => Some(String::from_utf8_lossy(n).into_owned()),
+        _ => None,
+    }
+}
+
+/// Controles de structure du PDF, lus dans le fichier lui-meme et non dans ses declarations :
+/// chiffrement, profil de sortie, polices incorporees, identifiant, actions interdites,
+/// metadonnees Factur-X, type et relation de la piece jointe. Ce sont quelques exigences de
+/// PDF/A-3 (ISO 19005-3) parmi beaucoup d'autres : un fichier qui les passe toutes n'est pas
+/// pour autant conforme.
+fn pdf_structure(doc: &lopdf::Document, xmp: Option<&str>, attachment: &str, cii: bool, relationship: Option<&str>, mime: Option<&str>) -> Vec<Value> {
+    const PARTIAL: &str = "Contrôle partiel de la structure du fichier ; ne remplace pas une validation PDF/A-3 complète (veraPDF).";
+    let check = |regle: &str, etat: &str, attendu: &str, constate: String, detail: &str| {
+        json!({ "regle": regle, "etat": etat, "attendu": attendu, "constate": constate, "detail": format!("{detail} {PARTIAL}") })
+    };
+    let mut out = Vec::new();
+    let dicts = || {
+        doc.objects.values().filter_map(|o| match o {
+            lopdf::Object::Dictionary(d) => Some(d),
+            lopdf::Object::Stream(s) => Some(&s.dict),
+            _ => None,
+        })
+    };
+
+    // 1. Chiffrement : interdit en PDF/A.
+    let encrypted = doc.trailer.has(b"Encrypt") || doc.is_encrypted();
+    out.push(check(
+        "PDF non chiffré",
+        if encrypted { "ecart" } else { "conforme" },
+        "Aucun chiffrement",
+        if encrypted { "Fichier chiffré".into() } else { "Non chiffré".into() },
+        "Un PDF/A ne doit pas être chiffré.",
+    ));
+
+    // 2. Profil de sortie (OutputIntent) avec profil ICC.
+    let intents = doc
+        .catalog()
+        .ok()
+        .and_then(|c| c.get(b"OutputIntents").ok())
+        .map(|o| pdf_resolve(doc, o))
+        .and_then(|o| o.as_array().ok())
+        .map(|list| list.iter().filter_map(|i| pdf_resolve(doc, i).as_dict().ok()).collect::<Vec<_>>())
+        .unwrap_or_default();
+    let pdfa_intent = intents.iter().find(|d| pdf_name(d, b"S").as_deref() == Some("GTS_PDFA1"));
+    let (etat, constate) = match pdfa_intent {
+        Some(d) if d.has(b"DestOutputProfile") => ("conforme", format!("Présent{}", match d.get(b"OutputConditionIdentifier") {
+            Ok(lopdf::Object::String(s, _)) => format!(" ({})", decode_pdf_str(s)),
+            _ => String::new(),
+        })),
+        Some(_) => ("alerte", "Déclaré sans profil ICC incorporé".into()),
+        None => ("alerte", "Absent".into()),
+    };
+    out.push(check(
+        "Profil de sortie (couleurs)",
+        etat,
+        "OutputIntent GTS_PDFA1 avec profil ICC",
+        constate,
+        "PDF/A exige un profil de sortie dès que le fichier emploie des couleurs dépendantes du périphérique, ce qui est le cas de presque tous les PDF.",
+    ));
+
+    // 3. Polices incorporees. Les polices composites (Type0) le sont par leur police descendante,
+    //    les polices Type3 sont decrites dans le fichier.
+    let mut fonts = 0usize;
+    let mut missing: Vec<String> = Vec::new();
+    for font in dicts().filter(|d| pdf_name(d, b"Type").as_deref() == Some("Font")) {
+        let subtype = pdf_name(font, b"Subtype").unwrap_or_default();
+        if subtype == "Type0" || subtype == "Type3" {
+            continue;
+        }
+        fonts += 1;
+        let embedded = font
+            .get(b"FontDescriptor")
+            .ok()
+            .and_then(|o| pdf_resolve(doc, o).as_dict().ok())
+            .is_some_and(|d| d.has(b"FontFile") || d.has(b"FontFile2") || d.has(b"FontFile3"));
+        if !embedded {
+            let name = pdf_name(font, b"BaseFont").unwrap_or_else(|| "police sans nom".into());
+            if !missing.contains(&name) {
+                missing.push(name);
+            }
+        }
+    }
+    let (etat, constate) = if fonts == 0 {
+        ("info", "Aucune police dans le fichier".to_string())
+    } else if missing.is_empty() {
+        ("conforme", format!("{fonts} police{} incorporée{}", if fonts > 1 { "s" } else { "" }, if fonts > 1 { "s" } else { "" }))
+    } else {
+        let shown = missing.iter().take(5).cloned().collect::<Vec<_>>().join(", ");
+        ("ecart", format!("{} non incorporée{} : {shown}{}", missing.len(), if missing.len() > 1 { "s" } else { "" }, if missing.len() > 5 { "…" } else { "" }))
+    };
+    out.push(check("Polices incorporées", etat, "Toutes les polices incorporées", constate, "PDF/A exige que chaque police utilisée soit incorporée au fichier."));
+
+    // 4. Identifiant du fichier.
+    let has_id = doc.trailer.has(b"ID");
+    out.push(check(
+        "Identifiant du fichier",
+        if has_id { "conforme" } else { "alerte" },
+        "Identifiant (/ID) présent",
+        if has_id { "Présent".into() } else { "Absent".into() },
+        "PDF/A exige un identifiant de fichier.",
+    ));
+
+    // 5. Actions interdites : JavaScript, lancement de programme.
+    let forbidden = dicts()
+        .filter(|d| d.has(b"JS") || matches!(pdf_name(d, b"S").as_deref(), Some("JavaScript" | "Launch")))
+        .count();
+    out.push(check(
+        "Aucun script ni lancement de programme",
+        if forbidden > 0 { "ecart" } else { "conforme" },
+        "Aucune action JavaScript ou Launch",
+        if forbidden > 0 { format!("{forbidden} action{} interdite{}", if forbidden > 1 { "s" } else { "" }, if forbidden > 1 { "s" } else { "" }) } else { "Aucune".into() },
+        "PDF/A interdit les actions JavaScript et le lancement de programmes.",
+    ));
+
+    // 6. Metadonnees Factur-X (schema d'extension XMP).
+    let field = |tag: &str| {
+        xmp.and_then(|x| extract_xmp_field(x, &format!("fx:{tag}")).or_else(|| extract_xmp_field(x, &format!("zf:{tag}"))))
+            .map(|v| v.trim().to_string())
+            .filter(|v| !v.is_empty())
+    };
+    let absent: Vec<&str> = ["DocumentType", "DocumentFileName", "Version", "ConformanceLevel"].into_iter().filter(|t| field(t).is_none()).collect();
+    let file_name = field("DocumentFileName");
+    let (etat, constate) = if absent.len() == 4 && !cii {
+        // Un PDF qui porte une facture UBL n'est pas un Factur-X.
+        ("info", "Sans objet : la pièce jointe n'est pas une facture CII".to_string())
+    } else if !absent.is_empty() {
+        ("alerte", format!("Absent : {}", absent.join(", ")))
+    } else if file_name.as_deref().is_some_and(|n| !n.eq_ignore_ascii_case(attachment)) {
+        ("alerte", format!("Fichier annoncé {}, pièce jointe {attachment}", file_name.unwrap_or_default()))
+    } else {
+        ("conforme", format!("{} {}, {}", field("DocumentType").unwrap_or_default(), field("Version").unwrap_or_default(), file_name.unwrap_or_default()))
+    };
+    out.push(check(
+        "Métadonnées Factur-X",
+        etat,
+        "DocumentType, DocumentFileName, Version et ConformanceLevel, nom concordant avec la pièce jointe",
+        constate,
+        "Factur-X exige ces quatre métadonnées XMP, et que le nom annoncé soit celui de la pièce jointe.",
+    ));
+
+    // 7. Piece jointe : relation et type.
+    let relation_ok = matches!(relationship, Some("Data" | "Source" | "Alternative"));
+    let mime_ok = mime.is_some_and(|m| m.eq_ignore_ascii_case("text/xml") || m.eq_ignore_ascii_case("application/xml"));
+    out.push(check(
+        "Pièce jointe : relation et type",
+        if relation_ok && mime_ok { "conforme" } else { "alerte" },
+        "Relation Data, Source ou Alternative ; type text/xml",
+        format!("Relation {}, type {}", relationship.unwrap_or("absente"), mime.unwrap_or("absent")),
+        "PDF/A-3 exige une relation (AFRelationship) et un type MIME pour chaque fichier joint ; Factur-X fixe les valeurs admises.",
+    ));
+    out
 }
 
 /// Analyse structurelle du PDF via `lopdf` : recherche des fichiers associés
@@ -1613,6 +1784,7 @@ fn extract_pdf_with_lopdf(data: &[u8]) -> Option<(Vec<u8>, String, PdfContainerI
     let mut pdfa_part = None;
     let mut pdfa_conformance = None;
     let mut profil_xmp = None;
+    let mut xmp_text: Option<String> = None;
 
     if let Ok(catalog) = doc.catalog() {
         // 1. /AF (Associated Files de PDF/A-3)
@@ -1672,6 +1844,7 @@ fn extract_pdf_with_lopdf(data: &[u8]) -> Option<(Vec<u8>, String, PdfContainerI
                         pdfa_conformance = Some(c.trim().to_string());
                     }
                 }
+                xmp_text = Some(text.to_string());
                 if let Some(lvl) = extract_xmp_field(&text, "fx:ConformanceLevel")
                     .or_else(|| extract_xmp_field(&text, "zf:ConformanceLevel"))
                     .or_else(|| extract_xmp_field(&text, "ConformanceLevel"))
@@ -1686,7 +1859,7 @@ fn extract_pdf_with_lopdf(data: &[u8]) -> Option<(Vec<u8>, String, PdfContainerI
     }
 
     // Recherche parmi les objets Filespec
-    let mut candidate_xml: Option<(Vec<u8>, String, bool, Option<String>)> = None;
+    let mut candidate_xml: Option<(Vec<u8>, String, bool, Option<String>, Option<String>)> = None;
 
     for (id, obj) in &doc.objects {
         if let lopdf::Object::Dictionary(dict) = obj {
@@ -1729,7 +1902,7 @@ fn extract_pdf_with_lopdf(data: &[u8]) -> Option<(Vec<u8>, String, PdfContainerI
                                     || name.to_lowercase().contains("xrechnung")
                                     || name.to_lowercase().ends_with(".xml");
                                 if candidate_xml.is_none() || (is_declared && is_primary_name) {
-                                    candidate_xml = Some((cand, name.clone(), is_declared, rel.clone()));
+                                    candidate_xml = Some((cand, name.clone(), is_declared, rel.clone(), pdf_name(&stream_obj.dict, b"Subtype")));
                                 }
                             }
                         }
@@ -1739,7 +1912,9 @@ fn extract_pdf_with_lopdf(data: &[u8]) -> Option<(Vec<u8>, String, PdfContainerI
         }
     }
 
-    let (xml, xml_name, piece_jointe_declaree, af_relationship) = candidate_xml?;
+    let (xml, xml_name, piece_jointe_declaree, af_relationship, mime) = candidate_xml?;
+    let cii = xml.windows(20).any(|w| w == b"CrossIndustryInvoice");
+    let structure = pdf_structure(&doc, xmp_text.as_deref(), &xml_name, cii, af_relationship.as_deref(), mime.as_deref());
     Some((
         xml,
         xml_name.clone(),
@@ -1751,6 +1926,7 @@ fn extract_pdf_with_lopdf(data: &[u8]) -> Option<(Vec<u8>, String, PdfContainerI
             nom_piece_jointe: Some(xml_name),
             af_relationship,
             profil_xmp,
+            structure,
         },
     ))
 }
@@ -1789,6 +1965,8 @@ fn extract_pdf_xml(data: &[u8]) -> Result<(Vec<u8>, String, PdfContainerInfo), F
                             nom_piece_jointe: Some(name.clone()),
                             af_relationship: None,
                             profil_xmp: None,
+                            // Parseur de secours : la structure du fichier n'a pas pu etre lue.
+                            structure: Vec::new(),
                         },
                     ));
                 }
@@ -1811,6 +1989,7 @@ fn extract_pdf_xml(data: &[u8]) -> Result<(Vec<u8>, String, PdfContainerInfo), F
                         nom_piece_jointe: Some(name),
                         af_relationship: None,
                         profil_xmp: None,
+                        structure: Vec::new(),
                     },
                 ));
             }
@@ -1921,9 +2100,11 @@ pub fn parse_file(filename: &str, data: &[u8]) -> Result<Value, FacturXError> {
     }
     result.extend(structured);
     let pretty = pretty_xml(root, &source);
-    // Sur le XML reindente : les lignes des erreurs sont celles de la vue « XML brut ».
-    result.insert("xsd".into(), crate::xsd::validate(&pretty, format));
+    // Les validations portent sur le XML d'origine ; la version reindentee, ou les blocs
+    // binaires sont abreges, sert a l'affichage et aux numeros de ligne.
+    result.insert("xsd".into(), crate::xsd::validate_invoice(&source, &pretty, format));
     result.insert("xml_pretty".into(), pretty.into());
+    result.insert("xml_source".into(), source.as_str().into());
     Ok(Value::Object(result))
 }
 
@@ -2163,11 +2344,74 @@ mod tests {
         assert_eq!(c["af_relationship"], "Alternative");
         assert_eq!(c["profil_xmp"], "EN 16931");
         let checks = conteneur_checks(&r);
-        assert!(checks.iter().all(|(_, etat)| etat == "conforme"), "{checks:?}");
+        // Les trois premiers controles portent sur les declarations ; la structure suit.
+        assert!(checks.iter().take(3).all(|(_, etat)| etat == "conforme"), "{checks:?}");
         // Le libelle parle de declaration, pas de conformite du fichier.
         assert_eq!(checks[0].0, "PDF/A-3 déclaré dans les métadonnées");
         let detail = r["controles"].as_array().unwrap().iter().find(|x| x["famille"] == "conteneur").unwrap()["detail"].as_str().unwrap();
         assert!(detail.contains("n'est pas vérifiée"));
+    }
+
+    /// Controles lus dans la structure du fichier, au-dela de ses declarations.
+    #[test]
+    fn conteneur_pdf_structure_controlee() {
+        use lopdf::{dictionary, Document, Object, Stream};
+        let etat = |r: &Value, regle: &str| conteneur_checks(r).into_iter().find(|(x, _)| x == regle).map(|(_, e)| e).unwrap_or_default();
+
+        // PDF minimal : ni profil de sortie, ni identifiant, ni metadonnees Factur-X, ni type de piece jointe.
+        let bare = pdf_factur_x(Some(&xmp("3", "EN 16931")), true, Some("Alternative"));
+        let r = parse_file("f.pdf", &bare).unwrap();
+        assert_eq!(etat(&r, "PDF non chiffré"), "conforme");
+        assert_eq!(etat(&r, "Profil de sortie (couleurs)"), "alerte");
+        assert_eq!(etat(&r, "Polices incorporées"), "info");
+        assert_eq!(etat(&r, "Identifiant du fichier"), "alerte");
+        assert_eq!(etat(&r, "Aucun script ni lancement de programme"), "conforme");
+        assert_eq!(etat(&r, "Métadonnées Factur-X"), "alerte");
+        assert_eq!(etat(&r, "Pièce jointe : relation et type"), "alerte");
+        assert_eq!(r["conteneur"]["structure_ecarts"], 0);
+        assert_eq!(r["conteneur"]["structure_alertes"], 4);
+
+        // Le meme, complete : metadonnees en attributs a guillemets simples, profil de sortie,
+        // identifiant, type de la piece jointe, une police incorporee.
+        let complete = |font_embedded: bool, script: bool| {
+            let meta = "<x:xmpmeta><rdf:RDF><rdf:Description pdfaid:part='3' pdfaid:conformance='B'/>                <rdf:Description fx:DocumentType='INVOICE' fx:DocumentFileName='factur-x.xml' fx:Version='1.0' fx:ConformanceLevel='EN 16931'/></rdf:RDF></x:xmpmeta>";
+            let mut doc = Document::load_mem(&pdf_factur_x(Some(meta), true, Some("Alternative"))).unwrap();
+            let icc = doc.add_object(Stream::new(dictionary! { "N" => 3 }, vec![0u8; 16]));
+            let intent = doc.add_object(dictionary! { "Type" => "OutputIntent", "S" => "GTS_PDFA1", "OutputConditionIdentifier" => Object::string_literal("sRGB"), "DestOutputProfile" => icc });
+            let mut descriptor = dictionary! { "Type" => "FontDescriptor", "FontName" => "ABCDEF+Arial" };
+            if font_embedded {
+                let file = doc.add_object(Stream::new(dictionary! {}, vec![0u8; 8]));
+                descriptor.set("FontFile2", file);
+            }
+            let descriptor = doc.add_object(descriptor);
+            doc.add_object(dictionary! { "Type" => "Font", "Subtype" => "TrueType", "BaseFont" => "ABCDEF+Arial", "FontDescriptor" => descriptor });
+            if script {
+                doc.add_object(dictionary! { "Type" => "Action", "S" => "JavaScript", "JS" => Object::string_literal("app.alert(1)") });
+            }
+            let ids: Vec<_> = doc.objects.iter().filter(|(_, o)| o.as_stream().is_ok_and(|s| s.dict.get(b"Type").is_ok_and(|t| t == &Object::Name(b"EmbeddedFile".to_vec())))).map(|(id, _)| *id).collect();
+            for id in ids {
+                doc.get_object_mut(id).unwrap().as_stream_mut().unwrap().dict.set("Subtype", Object::Name(b"text/xml".to_vec()));
+            }
+            doc.catalog_mut().unwrap().set("OutputIntents", vec![intent.into()]);
+            doc.trailer.set("ID", vec![Object::string_literal("a"), Object::string_literal("a")]);
+            let mut out = Vec::new();
+            doc.save_to(&mut out).unwrap();
+            out
+        };
+        let r = parse_file("f.pdf", &complete(true, false)).unwrap();
+        assert_eq!(r["conteneur"]["pdfa_version"], "PDF/A-3B");
+        let checks = conteneur_checks(&r);
+        assert!(checks.iter().all(|(_, etat)| etat == "conforme"), "{checks:?}");
+        assert_eq!(checks.len(), 10);
+        // Le detail rappelle que le controle est partiel.
+        let detail = r["controles"].as_array().unwrap().iter().find(|x| x["regle"] == "Polices incorporées").unwrap()["detail"].as_str().unwrap();
+        assert!(detail.contains("ne remplace pas une validation PDF/A-3 complète"));
+
+        // Police non incorporee et action JavaScript : deux ecarts.
+        let r = parse_file("f.pdf", &complete(false, true)).unwrap();
+        assert_eq!(etat(&r, "Polices incorporées"), "ecart");
+        assert_eq!(etat(&r, "Aucun script ni lancement de programme"), "ecart");
+        assert_eq!(r["conteneur"]["structure_ecarts"], 2);
     }
 
     #[test]
@@ -2183,7 +2427,7 @@ mod tests {
         let r = parse_file("f.pdf", &pdf_factur_x(None, false, None)).unwrap();
         assert_eq!(r["conteneur"]["est_pdfa"], false);
         assert_eq!(r["conteneur"]["piece_jointe_declaree"], false);
-        let states: Vec<String> = conteneur_checks(&r).into_iter().map(|(_, e)| e).collect();
+        let states: Vec<String> = conteneur_checks(&r).into_iter().take(3).map(|(_, e)| e).collect();
         assert_eq!(states, ["alerte", "alerte", "info"]);
         // Profil annonce dans le PDF different de celui du XML : ecart.
         let r = parse_file("f.pdf", &pdf_factur_x(Some(&xmp("3", "MINIMUM")), true, Some("Data"))).unwrap();
