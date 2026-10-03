@@ -43,9 +43,7 @@ Mustang font mieux, en commençant par ce qui réutilise le moteur existant.
 4. **Conteneur PDF/A-3, contrôles réels partiels** (P3) : polices incorporées, profil de sortie,
    absence de chiffrement, extension XMP Factur-X. Annoncés comme partiels : une validation
    ISO 19005-3 complète reste le métier de veraPDF.
-5. **Fin du Schematron plus rapide** : mesurer le gain des optimisations faites et mettre à jour
-   les durées annoncées.
-6. **Fin de P1** : provenance des valeurs, « Ouvrir avec » et instance unique, export Excel natif.
+5. **Fin de P1** : provenance des valeurs, « Ouvrir avec » et instance unique, export Excel natif.
 
 Non prioritaires : la conversion CII ↔ UBL (gros chantier, peu utile à un lecteur) et la création
 de factures (hors périmètre).
@@ -172,9 +170,10 @@ de factures (hors périmètre).
   la mention de ce qui n'est pas contrôlé.
 - [x] Résultat Schematron gardé dans la bibliothèque, par empreinte du XML, et repris d'une
   session à l'autre (mêmes règles, même version de l'application).
-- [ ] Schematron plus rapide. Fait : contextes trouvés en un seul parcours, assertions
-  indépendantes du nœud évaluées une fois, résultats identiques vérifiés par test. Reste : mesurer
-  le gain sur les factures de plus de cent lignes (cinq secondes avant optimisation).
+- [x] Schematron plus rapide : contextes trouvés en un seul parcours, assertions indépendantes
+  du nœud évaluées une fois, recherches `//nom` réécrites en `/descendant::nom`. Huit à onze fois
+  plus rapide sur 19 factures réelles (3,1 s → 0,4 s pour les plus grosses), résultats identiques
+  vérifiés par test.
 - [x] Suite de tests officielle de la Commission embarquée et exécutée par `cargo test`, donc
   par la CI : 1169 cas, tous au résultat attendu.
 - [ ] Schematron des profils Factur-X (MINIMUM, BASIC WL, BASIC, EXTENDED), pour ne plus évaluer

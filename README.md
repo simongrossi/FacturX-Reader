@@ -258,10 +258,10 @@ le texte de la règle et son emplacement dans le XML.
   `CreditNote` UBL aux espaces de noms standard sont validées. Sur tout autre document, le
   verdict est **« non évalué »**, jamais « respecté » ;
 - la validation porte sur le XML tel que réindenté par l'application, pas sur les octets d'origine ;
-- elle tourne en arrière-plan, sans bloquer l'interface : moins d'une seconde pour une facture
-  courante, jusqu'à cinq secondes pour une facture de plus de cent lignes (mesure de la 0.6.0,
-  à refaire après les optimisations en cours). À l'ouverture d'un dossier, plusieurs documents
-  sont validés de front, celui qui est affiché en premier ;
+- elle tourne en arrière-plan, sans bloquer l'interface : quelques dizaines de millisecondes pour
+  une facture courante, environ 0,4 s pour une facture de plus de cent lignes (huit à onze fois
+  moins que dans la 0.6.0). À l'ouverture d'un dossier, plusieurs documents sont validés de
+  front, celui qui est affiché en premier ;
 - le résultat est gardé dans la [bibliothèque locale](#bibliothèque-locale), par empreinte du
   XML, et repris à la réouverture au lieu d'être recalculé. Il n'est repris que pour les mêmes
   règles et la même version de l'application ; bibliothèque désactivée, rien n'est gardé ;

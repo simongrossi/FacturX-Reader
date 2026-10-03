@@ -255,6 +255,103 @@ fn context_independent(test: &str) -> bool {
     true
 }
 
+/// Fin du predicat `[...]` ouvert en `open` (crochets imbriques et chaines pris en compte).
+fn predicate_end(bytes: &[u8], open: usize) -> Option<usize> {
+    let (mut depth, mut quote) = (0i32, None::<u8>);
+    for (i, &c) in bytes.iter().enumerate().skip(open) {
+        match (quote, c) {
+            (Some(q), _) if c == q => quote = None,
+            (Some(_), _) => {}
+            (None, b'\'' | b'"') => quote = Some(c),
+            (None, b'[') => depth += 1,
+            (None, b']') => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(i);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+/// Vrai si le predicat est un test booleen, donc jamais un test de position : il compare
+/// des valeurs ou commence par une fonction booleenne, et n'utilise ni position() ni last().
+fn boolean_predicate(predicate: &str) -> bool {
+    const BOOLEAN_FUNCTIONS: [&str; 9] = ["not", "ends-with", "starts-with", "contains", "exists", "empty", "matches", "boolean", "true"];
+    let p = predicate.trim();
+    if p.contains("position") || p.contains("last") {
+        return false;
+    }
+    let name_end = p.find(|c: char| !(c.is_alphanumeric() || c == '-')).unwrap_or(p.len());
+    let function = p[name_end..].trim_start().starts_with('(') && BOOLEAN_FUNCTIONS.contains(&&p[..name_end]);
+    // Comparaison ecrite au niveau superieur du predicat, hors parentheses, crochets et chaines.
+    let (mut depth, mut quote, mut comparison) = (0i32, None::<char>, false);
+    for c in p.chars() {
+        match (quote, c) {
+            (Some(q), _) if c == q => quote = None,
+            (Some(_), _) => {}
+            (None, '\'' | '"') => quote = Some(c),
+            (None, '(' | '[') => depth += 1,
+            (None, ')' | ']') => depth -= 1,
+            (None, '=' | '<' | '>') if depth == 0 => comparison = true,
+            _ => {}
+        }
+    }
+    function || comparison
+}
+
+/// Remplace `//nom` par `/descendant::nom`, que le moteur XPath evalue en un parcours au lieu
+/// d'examiner les enfants de chaque noeud du document (environ vingt fois plus rapide). Les
+/// deux formes designent les memes noeuds tant que l'etape ne porte pas de predicat de
+/// position ; dans le doute, l'expression est laissee telle quelle.
+fn descendant_axis(expr: &str) -> String {
+    let bytes = expr.as_bytes();
+    let mut out = String::with_capacity(expr.len() + 32);
+    let (mut i, mut copied, mut quote) = (0usize, 0usize, None::<u8>);
+    while i < bytes.len() {
+        let c = bytes[i];
+        if let Some(q) = quote {
+            if c == q {
+                quote = None;
+            }
+        } else if c == b'\'' || c == b'"' {
+            quote = Some(c);
+        } else if c == b'/' && bytes.get(i + 1) == Some(&b'/') {
+            // Test de nom : `p:Nom`, `p:*`, `Nom` ou `*`.
+            let mut j = i + 2;
+            while j < bytes.len() && (bytes[j].is_ascii_alphanumeric() || matches!(bytes[j], b'_' | b'-' | b'.' | b':' | b'*')) {
+                j += 1;
+            }
+            let name = &expr[i + 2..j];
+            let mut k = j;
+            let mut safe = !name.is_empty() && !name.contains("::") && !name.starts_with(['.', '-', ':']) && !name.ends_with(':');
+            // Ni fonction ni test de type (`node()`, `text()`).
+            safe &= !expr[j..].trim_start().starts_with('(');
+            while safe && bytes.get(k) == Some(&b'[') {
+                match predicate_end(bytes, k) {
+                    Some(end) => {
+                        safe = boolean_predicate(&expr[k + 1..end]);
+                        k = end + 1;
+                    }
+                    None => safe = false,
+                }
+            }
+            if safe {
+                out.push_str(&expr[copied..i]);
+                out.push_str("/descendant::");
+                copied = i + 2;
+                i += 2;
+                continue;
+            }
+        }
+        i += 1;
+    }
+    out.push_str(&expr[copied..]);
+    out
+}
+
 /// Position des mots-cles ecrits au niveau superieur d'une expression : hors parentheses,
 /// crochets et chaines.
 fn top_level_keywords(expr: &str) -> Vec<(usize, &str)> {
@@ -353,7 +450,8 @@ impl Engine {
                 pattern
                     .iter()
                     .map(|rule| {
-                        let compile = |xpath: &str| queries.many(xpath, to_item as Convert<Item>).ok();
+                        let fast = |xpath: &str| if optimized { descendant_axis(xpath) } else { xpath.to_string() };
+                        let compile = |xpath: &str| queries.many(&fast(xpath), to_item as Convert<Item>).ok();
                         let context = if optimized {
                             split_union(&context_to_xpath(&rule.context))
                                 .into_iter()
@@ -372,7 +470,7 @@ impl Engine {
                             .asserts
                             .iter()
                             .map(|a| {
-                                let q = queries.one(&format!("boolean({})", a.test), to_bool as Convert<bool>).ok();
+                                let q = queries.one(&format!("boolean({})", fast(&a.test)), to_bool as Convert<bool>).ok();
                                 if q.is_none() {
                                     uncompiled += 1;
                                 }
@@ -383,7 +481,7 @@ impl Engine {
                         let guards = rule
                             .asserts
                             .iter()
-                            .map(|a| queries.one(&format!("boolean({})", first_conjunct(&a.test)?), to_bool as Convert<bool>).ok())
+                            .map(|a| queries.one(&format!("boolean({})", fast(&first_conjunct(&a.test)?)), to_bool as Convert<bool>).ok())
                             .collect();
                         CompiledRule { context, asserts, once, guards }
                     })
@@ -863,6 +961,24 @@ mod tests {
             assert_eq!(first_conjunct(test), None, "{test}");
         }
         assert_eq!(first_conjunct("a/and and @or").as_deref(), Some("a/and"));
+        for (from, to) in [
+            ("count(//ram:A/ram:B[ram:C='G']) = 0", "count(/descendant::ram:A/ram:B[ram:C='G']) = 0"),
+            ("//ram:*[ends-with(name(), 'ID')]", "/descendant::ram:*[ends-with(name(), 'ID')]"),
+            ("//ram:A[ram:B = 'x'][not(ram:C)]//ram:D", "/descendant::ram:A[ram:B = 'x'][not(ram:C)]/descendant::ram:D"),
+            ("self::ram:A//ram:B and '//ram:C' = \"//x\"", "self::ram:A/descendant::ram:B and '//ram:C' = \"//x\""),
+            // Predicat de position possible, test de type, axe explicite : inchanges.
+            ("//ram:A[1]", "//ram:A[1]"),
+            ("//ram:A[ram:B]", "//ram:A[ram:B]"),
+            ("//ram:A[position() = 1]", "//ram:A[position() = 1]"),
+            ("//ram:A[last()]", "//ram:A[last()]"),
+            ("//node()", "//node()"),
+            ("//text()", "//text()"),
+            ("//@id", "//@id"),
+            ("//child::ram:A", "//child::ram:A"),
+            ("(//ram:A)[1]", "(/descendant::ram:A)[1]"),
+        ] {
+            assert_eq!(descendant_axis(from), to);
+        }
         assert_eq!(indexed_part("//ram:A[x]/ram:B"), Some(("A".into(), "self::ram:A[x]/ram:B".into())));
         for part in ["//ram:*[x]", "//*[x]", "/rsm:A", "//descendant::ram:A", "//ram:A::x"] {
             assert_eq!(indexed_part(part), None, "{part}");
@@ -985,6 +1101,59 @@ mod tests {
                 times.push(started.elapsed());
             }
             eprintln!("{} Ko : {:?} -> {:?}", xml.len() / 1024, times[0], times[1]);
+        }
+    }
+
+    /// Temps passe par regle et par assertion sur la plus grosse facture reelle (`--ignored --nocapture`).
+    #[test]
+    #[ignore]
+    fn profil_par_regle() {
+        let Some((format, xml)) = factures_reelles().into_iter().max_by_key(|(_, xml)| xml.len()) else { return };
+        let engine = Engine::new(format);
+        let mut documents = Documents::new();
+        let handle = documents.add_string_without_uri(&xml).unwrap();
+        let t = Instant::now();
+        let index = elements_by_name(&documents, handle);
+        eprintln!("{} Ko, {} elements, index en {:?}", xml.len() / 1024, index.values().map(Vec::len).sum::<usize>(), t.elapsed());
+        let (mut rows, mut asserts) = (Vec::new(), Vec::new());
+        for (pattern, compiled) in engine.rules.patterns.iter().zip(&engine.compiled) {
+            for (rule, compiled) in pattern.iter().zip(compiled) {
+                let t = Instant::now();
+                let mut items = Vec::new();
+                for part in compiled.context.as_ref().unwrap() {
+                    match part {
+                        ContextPart::Whole(q) => items.extend(q.execute(&mut documents, handle).unwrap_or_default()),
+                        ContextPart::Indexed { local, query } => {
+                            for c in index.get(local).map(Vec::as_slice).unwrap_or_default() {
+                                items.extend(query.execute(&mut documents, c).unwrap_or_default());
+                            }
+                        }
+                    }
+                }
+                let ctx = t.elapsed();
+                let t = Instant::now();
+                for (k, (assert, query)) in rule.asserts.iter().zip(&compiled.asserts).enumerate() {
+                    let ta = Instant::now();
+                    for item in items.iter().take(if compiled.once[k] { 1 } else { usize::MAX }) {
+                        let _ = query.as_ref().unwrap().execute(&mut documents, item);
+                    }
+                    asserts.push((ta.elapsed(), items.len(), compiled.once[k], format!("{} :: {}", assert.id, assert.test.chars().take(230).collect::<String>())));
+                }
+                rows.push((ctx, t.elapsed(), items.len(), rule.asserts.len(), rule.context.chars().take(100).collect::<String>()));
+            }
+        }
+        eprintln!(
+            "contextes {:?} assertions {:?}",
+            rows.iter().map(|r| r.0).sum::<std::time::Duration>(),
+            rows.iter().map(|r| r.1).sum::<std::time::Duration>()
+        );
+        rows.sort_by_key(|r| std::cmp::Reverse(r.0 + r.1));
+        for r in rows.iter().take(14) {
+            eprintln!("ctx {:>9.1?} ass {:>9.1?} noeuds {:>4} asserts {:>3}  {}", r.0, r.1, r.2, r.3, r.4);
+        }
+        asserts.sort_by_key(|r| std::cmp::Reverse(r.0));
+        for a in asserts.iter().take(22) {
+            eprintln!("{:>9.1?} x{:<4} {} {}", a.0, a.1, if a.2 { "1x" } else { "  " }, a.3);
         }
     }
 

@@ -27,8 +27,11 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 ### Modifié
 
 - **Schematron plus rapide** : les contextes des règles sont trouvés en un seul parcours du
-  document, et les assertions qui ne dépendent pas de la ligne ne sont évaluées qu'une fois.
-  Résultats identiques à l'évaluation d'origine sur 302 factures réelles et variantes.
+  document, les assertions qui ne dépendent pas de la ligne ne sont évaluées qu'une fois, et les
+  recherches dans tout le document sont réécrites sous une forme que le moteur XPath parcourt
+  vingt fois plus vite. Huit à onze fois plus rapide sur des factures réelles : 0,4 s au lieu de
+  3,1 s pour les plus grosses. Résultats identiques à l'évaluation d'origine sur 302 factures
+  réelles et variantes.
 - **Accueil** : cinq documents récents, « Plus… » pour la liste complète, croix pour en retirer un.
 - Compilation de développement allégée : dépendances sans informations de débogage et
   bibliothèque liée une seule fois (cibles mobiles de Tauri abandonnées).

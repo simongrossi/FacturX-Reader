@@ -43,10 +43,14 @@ démarrage, laissés intacts à l'écriture, puis restaurés depuis une sauvegar
   documents. Sur les 5 autres, SaxonJS s'arrête sur une valeur illisible ; l'application continue
   et signale les règles non évaluables.
 - Exécuté dans la fenêtre native Windows par le test natif.
-- Durée mesurée sur la 0.6.0, en version optimisée : médiane sous la seconde, 4,5 à 5,6 s pour
-  des factures de 112 lignes, soit environ quatre fois plus que SaxonJS, mais hors de l'interface.
-  Mesure antérieure aux optimisations d'évaluation (contextes en un parcours, assertions évaluées
-  une fois) : à refaire.
+- Durée de l'évaluation seule, mesurée en version optimisée sur 19 factures réelles de 6 à
+  151 Ko : médiane de 33 ms, 0,37 à 0,40 s pour les plus grosses (145 Ko). L'évaluation de la
+  0.6.0, rejouée sur le même poste : médiane de 336 ms, 3,1 à 3,2 s pour les plus grosses, soit
+  huit à onze fois plus. La comparaison de durée avec SaxonJS n'a pas été refaite.
+- Les optimisations ne changent aucun résultat : même verdict, mêmes règles en échec aux mêmes
+  emplacements que l'évaluation littérale des règles, sur les exemples officiels (à chaque
+  `cargo test`) et sur les 19 factures réelles et leurs variantes abîmées, 302 documents (test
+  long, lancé à la main : `cargo test --release -- --ignored`).
 
 ### Contrôles et règles sur des factures réelles
 
