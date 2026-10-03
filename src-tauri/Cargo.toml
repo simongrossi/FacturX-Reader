@@ -30,6 +30,8 @@ rusqlite = { version = "0.40", features = ["bundled"] }
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 lopdf = "0.45.0"
 xee-xpath = "0.1.5"
+uppsala = "0.10"
+include_dir = "0.7"
 
 # Développement : pas d'informations de débogage pour les dépendances (le dossier `target`
 # dépassait 20 Go et l'édition de liens prenait deux minutes), mais un peu d'optimisation,

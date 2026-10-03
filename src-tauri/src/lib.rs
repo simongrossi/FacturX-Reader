@@ -4,6 +4,7 @@ mod bibliotheque;
 pub mod facturx;
 mod pointages;
 mod schematron;
+mod xsd;
 mod tables;
 
 use std::path::{Path, PathBuf};

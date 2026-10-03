@@ -1121,6 +1121,8 @@ tr.flash { animation: flash 1.8s ease-out; }
 .verdict-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .verdict-chips .ctl-chip { font-size: 13px; padding: 5px 12px; }
 .verdict-note { margin: 6px 2px 0; color: var(--muted); font-size: 12px; }
+.xsd-list { margin: 8px 0 0; padding-left: 22px; font-size: 13px; }
+.xsd-list li { margin: 3px 0; }
 .ctl-chip.ctl-non_verifiable { color: var(--muted); }
 
 /* ---------- licences des composants tiers ---------- */

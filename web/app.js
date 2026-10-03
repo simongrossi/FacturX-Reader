@@ -1065,8 +1065,8 @@ function renderLinesOnly(f) {
 
 /* ---- verdicts : lecture, calculs et règles EN 16931 ne sont jamais confondus ---- */
 
-const NOT_CHECKED = ["schéma XSD", "conformité PDF/A-3 réelle du fichier (seules ses métadonnées déclarées sont lues)", "règles nationales (CIUS)"];
-const NOT_CHECKED_NOTE = "Non contrôlés : " + NOT_CHECKED.join(" ; ") + ". Le Schematron officiel EN 16931 est exécuté sur le XML ; aucun de ces verdicts ne vaut certification.";
+const NOT_CHECKED = ["schéma XSD des factures UBL", "conformité PDF/A-3 réelle du fichier (seules ses métadonnées déclarées sont lues)", "règles nationales (CIUS)"];
+const NOT_CHECKED_NOTE = "Non contrôlés : " + NOT_CHECKED.join(" ; ") + ". Le Schematron officiel EN 16931 et, pour le CII, le schéma XSD sont contrôlés sur le XML ; aucun de ces verdicts ne vaut certification.";
 
 /* Verdicts indépendants d'un document, plus le nombre d'autres alertes. */
 function invoiceVerdicts(f, extraAlerts = 0) {
@@ -1110,6 +1110,16 @@ function invoiceVerdicts(f, extraAlerts = 0) {
     schematron = { etat: "info", court: "En cours…", label: "Schematron officiel en cours…" };
   }
 
+  // Schéma XSD : contrôlé pour le CII ; sans schéma embarqué (UBL), aucun verdict n'est affiché.
+  let xsd = null;
+  if (r.xsd && r.xsd.evalue) {
+    xsd = r.xsd.ok
+      ? { etat: "conforme", court: "Respecté", label: "Schéma XSD respecté" }
+      : { etat: "ecart", court: plural(r.xsd.total, "erreur"), label: plural(r.xsd.total, "erreur") + " de schéma XSD" };
+  } else if (r.xsd && r.format === "CII") {
+    xsd = { etat: "non_verifiable", court: "Non évalué", label: "Schéma XSD non évalué" };
+  }
+
   let conteneur = null;
   if (r.conteneur && r.conteneur.est_pdf) {
     const c = r.conteneur;
@@ -1124,7 +1134,7 @@ function invoiceVerdicts(f, extraAlerts = 0) {
   }
 
   const alertes = checks.filter((c) => c.famille !== "calcul" && (c.etat === "alerte" || c.etat === "ecart")).length + extraAlerts;
-  return { lecture: { etat: "conforme", court: "Lue", label: "Lecture réussie" }, calculs, regles, schematron, conteneur, alertes };
+  return { lecture: { etat: "conforme", court: "Lue", label: "Lecture réussie" }, calculs, regles, schematron, xsd, conteneur, alertes };
 }
 
 /* Bandeau de verdicts en tête de l'onglet Données. */
@@ -1145,6 +1155,7 @@ function verdictStrip(f) {
   chip(v.calculs);
   chip(v.regles);
   if (v.schematron) chip(v.schematron);
+  if (v.xsd) chip(v.xsd);
   if (v.conteneur) chip(v.conteneur);
   if (v.alertes) chip({ etat: "alerte", label: v.alertes + " alerte" + (v.alertes > 1 ? "s" : "") });
   strip.appendChild(chips);
@@ -1300,7 +1311,7 @@ function printView() {
   hideContextMenu();
   hidePopover();
   // Blocs repliés ouverts et thème clair le temps de l'impression.
-  const closed = [...document.querySelectorAll("#controls:not([open]), #rules:not([open]), #schematron-rules:not([open])")];
+  const closed = [...document.querySelectorAll("#controls:not([open]), #rules:not([open]), #schematron-rules:not([open]), #xsd-errors:not([open])")];
   closed.forEach((d) => { d.open = true; });
   const root = document.documentElement;
   const theme = root.getAttribute("data-theme");
@@ -1318,6 +1329,42 @@ function printView() {
   // Filet de sécurité si la fenêtre ne signale pas la fin de l'impression.
   document.addEventListener("pointerdown", restore, true);
   api.print().catch(() => window.print());
+}
+
+/* Schéma XSD : erreurs de structure, avec leur ligne dans « XML brut ». */
+function xsdSection(f) {
+  const x = f.result && f.result.xsd;
+  if (!x || (!x.evalue && f.result.format !== "CII")) return null;
+  const sec = document.createElement("details");
+  sec.id = "xsd-errors";
+  sec.className = "section controls";
+  sec.open = x.evalue && !x.ok;
+  const sum = document.createElement("summary");
+  sum.className = "section-title";
+  const etat = !x.evalue ? "non_verifiable" : x.ok ? "conforme" : "ecart";
+  sum.innerHTML = '<span class="ctl-chip ctl-' + etat + '">Schéma XSD</span> ' +
+    esc(!x.evalue ? "Non évalué : " + (x.raison || "") : x.ok ? "Structure du XML conforme au schéma" : x.total + " erreur" + (x.total > 1 ? "s" : "") + " de structure");
+  sec.appendChild(sum);
+  if (x.evalue && !x.ok) {
+    const list = document.createElement("ul");
+    list.className = "xsd-list";
+    for (const e of x.erreurs) {
+      const li = document.createElement("li");
+      li.textContent = (e.ligne ? "Ligne " + e.ligne + (e.colonne ? ", colonne " + e.colonne : "") + " : " : "") + e.message;
+      list.appendChild(li);
+    }
+    sec.appendChild(list);
+    if (x.total > x.erreurs.length) {
+      sec.appendChild(Object.assign(document.createElement("p"), { className: "notice", textContent: "Seules les " + x.erreurs.length + " premières erreurs sont listées." }));
+    }
+  }
+  if (x.evalue) {
+    sec.appendChild(Object.assign(document.createElement("p"), {
+      className: "verdict-note",
+      textContent: "Schéma " + x.schema + ", contrôlé sur ce poste. Les lignes sont celles de l'onglet « XML brut » ; les messages viennent du validateur, en anglais.",
+    }));
+  }
+  return sec;
 }
 
 function schematronSection(f) {
@@ -1452,6 +1499,8 @@ function renderData(f) {
   if (rules) pane.appendChild(rules);
   const sch = schematronSection(f);
   if (sch) pane.appendChild(sch);
+  const xsd = xsdSection(f);
+  if (xsd) pane.appendChild(xsd);
   pane.appendChild(reviewPanel(f));
 
   if (r.lines && r.lines.length) {

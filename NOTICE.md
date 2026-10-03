@@ -43,12 +43,24 @@ La licence PolyForm Noncommercial ne couvre que le code de Factur-X Reader.
 - Ces fichiers restent sous EUPL 1.2 : la restriction d'usage non commercial de Factur-X Reader ne
   s'y applique pas, et chacun peut les réutiliser aux conditions de l'EUPL.
 
+### Schémas XSD Factur-X et Cross Industry Invoice
+
+- Fichiers : `src-tauri/xsd/factur-x/` (un schéma par profil) et `src-tauri/xsd/cii-d22b/`
+  (schéma UN/CEFACT complet du Cross Industry Invoice D22B), embarqués dans l'application.
+  © FNFE-MPE | FeRD ; schémas CII © UN/CEFACT.
+- Source : paquet officiel **Factur-X 1.09.2 / ZUGFeRD 2.5.2** du 4 août 2026, dossier
+  `4. FACTUR-X_1.09.2_XSD_SCHEMATRON`, téléchargé sur [fnfe-mpe.org](https://fnfe-mpe.org/factur-x/).
+  Repris **sans modification**.
+- Licence : **Apache 2.0**, d'après l'avertissement de la spécification Factur-X (page 13) ; texte
+  dans [src-tauri/xsd/LICENSE-APACHE-2.0.txt](src-tauri/xsd/LICENSE-APACHE-2.0.txt) et dans
+  l'application installée (menu **Aide → Licences des composants tiers**).
+
 ### Bibliothèques
 
 Toutes les bibliothèques embarquées sont sous licences libres permissives et gardent leur
 licence : Tauri (MIT / Apache-2.0), PDF.js (Apache-2.0), SQLite (domaine public) via rusqlite
-(MIT), lopdf (MIT), xee — moteur XPath qui évalue les règles de validation (MIT), et leurs
-dépendances.
+(MIT), lopdf (MIT), xee — moteur XPath qui évalue les règles de validation (MIT), uppsala —
+validateur XSD (BSD-2-Clause), include_dir (MIT), et leurs dépendances.
 
 L'application n'embarque plus aucun composant propriétaire : le moteur SaxonJS, utilisé un temps
 pour exécuter le Schematron, a été remplacé par une évaluation directe des règles en Rust.

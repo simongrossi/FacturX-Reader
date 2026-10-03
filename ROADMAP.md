@@ -11,7 +11,7 @@ l'utilisation et [VALIDATION.md](VALIDATION.md) pour le bilan de vérification P
 | P0 | Valider l'existant | Presque terminé : reste macOS, Linux et l'installation des paquets |
 | P1 | Confort et fiabilité du moteur | Aux trois quarts : reste la provenance des valeurs, « Ouvrir avec », l'export Excel, les tests anonymisés |
 | P2 | Exploiter des lots de factures | Presque terminé : reste la recherche dans le PDF, le dossier surveillé, l'échéancier |
-| P3 | Conformité et distribution | Bien avancé : Schematron officiel (suite de tests officielle verte, résultat gardé entre sessions) et déclarations du conteneur ; reste les profils Factur-X, XSD, PDF/A réel, signature des builds |
+| P3 | Conformité et distribution | Bien avancé : Schematron officiel (suite de tests officielle verte, résultat gardé entre sessions) et déclarations du conteneur ; reste les profils Factur-X, XSD pour UBL, PDF/A réel, signature des builds |
 | P4 | API, MCP et connecteurs | Pas commencé |
 
 Versions publiées (pré-versions, builds non signés) :
@@ -31,12 +31,13 @@ Mustang font mieux, en commençant par ce qui réutilise le moteur existant.
 
 1. **Schematron des profils Factur-X et XML d'origine** (P3) : MINIMUM, BASIC WL, BASIC et
    EXTENDED évalués avec leurs propres règles, sur les octets d'origine plutôt que sur le XML
-   réindenté. Le moteur existe : il reste à embarquer les règles (licence FNFE-MPE à vérifier) et
+   réindenté. Le moteur existe : il reste à embarquer les règles (Factur-X 1.09.2, licence Apache 2.0) et
    à choisir le jeu de règles d'après le profil. Petit chantier, qui corrige des verdicts
    aujourd'hui trompeurs sur ces profils.
-2. **Validation XSD** (P3) : seule ligne de validation du comparatif entièrement vide. Étude de
-   faisabilité d'abord : pas de validateur XSD mûr en Rust pur, `libxml2` à lier sur les trois
-   systèmes sinon.
+2. **Validation XSD, suite** (P3) : fait pour les factures CII, en Rust pur avec `uppsala`, avec
+   le schéma de chaque profil Factur-X. Reste : embarquer les schémas UBL 2.1 d'OASIS, et comparer
+   le validateur à une référence (Xerces ou libxml2) sur un grand jeu de documents, dont les
+   exemples officiels Factur-X de chaque profil.
 3. **Signature des builds** (P3) : hors comparatif, mais des installeurs non signés sont
    distribués. Dépend d'un certificat Windows et d'un compte développeur Apple, à lancer en
    parallèle.
@@ -53,7 +54,7 @@ de factures (hors périmètre).
 | Ligne du comparatif | Aujourd'hui | Pour cocher la case | Effort | Priorité |
 |---|---|---|---|---|
 | Schematron officiel EN 16931 | ✅ hors ligne, EN 16931 seul | Profils Factur-X, XML d'origine, règles nationales (CIUS) | Faible à moyen | 1 |
-| Validation XSD | — | Validateur XSD embarqué, schémas UBL 2.1 et CII | Moyen, faisabilité à établir | 2 |
+| Validation XSD | CII hors ligne, par profil Factur-X | Schémas UBL 2.1, comparaison à un validateur de référence | Faible à moyen | 2 |
 | Validation PDF/A-3 du fichier | Déclarations lues | Contrôles réels partiels, puis décision sur une validation complète | Moyen (partiel), élevé (complet) | 4 |
 | Conversion CII ↔ UBL, ZUGFeRD 1 → 2 | — | Table de correspondance complète des deux syntaxes | Élevé | Plus tard |
 | Création de factures | — | Hors périmètre du lecteur | — | Non retenu |
@@ -179,7 +180,10 @@ de factures (hors périmètre).
 - [ ] Schematron des profils Factur-X (MINIMUM, BASIC WL, BASIC, EXTENDED), pour ne plus évaluer
   ces profils avec les seules règles EN 16931.
 - [ ] Valider le XML d'origine plutôt que sa version réindentée.
-- [ ] Validation du schéma XSD.
+- [x] Validation du schéma XSD des factures CII : schémas officiels des cinq profils Factur-X
+  1.09.2 et CII D22B embarqués, choisis d'après le profil annoncé, validateur `uppsala` en Rust
+  pur, à l'analyse de la facture.
+- [ ] Schéma XSD : factures UBL (schémas OASIS UBL 2.1), comparaison du validateur à une référence.
 - [ ] Validation PDF/A-3 réelle du fichier (type veraPDF). Étape intermédiaire : contrôles réels
   partiels (polices incorporées, profil de sortie, chiffrement, extension XMP Factur-X).
 - [ ] Comparaison PDF vs XML : montants clés recherchés dans le texte du PDF, écart mis en
@@ -236,8 +240,9 @@ par projet. Ces deux derniers supposent plusieurs utilisateurs et un serveur : u
 ## Limites connues
 
 - La recherche porte sur les données XML, pas sur le texte du PDF ni les contenus binaires.
-- Le Schematron officiel EN 16931 est exécuté, mais ni le schéma XSD, ni la conformité PDF/A-3
-  réelle du fichier, ni les règles nationales ne sont contrôlés. Aucun appel réseau ne vérifie
+- Le Schematron officiel EN 16931 est exécuté et le schéma XSD des factures CII contrôlé, mais
+  ni le schéma XSD des factures UBL, ni la conformité PDF/A-3 réelle du fichier, ni les règles
+  nationales ne sont contrôlés. Aucun appel réseau ne vérifie
   l'existence d'un SIREN ni le titulaire d'un IBAN.
 - Le tableau porte sur les documents ouverts (500 au maximum). La bibliothèque ne connaît que les
   factures ouvertes au moins une fois sur ce poste : la première facture d'un fournisseur ne

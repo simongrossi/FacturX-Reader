@@ -8,9 +8,9 @@ Les commandes sont décrites dans [README.md](README.md#tests).
 | Vérification | Résultat / portée |
 |---|---|
 | `npm run check:js` | Syntaxe de tous les scripts de l'interface |
-| `npm run test:rust` | 42 tests unitaires : Schematron officiel (compilation de toutes les règles, suite de tests officielle de la Commission, exemples officiels, règles enfreintes, file de travail, résultat repris de la bibliothèque entre deux sessions, résultats identiques avec et sans optimisations), moteur UBL/CII, contrôles en décimaux exacts, règles EN 16931, conteneur PDF (déclarations lues, écarts), pointages et suivi (corruption, sauvegarde, restauration, fusion), bibliothèque SQLite |
+| `npm run test:rust` | 48 tests unitaires : schéma XSD des factures CII (chargement des six schémas, choix d'après le profil, exemple officiel valide, élément inconnu, attribut inconnu, montant non numérique, jamais « valide » sans évaluation), Schematron officiel (compilation de toutes les règles, suite de tests officielle de la Commission, exemples officiels, règles enfreintes, file de travail, résultat repris de la bibliothèque entre deux sessions, résultats identiques avec et sans optimisations), moteur UBL/CII, contrôles en décimaux exacts, règles EN 16931, conteneur PDF (déclarations lues, écarts), pointages et suivi (corruption, sauvegarde, restauration, fusion), bibliothèque SQLite |
 | Test Rust `samples.rs` | Factures réelles locales, hors dépôt : toutes analysées, sauf celles marquées sans XML |
-| `npm run test:ui` | 13 scénarios navigateur sous Chromium et Edge, commandes Rust simulées, PDF.js réel |
+| `npm run test:ui` | 14 scénarios navigateur (Edge le 3 octobre ; Chromium par la CI), commandes Rust simulées, PDF.js réel |
 | `npm run test:native` | Vrai exécutable Windows, vraies commandes Rust, profil WebView2 et dossier de données jetables |
 | Workflow `Checks` | Tests navigateur (Linux) et Rust (Windows) verts sur `main` |
 | Workflow `Release` | Installeurs Windows, macOS et Linux construits à chaque tag |
@@ -52,6 +52,25 @@ démarrage, laissés intacts à l'écriture, puis restaurés depuis une sauvegar
   `cargo test`) et sur les 19 factures réelles et leurs variantes abîmées, 302 documents (test
   long, lancé à la main : `cargo test --release -- --ignored`).
 
+### Schéma XSD
+
+- Les six schémas embarqués (cinq profils Factur-X 1.09.2 et CII D22B) se chargent tous, et le
+  schéma est choisi d'après le profil annoncé : une facture EN 16931 valide, réannoncée MINIMUM,
+  est refusée pour ses lignes (tests automatisés).
+- Les 15 exemples CII officiels de la Commission ont été validés une fois, hors dépôt, contre le
+  schéma D22B : 14 sans erreur ; le quinzième (`huf_example_cii.xml`) contient des nombres écrits `100.`, valides en
+  XSD, que le validateur `uppsala` refuse à tort. L'application écarte ce faux positif (test
+  automatisé).
+- Fichiers abîmés exprès : élément inconnu, élément renommé, éléments dans le mauvais ordre,
+  attribut non prévu, montant non numérique — tous signalés, avec leur ligne.
+- Les 7 factures CII réelles locales sont valides contre le schéma de leur profil : une EN 16931,
+  trois EXTENDED, trois EXTENDED-CTC-FR (schéma D22B).
+- Aucune facture réelle ni exemple officiel aux profils MINIMUM, BASIC WL ou BASIC n'a été
+  essayé : le paquet d'exemples Factur-X n'a pas été utilisé.
+- Chargé et appliqué par le véritable exécutable Windows (test natif).
+- **Non fait** : comparaison avec un validateur de référence (Xerces, libxml2) sur un grand jeu
+  de documents, comme cela a été fait pour le Schematron avec SaxonJS.
+
 ### Contrôles et règles sur des factures réelles
 
 Sur 19 factures réelles lisibles : 18 respectent toutes les règles EN 16931 évaluées ; une
@@ -76,9 +95,12 @@ remontent des écarts de ligne, le prix unitaire et les frais déclarés ne redo
 
 ## Limites de ce que l'application affirme
 
-- Le **Schematron officiel EN 16931** est exécuté sur le XML réindenté par l'application. Ni le
-  schéma XSD, ni les règles nationales ne sont contrôlés. Les profils MINIMUM et BASIC WL sont
+- Le **Schematron officiel EN 16931** est exécuté sur le XML réindenté par l'application. Les
+  règles nationales ne sont pas contrôlées. Les profils MINIMUM et BASIC WL sont
   évalués avec les règles EN 16931, faute des Schematron propres à Factur-X.
+- Le **schéma XSD** n'est contrôlé que pour les factures CII, par un validateur jeune qui n'a
+  pas été comparé à un validateur de référence. Le schéma est choisi d'après le profil que la
+  facture annonce : un profil mal annoncé donne un contrôle contre le mauvais schéma. Les factures UBL ne sont pas contrôlées.
 - Le **conteneur PDF** n'est pas validé : seules ses déclarations (PDF/A-3 annoncé, pièce jointe
   déclarée, profil annoncé) sont lues.
 - Les **règles EN 16931 natives** sont une implémentation d'après l'énoncé des règles ; en cas de

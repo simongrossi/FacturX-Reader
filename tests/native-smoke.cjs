@@ -101,6 +101,9 @@ async function main() {
     // Le Schematron officiel s'exécute réellement dans la WebView (moteur XSLT embarqué, CSP de l'application).
     await expect(page.locator('#verdicts')).toContainText(/Schematron officiel non respectée|règles? Schematron officiel non respectées?/, { timeout: 20000 });
     await expect(page.locator('#schematron-rules')).toContainText('BR-', { timeout: 20000 });
+    // Le schéma XSD CII embarqué est réellement chargé et appliqué par l'exécutable.
+    await expect(page.locator('#verdicts')).toContainText(/Schéma XSD respecté|erreurs? de schéma XSD/);
+    await expect(page.locator('#xsd-errors')).toContainText(/Factur-X 1\.09\.2, profil|Cross Industry Invoice D22B/);
     await expect(page.locator('#controls tr').filter({ hasText: 'Mentions essentielles' })).toContainText('Nom de l\'acheteur');
     await page.locator('#tab-data .review-panel summary span').click();
     await page.getByLabel('Commentaire de la facture', { exact: true }).fill('Test natif P2');

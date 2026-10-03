@@ -46,6 +46,7 @@ tableaux lisibles en français, **recalcule les montants** et signale ce qui ne 
 |---|---|
 | 📄 **Lecture** | PDF Factur-X, archive ZIP, XML UBL 2.x et CII. PDF d'origine, données en tableaux, XML complet et XML brut. |
 | 🏛️ **Schematron officiel** | Les règles officielles EN 16931 de la Commission européenne, exécutées sur votre poste, sans envoyer la facture où que ce soit. |
+| 🧱 **Schéma XSD** | La structure du XML contrôlée contre le schéma officiel du profil Factur-X annoncé, pour les factures CII, sur votre poste. |
 | 📎 **Conteneur PDF** | PDF/A-3 annoncé, pièce jointe XML déclarée, profil annoncé comparé à celui du XML. |
 | 📐 **Règles EN 16931** | Une soixantaine de règles métier de la norme évaluées sur chaque facture : mentions obligatoires, calculs, décimales, catégories de TVA. |
 | ✅ **Contrôles de cohérence** | Calculs en décimaux exacts : lignes, HT, TVA par taux, TTC, net à payer. Mentions essentielles, clés SIREN/SIRET, n° de TVA et IBAN, échéance, escompte. |
@@ -90,7 +91,7 @@ une case est cochée des deux côtés, le niveau de détail peut différer.
 | Impression | ✅ | ✅ | — | ✅ |
 | Contrôles arithmétiques détaillés | ✅ | — | Via la validation | — |
 | Schematron officiel EN 16931 | ✅ hors ligne | ✅ en ligne | ✅ | — |
-| Validation XSD | — | ✅ en ligne | ✅ | — |
+| Validation XSD | CII hors ligne, pas UBL | ✅ en ligne | ✅ | — |
 | Validation PDF/A-3 du fichier | Déclarations lues seulement | ✅ en ligne | ✅ | — |
 | Tableau multi-factures avec totaux | ✅ | — | — | — |
 | Pointage, statuts et commentaires | ✅ | — | — | — |
@@ -101,11 +102,12 @@ une case est cochée des deux côtés, le niveau de détail peut différer.
 | Interface en français | ✅ | ✅ | — | Selon l'outil |
 | Licence | PolyForm Noncommercial | Apache 2.0 | Apache 2.0 | Selon l'outil |
 
-<sub>Établi le 2 octobre 2026 d'après la documentation publique de chaque projet ; une case vide
+<sub>Établi le 3 octobre 2026 d'après la documentation publique de chaque projet ; une case vide
 signifie « non documenté à cette date », pas forcément « impossible ». Corrections bienvenues.
-Factur-X Reader exécute le Schematron officiel EN 16931, mais ne contrôle ni le schéma XSD, ni la
-conformité PDF/A-3 réelle du fichier, ni les règles nationales : pour une validation complète,
-Mustang ou Quba restent les bons outils.</sub>
+Factur-X Reader exécute le Schematron officiel EN 16931 et contrôle le schéma XSD des factures
+CII, mais ne contrôle ni le schéma XSD des factures UBL, ni la conformité PDF/A-3 réelle du
+fichier, ni les règles nationales : pour une validation complète, Mustang ou Quba restent les bons
+outils.</sub>
 
 ## Téléchargement
 
@@ -128,6 +130,7 @@ Ils sont produits par le workflow GitHub à chaque tag `vX.Y.Z`, ou localement p
 - **HTML / CSS / JS sans framework** — le front de `web/` est servi tel quel, sans étape de
   compilation ;
 - **xee** — moteur XPath, pour évaluer le Schematron officiel ;
+- **uppsala** — validateur XSD ;
 - **lopdf** — lecture de la structure des PDF ;
 - **PDF.js 3.11** — rendu des PDF.
 
@@ -232,11 +235,12 @@ En tête de l'onglet **Données**, des verdicts indépendants, jamais fondus en 
 | **Calculs cohérents** | Les montants du XML se recalculent sans écart | Que la facture respecte la norme |
 | **Règles EN 16931 respectées** | Les règles métier évaluées par le moteur de l'application passent | Que le Schematron officiel passerait |
 | **Schematron officiel respecté** | Aucune règle bloquante du Schematron officiel EN 16931 n'est enfreinte | Que le XML respecte le schéma XSD ou les règles nationales |
+| **Schéma XSD respecté** (CII) | La structure du XML suit le schéma officiel : éléments connus, à leur place, valeurs du bon type | Que les montants sont justes ou les règles métier respectées |
 | **PDF/A-3 déclaré, pièce jointe déclarée** | Le PDF s'annonce PDF/A-3 et déclare sa pièce jointe XML | Que le fichier est réellement conforme à ISO 19005-3 |
 
 Les autres constats (identifiants, échéance, doublons, IBAN) sont comptés à part comme alertes.
-**Non contrôlés** : le schéma XSD, la conformité PDF/A-3 réelle du fichier et les règles
-nationales (CIUS). Aucun de ces verdicts ne vaut certification. Le tableau multi-factures reprend
+**Non contrôlés** : le schéma XSD des factures UBL, la conformité PDF/A-3 réelle du fichier et
+les règles nationales (CIUS). Aucun de ces verdicts ne vaut certification. Le tableau multi-factures reprend
 les verdicts en colonnes, et le rapport JSON dans un bloc `verdicts`.
 
 ### Schematron officiel
@@ -282,6 +286,35 @@ attendu.
 Le Schematron ajoute aux règles métier les règles de syntaxe (`UBL-CR`, `UBL-SR`, `CII-SR`) que
 les [règles natives](#règles-en-16931) de l'application ne couvrent pas.
 
+### Schéma XSD
+
+Pour une facture CII (donc pour tout Factur-X), l'application contrôle la structure du XML contre
+le schéma officiel du profil que la facture annonce :
+
+| Profil annoncé | Schéma appliqué |
+|---|---|
+| MINIMUM, BASIC WL, BASIC, EN 16931, EXTENDED | Le schéma de ce profil, publié par FNFE-MPE et FeRD (Factur-X 1.09.2) |
+| Autre CII : EXTENDED-CTC-FR, XRechnung, profil inconnu ou absent | Le schéma UN/CEFACT complet du Cross Industry Invoice D22B |
+
+Une facture annoncée BASIC qui contient un élément réservé à EXTENDED est donc signalée. Le
+bloc **Schéma XSD** de l'onglet Données liste chaque erreur avec sa
+ligne dans l'onglet « XML brut » : élément inconnu ou mal placé, attribut non prévu, valeur d'un
+mauvais type.
+
+À savoir :
+
+- les factures **UBL** ne sont pas contrôlées : les schémas UBL 2.1 d'OASIS ne sont pas encore
+  embarqués. Aucun verdict XSD n'est alors affiché ;
+- le contrôle porte sur le XML tel que réindenté par l'application, et prend environ une
+  milliseconde ;
+- Factur-X repose depuis la version 1.0.07 sur le CII D22B, qui accepte toute facture D16B ; un
+  destinataire resté au schéma D16B peut refuser une facture que l'application juge valide
+  (plusieurs références à des factures antérieures, par exemple) ;
+- les messages viennent du validateur open source `uppsala` et sont en anglais. Ce validateur
+  est jeune : il a été vérifié ici sur les 15 exemples CII officiels de la Commission, sur des
+  factures réelles et sur des fichiers abîmés exprès, mais pas comparé à un validateur de référence comme Xerces. Un
+  faux positif connu (un nombre écrit `100.`) est écarté par l'application.
+
 ### Conteneur PDF
 
 Pour une facture reçue en PDF, l'application lit la structure du fichier et signale :
@@ -314,7 +347,7 @@ Les états sont *conforme*, *écart*, *alerte*, *info* et *non vérifiable* (don
 Une facture avec écart porte une pastille rouge dans la liste des fichiers.
 
 Ces contrôles ne sont pas une validation EN 16931 : celle-ci relève du
-[Schematron officiel](#schematron-officiel) ; le schéma XSD n'est pas contrôlé. Aucun appel
+[Schematron officiel](#schematron-officiel) et du [schéma XSD](#schéma-xsd). Aucun appel
 réseau : l'existence du SIREN ou la propriété de l'IBAN ne sont pas vérifiées.
 
 ### Règles EN 16931
@@ -523,6 +556,8 @@ src-tauri/
   src/facturx/en16931.rs   règles métier EN 16931
   src/schematron.rs        Schematron officiel EN 16931 (évaluation XPath, fils de travail)
   schematron/              règles officielles (.sch, EUPL 1.2), exemples et suite de tests officielle
+  src/xsd.rs               schéma XSD des factures CII
+  xsd/                     schémas XSD officiels : profils Factur-X 1.09.2 et CII D22B
   src/tables.rs            libellés français et tables de codes
   src/pointages.rs         pointages et suivi : persistance, sauvegardes, export/import
   src/bibliotheque.rs      bibliothèque locale (SQLite) : historique, IBAN, doublons, prix
@@ -555,14 +590,14 @@ npm run test:ui
 
 Le workflow `.github/workflows/checks.yml` lance les tests navigateur et Rust à chaque push
 et pull request. Les tests navigateur simulent uniquement les commandes Rust ; le rendu
-PDF utilise le vrai PDF.js et une facture synthétique de deux pages. Treize scénarios couvrent
+PDF utilise le vrai PDF.js et une facture synthétique de deux pages. Quatorze scénarios couvrent
 la session et la recherche, les quotas et les 500 documents, les contrôles et l'export CSV, le
 tableau et ses filtres, les menus, le suivi et le rapport, les règles EN 16931 et l'impression,
-la protection des pointages, la bibliothèque et les verdicts du Schematron.
+la protection des pointages, la bibliothèque, les verdicts du Schematron et le schéma XSD.
 
 Sous Windows, un test distinct lance le véritable exécutable dans un profil WebView2 jetable,
 sans changer la session ni les données de l'utilisateur. Il valide le moteur Rust, la reprise
-après relance, le tableau, les contrôles, le Schematron officiel, la bibliothèque SQLite, le suivi
+après relance, le tableau, les contrôles, le Schematron officiel, le schéma XSD, la bibliothèque SQLite, le suivi
 et la restauration de fichiers de données corrompus :
 
 ```powershell
@@ -586,8 +621,8 @@ cargo test
 
 - tests unitaires : moteur (UBL, CII, ZIP, PDF, conteneur), contrôles en décimaux, règles
   EN 16931, Schematron officiel (toutes les règles se compilent, exemples officiels, suite de
-  tests officielle de 1169 cas, mêmes résultats avec et sans optimisations), pointages et suivi,
-  bibliothèque ;
+  tests officielle de 1169 cas, mêmes résultats avec et sans optimisations), schéma XSD,
+  pointages et suivi, bibliothèque ;
 - `tests/samples.rs` analyse chaque fichier de `samples/` : il doit donner une facture UBL ou
   CII avec des lignes. Un fichier dont le nom contient `PAS DE XML` doit au contraire être
   rejeté. Sans dossier `samples/`, ce test est sans effet.

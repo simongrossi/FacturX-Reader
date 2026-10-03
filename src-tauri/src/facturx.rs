@@ -1920,7 +1920,10 @@ pub fn parse_file(filename: &str, data: &[u8]) -> Result<Value, FacturXError> {
         );
     }
     result.extend(structured);
-    result.insert("xml_pretty".into(), pretty_xml(root, &source).into());
+    let pretty = pretty_xml(root, &source);
+    // Sur le XML reindente : les lignes des erreurs sont celles de la vue « XML brut ».
+    result.insert("xsd".into(), crate::xsd::validate(&pretty, format));
+    result.insert("xml_pretty".into(), pretty.into());
     Ok(Value::Object(result))
 }
 

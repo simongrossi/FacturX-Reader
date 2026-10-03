@@ -568,7 +568,7 @@ test('règles EN 16931 affichées, filtrées dans le tableau, et impression', as
   await page.locator('#btn-control-report').click();
   await expect.poll(() => page.evaluate(() => window.__report?.report.regles_en16931?.non_conformes)).toBe(1);
   expect(await page.evaluate(() => window.__report.report.verdicts)).toEqual({ lecture: 'Lecture réussie', calculs: 'Calculs cohérents',
-    regles_en16931: '1 règle EN 16931 non respectée', autres_alertes: 0, non_controle: ['schéma XSD', 'conformité PDF/A-3 réelle du fichier (seules ses métadonnées déclarées sont lues)', 'règles nationales (CIUS)'] });
+    regles_en16931: '1 règle EN 16931 non respectée', schema_xsd: null, autres_alertes: 0, non_controle: ['schéma XSD des factures UBL', 'conformité PDF/A-3 réelle du fichier (seules ses métadonnées déclarées sont lues)', 'règles nationales (CIUS)'] });
   await page.locator('#tab-batch').click();
   await expect(page.locator('#batch-table tbody tr.batch-row')).toContainText('1 non respectée');
   await expect(page.locator('#batch-table tbody tr.batch-row')).toContainText('Cohérents');
@@ -765,5 +765,30 @@ test('Schematron officiel : verdicts respecté, non respecté, partiel et non é
   // Le tableau reprend les verdicts.
   await page.locator('#tab-batch').click();
   await expect(page.locator('#batch-table tbody tr.batch-row')).toHaveCount(6);
+  expect(errors).toEqual([]);
+});
+
+test('schéma XSD : erreurs listées avec leur ligne, verdict dédié', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await mockBackend(page, null, {
+    synthese: { numero: 'X', vendeur: 'V', devise: 'EUR' },
+    sections: [{ name: 'Vendeur', rows: [{ title: 'Raison sociale', value: 'V', path: 'Invoice/x' }] }],
+    xsd: { evalue: true, ok: false, schema: 'Factur-X 1.09.2, profil BASIC', total: 2, erreurs: [
+      { message: "Unexpected element 'Inconnu' in sequence", ligne: 23, colonne: 41 },
+      { message: "Attribute 'bidule' is not allowed", ligne: 25, colonne: null },
+    ] },
+  });
+  await page.goto(url);
+  await page.locator('#file-input').setInputFiles({ name: 'structure.xml', mimeType: 'text/xml', buffer: Buffer.from('<Invoice/>') });
+  await expect(page.locator('#fv-name')).toHaveText('structure.xml');
+  await page.getByRole('button', { name: 'Données', exact: true }).click();
+  await expect(page.locator('#verdicts')).toContainText('2 erreurs de schéma XSD');
+  const section = page.locator('#xsd-errors');
+  await expect(section).toHaveAttribute('open', '');
+  await expect(section).toContainText('2 erreurs de structure');
+  await expect(section.locator('li').first()).toHaveText("Ligne 23, colonne 41 : Unexpected element 'Inconnu' in sequence");
+  await expect(section.locator('li').nth(1)).toHaveText("Ligne 25 : Attribute 'bidule' is not allowed");
+  await expect(section).toContainText('Schéma Factur-X 1.09.2, profil BASIC');
   expect(errors).toEqual([]);
 });

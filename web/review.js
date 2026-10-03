@@ -123,11 +123,12 @@ function controlReport(f) {
     genere_le: new Date().toISOString(),
     verdicts: (() => {
       const v = invoiceVerdicts(f);
-      return { lecture: v.lecture.label, calculs: v.calculs.label, regles_en16931: v.regles.label, autres_alertes: v.alertes, non_controle: NOT_CHECKED };
+      return { lecture: v.lecture.label, calculs: v.calculs.label, regles_en16931: v.regles.label, schema_xsd: v.xsd ? v.xsd.label : null, autres_alertes: v.alertes, non_controle: NOT_CHECKED };
     })(),
     synthese: r.synthese || null,
     controles: r.controles || [],
     regles_en16931: r.regles || null,
+    schema_xsd: r.xsd || null,
     suivi: { statut: review.status, commentaire: review.comment, lignes: review.lines },
   };
 }
