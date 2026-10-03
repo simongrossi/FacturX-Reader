@@ -23,7 +23,9 @@ async function main() {
     });
   }); }
   async function launch() {
-    const port = await freePort();
+    // Port imposé par l'intégration continue, où il est inscrit dans l'application à la compilation
+    // (voir checks.yml) : WebView2 y ignore la variable d'environnement ci-dessous.
+    const port = Number(process.env.FACTURX_DEBUG_PORT) || await freePort();
     child = spawn(exe, [], { windowsHide: true, env: { ...process.env,
       // Pointages et suivi dans le dossier jetable : jamais dans les données de l'utilisateur.
       FACTURX_DATA_DIR: dataDir,
@@ -46,6 +48,16 @@ async function main() {
       // Le moteur de rendu a-t-il seulement démarré ? Utile sur une machine d'intégration.
       let webviews = '?';
       try { webviews = require('node:child_process').execSync('tasklist /FI "IMAGENAME eq msedgewebview2.exe" /NH').toString().split('\n').filter(l => l.includes('msedgewebview2')).length; } catch {}
+      // Diagnostic : port réellement ouvert, arguments reçus par le moteur de rendu, ports en écoute.
+      const run = cmd => { try { return require('node:child_process').execSync(cmd, { encoding: 'utf8', timeout: 30000 }).trim(); } catch (e) { return 'échec : ' + String(e.message).split('\n')[0]; } };
+      const find = (dir, name, depth = 0) => { try { for (const e of fs.readdirSync(dir, { withFileTypes: true })) { const p = path.join(dir, e.name); if (e.name === name) return p; if (e.isDirectory() && depth < 3) { const f = find(p, name, depth + 1); if (f) return f; } } } catch {} return null; };
+      const active = find(path.join(root, 'webview'), 'DevToolsActivePort');
+      console.error('DIAG port demandé :', port);
+      console.error('DIAG DevToolsActivePort :', active ? active + ' => ' + fs.readFileSync(active, 'utf8').replace(/\s+/g, ' ') : 'absent');
+      console.error('DIAG dossier webview :', run(`cmd /c dir /b "${path.join(root, 'webview')}"`));
+      console.error('DIAG lignes de commande :\n' + run('powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \\"name=\'msedgewebview2.exe\'\\" | ForEach-Object { $_.ProcessId.ToString() + \' \' + $_.CommandLine.Substring(0, [Math]::Min(700, $_.CommandLine.Length)) }"'));
+      console.error('DIAG écoute :\n' + run('powershell -NoProfile -Command "Get-NetTCPConnection -State Listen | Where-Object { (Get-Process -Id $_.OwningProcess).ProcessName -match \'webview|facturx\' } | ForEach-Object { $_.LocalAddress + \':\' + $_.LocalPort + \' pid \' + $_.OwningProcess }"'));
+      console.error('DIAG env WEBVIEW2 :', Object.keys(process.env).filter(k => /WEBVIEW2/i.test(k)).map(k => k + '=' + process.env[k]).join(' ; ') || 'aucune dans le parent');
       throw new Error(`WebView2 non accessible ${attempts / 5} s après le lancement ; l'application tourne toujours, ${webviews} processus msedgewebview2. Dernière erreur : ${lastError}. ${stderr}`);
     }
     let page;

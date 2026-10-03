@@ -30,8 +30,14 @@ jobs:
           node-version: lts/*
           cache: npm
       - run: npm ci
+      # Sur cette machine, WebView2 ignore les arguments ajoutés de l'extérieur (variable
+      # d'environnement, registre) : le port de débogage dont le test a besoin est donc inscrit
+      # dans la configuration de la fenêtre, pour cette compilation de test seulement. Les
+      # installeurs publiés viennent du workflow Release, qui ne le fait pas.
       - name: Build native Windows application
         run: cargo build --manifest-path src-tauri/Cargo.toml
+        env:
+          TAURI_CONFIG: '{"app":{"windows":[{"label":"main","title":"Factur-X Reader","width":1440,"height":960,"minWidth":800,"minHeight":500,"resizable":true,"dragDropEnabled":false,"additionalBrowserArgs":"--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --remote-debugging-port=9333"}]}}'
       - name: WebView2 runtime
         shell: pwsh
         run: |
@@ -40,10 +46,8 @@ jobs:
                   'HKCU:\SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
           $found = $keys | Where-Object { Test-Path $_ } | ForEach-Object { (Get-ItemProperty $_).pv }
           if ($found) { "WebView2 $($found -join ', ')" } else { 'WebView2 runtime absent' }
-      # Passe en local ; sur la machine d'intégration, WebView2 ne répond pas encore au port de
-      # débogage. Non bloquant tant que la cause n'est pas trouvée : l'échec reste visible.
       - name: Test real Rust commands and WebView2
-        continue-on-error: true
         run: npm run test:native
         env:
-          FACTURX_LAUNCH_SECONDS: 90
+          FACTURX_LAUNCH_SECONDS: 60
+          FACTURX_DEBUG_PORT: 9333
