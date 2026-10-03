@@ -32,5 +32,15 @@ jobs:
       - run: npm ci
       - name: Build native Windows application
         run: cargo build --manifest-path src-tauri/Cargo.toml
+      - name: WebView2 runtime
+        shell: pwsh
+        run: |
+          $keys = 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}',
+                  'HKLM:\SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}',
+                  'HKCU:\SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
+          $found = $keys | Where-Object { Test-Path $_ } | ForEach-Object { (Get-ItemProperty $_).pv }
+          if ($found) { "WebView2 $($found -join ', ')" } else { 'WebView2 runtime absent' }
       - name: Test real Rust commands and WebView2
         run: npm run test:native
+        env:
+          FACTURX_LAUNCH_SECONDS: 90

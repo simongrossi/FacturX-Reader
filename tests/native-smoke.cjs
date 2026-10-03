@@ -29,14 +29,20 @@ async function main() {
       FACTURX_DATA_DIR: dataDir,
       WEBVIEW2_USER_DATA_FOLDER: path.join(root, 'webview'),
       WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port}`,
-    }, stdio: 'ignore' });
-    let launchError; child.on('error', error => { launchError = error; });
-    for (let i = 0; i < 100; i++) {
+    }, stdio: ['ignore', 'ignore', 'pipe'] });
+    let launchError, exited = null, stderr = '';
+    child.on('error', error => { launchError = error; });
+    child.on('exit', (code, signal) => { exited = { code, signal }; });
+    child.stderr.on('data', chunk => { stderr = (stderr + chunk).slice(-4000); });
+    // Premier lancement de WebView2 sur une machine d'intégration : nettement plus lent qu'en local.
+    const attempts = Number(process.env.FACTURX_LAUNCH_SECONDS || 20) * 5;
+    for (let i = 0; i < attempts; i++) {
       if (launchError) throw launchError;
+      if (exited) throw new Error(`L'application s'est arrêtée au lancement (code ${exited.code}, signal ${exited.signal}). ${stderr}`);
       try { browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`); break; }
       catch { await new Promise(resolve => setTimeout(resolve, 200)); }
     }
-    if (!browser) throw new Error('WebView2 non accessible après lancement.');
+    if (!browser) throw new Error(`WebView2 non accessible ${attempts / 5} s après le lancement ; l'application tourne toujours. ${stderr}`);
     let page;
     for (let i = 0; i < 100; i++) {
       page = browser.contexts().flatMap(context => context.pages()).find(page => page.url().includes('tauri.localhost'));
