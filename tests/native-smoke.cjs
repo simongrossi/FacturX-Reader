@@ -30,7 +30,7 @@ async function main() {
       WEBVIEW2_USER_DATA_FOLDER: path.join(root, 'webview'),
       WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port}`,
     }, stdio: ['ignore', 'ignore', 'pipe'] });
-    let launchError, exited = null, stderr = '';
+    let launchError, exited = null, stderr = '', lastError = '';
     child.on('error', error => { launchError = error; });
     child.on('exit', (code, signal) => { exited = { code, signal }; });
     child.stderr.on('data', chunk => { stderr = (stderr + chunk).slice(-4000); });
@@ -40,9 +40,14 @@ async function main() {
       if (launchError) throw launchError;
       if (exited) throw new Error(`L'application s'est arrêtée au lancement (code ${exited.code}, signal ${exited.signal}). ${stderr}`);
       try { browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`); break; }
-      catch { await new Promise(resolve => setTimeout(resolve, 200)); }
+      catch (error) { lastError = String(error.message || error).split('\n')[0]; await new Promise(resolve => setTimeout(resolve, 200)); }
     }
-    if (!browser) throw new Error(`WebView2 non accessible ${attempts / 5} s après le lancement ; l'application tourne toujours. ${stderr}`);
+    if (!browser) {
+      // Le moteur de rendu a-t-il seulement démarré ? Utile sur une machine d'intégration.
+      let webviews = '?';
+      try { webviews = require('node:child_process').execSync('tasklist /FI "IMAGENAME eq msedgewebview2.exe" /NH').toString().split('\n').filter(l => l.includes('msedgewebview2')).length; } catch {}
+      throw new Error(`WebView2 non accessible ${attempts / 5} s après le lancement ; l'application tourne toujours, ${webviews} processus msedgewebview2. Dernière erreur : ${lastError}. ${stderr}`);
+    }
     let page;
     for (let i = 0; i < 100; i++) {
       page = browser.contexts().flatMap(context => context.pages()).find(page => page.url().includes('tauri.localhost'));
