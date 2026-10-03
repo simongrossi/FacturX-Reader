@@ -568,7 +568,7 @@ test('règles EN 16931 affichées, filtrées dans le tableau, et impression', as
   await page.locator('#btn-control-report').click();
   await expect.poll(() => page.evaluate(() => window.__report?.report.regles_en16931?.non_conformes)).toBe(1);
   expect(await page.evaluate(() => window.__report.report.verdicts)).toEqual({ lecture: 'Lecture réussie', calculs: 'Calculs cohérents',
-    regles_en16931: '1 règle EN 16931 non respectée', schema_xsd: null, autres_alertes: 0, non_controle: ['conformité PDF/A-3 complète du fichier (ses déclarations et quelques points de structure sont contrôlés)', 'règles nationales autres que françaises (XRechnung, Peppol…)'] });
+    regles_en16931: '1 règle EN 16931 non respectée', schema_xsd: null, regles_francaises: null, autres_alertes: 0, non_controle: ['conformité PDF/A-3 complète du fichier (ses déclarations et quelques points de structure sont contrôlés)', 'règles nationales autres que françaises (XRechnung, Peppol…)'] });
   await page.locator('#tab-batch').click();
   await expect(page.locator('#batch-table tbody tr.batch-row')).toContainText('1 non respectée');
   await expect(page.locator('#batch-table tbody tr.batch-row')).toContainText('Cohérents');
@@ -743,12 +743,25 @@ test('Schematron officiel : verdicts respecté, non respecté, partiel et non é
   await expect(section).not.toContainText('Commission européenne');
 
   await open('ctc-fr.xml', { ...base, ok: true, jeu_regles: 'EXTENDED-CTC-FR (FNFE-MPE, réforme française)', version_regles: '1.4.0.04',
-    br_fr: { version: '1.4.0.04', non_conformes: 0, avertissements: 0 } });
+    br_fr: { version: '1.4.0.04', ok: true, non_conformes: 0, avertissements: 0, non_evaluables: [], erreurs: [] } });
   await expect(section).toContainText('Règles Schematron officielles du profil français EXTENDED-CTC-FR, v1.4.0.04 (FNFE-MPE, dépôt France_RFE)');
-  await expect(section).toContainText('Règles françaises BR-FR v1.4.0.04 appliquées en plus (facture de la réforme française) : toutes respectées.');
+  await expect(section).toContainText('Toutes les règles de la réforme française sont respectées');
+  await expect(verdicts).toContainText('Règles françaises BR-FR respectées');
+  // Règle française enfreinte : verdict à part, celui du Schematron reste « respecté ».
+  await open('br-fr.xml', { ...base, ok: true, br_fr: { version: '1.4.0.04', ok: false, non_conformes: 1, avertissements: 0, non_evaluables: [], erreurs: [
+    { id: 'BR-FR-05_BT-22_PMT', flag: 'fatal', texte: 'BR-FR-05/BT-22 : La mention relative aux frais de recouvrement (code PMT) est absente.', location: '/rsm:CrossIndustryInvoice/rsm:ExchangedDocument' },
+  ] } });
+  await expect(verdicts).toContainText('Schematron officiel respecté');
+  await expect(verdicts).toContainText('1 règle française BR-FR non respectée');
+  await expect(section).toHaveAttribute('open', '');
+  await expect(section).toContainText('Aucune règle bloquante enfreinte');
+  await expect(section.locator('#br-fr-rules')).toContainText('1 règle de la réforme française non respectée');
+  await expect(section.locator('tr.ctl-ecart')).toContainText('BR-FR-05_BT-22_PMT');
+  await expect(section).toContainText('ne changent pas celui du Schematron');
   // Facture hors réforme : aucune mention des règles françaises.
   await open('hors-reforme.xml', { ...base, ok: true });
   await expect(section).not.toContainText('BR-FR');
+  await expect(verdicts).not.toContainText('BR-FR');
 
   await open('enfreint.xml', { ...base, ok: false, non_conformes: 1, avertissements: 1, erreurs: [
     { id: 'BR-CO-15', flag: 'fatal', texte: '[BR-CO-15]-Invoice total amount with VAT = Invoice total amount without VAT + Invoice total VAT amount.', location: '/rsm:CrossIndustryInvoice' },
@@ -777,7 +790,7 @@ test('Schematron officiel : verdicts respecté, non respecté, partiel et non é
 
   // Le tableau reprend les verdicts.
   await page.locator('#tab-batch').click();
-  await expect(page.locator('#batch-table tbody tr.batch-row')).toHaveCount(9);
+  await expect(page.locator('#batch-table tbody tr.batch-row')).toHaveCount(10);
   expect(errors).toEqual([]);
 });
 

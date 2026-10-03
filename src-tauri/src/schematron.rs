@@ -57,8 +57,9 @@ const FX_EXTENDED: (&str, &str) = (
 const CTC_FR_VERSION: &str = "1.4.0.04";
 const CTC_FR_CII: &str = include_str!("../schematron/france/EXTENDED-CTC-FR-CII.sch");
 const CTC_FR_UBL: &str = include_str!("../schematron/france/EXTENDED-CTC-FR-UBL.sch");
-/// Regles BR-FR de la reforme francaise (meme depot, meme version) : appliquees en plus du
-/// jeu de regles du profil aux factures qui relevent de la reforme (voir `french_scope`).
+/// Regles BR-FR de la reforme francaise (meme depot, meme version) : evaluees en plus du jeu
+/// de regles du profil, avec leur propre verdict, pour les factures qui relevent de la reforme
+/// (voir `french_scope`).
 const BR_FR_CII: &str = include_str!("../schematron/france/BR-FR-Flux2-Schematron-CII.sch");
 const BR_FR_UBL: &str = include_str!("../schematron/france/BR-FR-Flux2-Schematron-UBL.sch");
 const CTC_FR_PROFILE: &str = "urn:cen.eu:en16931:2017#conformant#urn.cpro.gouv.fr:1p0:extended-ctc-fr";
@@ -183,28 +184,23 @@ fn french_scope(xml: &str, format: Format) -> bool {
     france(&["SellerTradeParty", "AccountingSupplierParty"]) && france(&["BuyerTradeParty", "AccountingCustomerParty"])
 }
 
-/// Ajoute au resultat du jeu de regles principal celui des regles BR-FR.
-fn merge_br_fr(result: &mut Value, extra: Value) {
+/// Joint au resultat du jeu de regles principal celui des regles BR-FR, sans les confondre :
+/// le verdict du Schematron reste celui du profil, les regles francaises ont le leur. Le
+/// critere de `french_scope` est une approximation de la reforme ; une facture qu'il retient
+/// a tort ne doit pas voir son verdict principal en patir.
+fn attach_br_fr(result: &mut Value, extra: Value) {
     if result["evalue"] != true || extra["evalue"] != true {
         return;
     }
-    for key in ["regles_declenchees", "total", "non_conformes", "avertissements", "non_compilees", "duree_ms"] {
-        result[key] = (result[key].as_u64().unwrap_or(0) + extra[key].as_u64().unwrap_or(0)).into();
-    }
-    for key in ["erreurs", "non_evaluables"] {
-        let more = extra[key].as_array().cloned().unwrap_or_default();
-        if let Some(list) = result[key].as_array_mut() {
-            list.extend(more);
-        }
-    }
-    if let Some(list) = result["erreurs"].as_array_mut() {
-        list.sort_by_key(|f| f["flag"] != "fatal");
-    }
-    result["ok"] = (result["non_conformes"] == 0 && result["non_evaluables"].as_array().is_some_and(Vec::is_empty)).into();
     result["br_fr"] = json!({
         "version": CTC_FR_VERSION,
+        "ok": extra["ok"],
+        "regles_declenchees": extra["regles_declenchees"],
         "non_conformes": extra["non_conformes"],
         "avertissements": extra["avertissements"],
+        "non_evaluables": extra["non_evaluables"],
+        "erreurs": extra["erreurs"],
+        "duree_ms": extra["duree_ms"],
     });
 }
 
@@ -1084,10 +1080,10 @@ fn worker(queue: Arc<Queue>) {
         // Un echec inattendu du moteur ne doit pas emporter le fil de travail.
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             let mut result = engines.entry(job.format).or_insert_with(|| Engine::new(job.format)).validate(&job.xml);
-            // Facture de la reforme francaise : les regles BR-FR s'ajoutent a celles du profil.
+            // Facture de la reforme francaise : les regles BR-FR sont evaluees en plus, a part.
             if french_scope(&job.xml, job.format) {
                 let extra = if job.format.is_cii() { Format::BrFrCii } else { Format::BrFrUbl };
-                merge_br_fr(&mut result, engines.entry(extra).or_insert_with(|| Engine::new(extra)).validate(&job.xml));
+                attach_br_fr(&mut result, engines.entry(extra).or_insert_with(|| Engine::new(extra)).validate(&job.xml));
             }
             result
         }))
@@ -1285,41 +1281,46 @@ mod tests {
         assert_eq!(replace_variable("$id = $idx or $id", "id", "(.)"), "(.) = $idx or (.)");
     }
 
-    /// Les regles BR-FR s'ajoutent pour une facture de la reforme francaise, et pour elle seule.
+    /// Les regles BR-FR sont evaluees pour une facture de la reforme francaise, et pour elle
+    /// seule ; leur resultat ne change pas le verdict du jeu de regles du profil.
     #[test]
     fn regles_br_fr_pour_les_factures_francaises() {
         let validator = Validator::new();
         let run = |xml: String, format: &str| validator.validate(xml, format, false, None);
+        let french = |report: &Value| -> Vec<String> {
+            report["br_fr"]["erreurs"].as_array().unwrap().iter().filter(|e| e["flag"] == "fatal").map(|e| e["id"].as_str().unwrap().to_string()).collect()
+        };
 
         // Exemples officiels : profil EXTENDED-CTC-FR, regles BR-FR respectees.
         for (xml, format) in [(FR_CII, "CII"), (FR_UBL, "UBL")] {
             let report = run(xml.trim_start_matches('\u{feff}').to_string(), format);
-            assert_eq!(report["br_fr"]["non_conformes"], 0, "{:?}", fatals(&report));
-            assert!(fatals(&report).is_empty() && report["non_evaluables"].as_array().unwrap().is_empty(), "{report}");
+            assert_eq!(report["br_fr"]["ok"], true, "{:?}", french(&report));
+            assert!(report["br_fr"]["non_evaluables"].as_array().unwrap().is_empty(), "{report}");
+            assert!(fatals(&report).is_empty(), "{report}");
         }
-        // Numero de facture trop long pour la reforme : BR-FR-01 s'ajoute aux regles du profil.
+        // Identifiant trop long pour la reforme : une regle BR-FR est enfreinte, le verdict du
+        // profil n'en est pas change et sa liste ne contient aucune regle BR-FR.
         let long = FR_CII.trim_start_matches('\u{feff}').replacen("<ram:ID>", "<ram:ID>0123456789012345678901234567890123456789", 1);
         let report = run(long, "CII");
-        assert!(fatals(&report).iter().any(|id| id.starts_with("BR-FR-")), "{:?}", fatals(&report));
-        assert!(report["br_fr"]["non_conformes"].as_u64().unwrap() >= 1);
-        assert_eq!(report["ok"], false);
+        assert!(french(&report).iter().any(|id| id.starts_with("BR-FR-")), "{:?}", french(&report));
+        assert_eq!(report["br_fr"]["ok"], false);
+        assert!(fatals(&report).iter().all(|id| !id.starts_with("BR-FR")), "{:?}", fatals(&report));
 
-        // Facture entre deux parties francaises, hors profil francais : BR-FR appliquees ; les
-        // mentions propres a la France lui manquent.
+        // Facture entre deux parties francaises, hors profil francais : BR-FR evaluees ; les
+        // mentions propres a la France lui manquent, son verdict EN 16931 reste respecte.
         let domestic = CII.replacen("<ram:CountryID>BE<", "<ram:CountryID>FR<", 1);
         assert_ne!(domestic, CII);
         assert!(french_scope(&domestic, Format::Cii));
         let report = run(domestic, "CII");
-        assert!(report["br_fr"]["non_conformes"].as_u64().unwrap() >= 1, "{report}");
-        assert!(fatals(&report).iter().any(|id| id.starts_with("BR-FR-05")), "{:?}", fatals(&report));
+        assert!(french(&report).iter().any(|id| id.starts_with("BR-FR-05")), "{:?}", french(&report));
+        assert_eq!(report["ok"], true, "{:?}", fatals(&report));
+        assert_eq!(report["non_conformes"], 0);
         // L'emplacement d'une regle enfreinte se lit de la racine vers l'element.
-        let location = report["erreurs"].as_array().unwrap().iter().find(|e| e["id"] == "BR-FR-05_BT-22_PMT").unwrap()["location"].as_str().unwrap();
+        let location = report["br_fr"]["erreurs"].as_array().unwrap().iter().find(|e| e["id"] == "BR-FR-05_BT-22_PMT").unwrap()["location"].as_str().unwrap();
         assert_eq!(location, "/rsm:CrossIndustryInvoice/rsm:ExchangedDocument");
         // Acheteur etranger (la facture de test) : la reforme ne s'applique pas, aucune regle BR-FR.
         assert!(!french_scope(CII, Format::Cii));
-        let report = run(CII.to_string(), "CII");
-        assert!(report["br_fr"].is_null());
-        assert!(fatals(&report).iter().all(|id| !id.starts_with("BR-FR")));
+        assert!(run(CII.to_string(), "CII")["br_fr"].is_null());
         // Exemple officiel de la Commission, vendeur et acheteur hors de France.
         assert!(!french_scope(UBL, Format::Ubl));
     }

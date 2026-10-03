@@ -123,7 +123,7 @@ function controlReport(f) {
     genere_le: new Date().toISOString(),
     verdicts: (() => {
       const v = invoiceVerdicts(f);
-      return { lecture: v.lecture.label, calculs: v.calculs.label, regles_en16931: v.regles.label, schema_xsd: v.xsd ? v.xsd.label : null, autres_alertes: v.alertes, non_controle: NOT_CHECKED };
+      return { lecture: v.lecture.label, calculs: v.calculs.label, regles_en16931: v.regles.label, schema_xsd: v.xsd ? v.xsd.label : null, regles_francaises: v.france ? v.france.label : null, autres_alertes: v.alertes, non_controle: NOT_CHECKED };
     })(),
     synthese: r.synthese || null,
     controles: r.controles || [],

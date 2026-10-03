@@ -1111,6 +1111,16 @@ function invoiceVerdicts(f, extraAlerts = 0) {
     schematron = { etat: "info", court: "En cours…", label: "Schematron officiel en cours…" };
   }
 
+  // Règles françaises BR-FR : verdict à part, en alerte et non en écart, leur périmètre étant approché.
+  let france = null;
+  const fr = r.schematron && r.schematron.br_fr;
+  if (fr) {
+    france = fr.non_conformes
+      ? { etat: "alerte", court: plural(fr.non_conformes, "règle") + " BR-FR", label: plural(fr.non_conformes, "règle") + " française" + (fr.non_conformes > 1 ? "s" : "") + " BR-FR non respectée" + (fr.non_conformes > 1 ? "s" : "") }
+      : (fr.non_evaluables || []).length ? { etat: "alerte", court: "BR-FR partiel", label: "Règles françaises BR-FR : évaluation partielle" }
+      : { etat: "conforme", court: "BR-FR respectées", label: "Règles françaises BR-FR respectées" };
+  }
+
   // Schéma XSD : celui du profil Factur-X ou du CII, ou celui d'UBL 2.1.
   let xsd = null;
   if (r.xsd && r.xsd.evalue) {
@@ -1141,7 +1151,7 @@ function invoiceVerdicts(f, extraAlerts = 0) {
   }
 
   const alertes = checks.filter((c) => c.famille !== "calcul" && (c.etat === "alerte" || c.etat === "ecart")).length + extraAlerts;
-  return { lecture: { etat: "conforme", court: "Lue", label: "Lecture réussie" }, calculs, regles, schematron, xsd, conteneur, alertes };
+  return { lecture: { etat: "conforme", court: "Lue", label: "Lecture réussie" }, calculs, regles, schematron, france, xsd, conteneur, alertes };
 }
 
 /* Bandeau de verdicts en tête de l'onglet Données. */
@@ -1162,6 +1172,7 @@ function verdictStrip(f) {
   chip(v.calculs);
   chip(v.regles);
   if (v.schematron) chip(v.schematron);
+  if (v.france) chip(v.france);
   if (v.xsd) chip(v.xsd);
   if (v.conteneur) chip(v.conteneur);
   if (v.alertes) chip({ etat: "alerte", label: v.alertes + " alerte" + (v.alertes > 1 ? "s" : "") });
@@ -1416,42 +1427,53 @@ function schematronSection(f) {
   sec.appendChild(sum);
 
   if (sch.erreurs && sch.erreurs.length) {
-    const table = document.createElement("table");
-    table.className = "ctl-table";
-    const tbody = document.createElement("tbody");
-    for (const err of sch.erreurs) {
-      const tr = document.createElement("tr");
-      tr.className = "ctl-row ctl-" + (err.flag === "warning" ? "alerte" : "ecart");
-      const tdState = document.createElement("td");
-      tdState.className = "ctl-etat";
-      tdState.appendChild(Object.assign(document.createElement("span"), {
-        className: "ctl-chip ctl-" + (err.flag === "warning" ? "alerte" : "ecart"),
-        textContent: err.id || (err.flag === "warning" ? "Avertissement" : "Non-conforme"),
-      }));
-      const tdText = document.createElement("td");
-      tdText.className = "ctl-rule";
-      tdText.textContent = err.texte;
-      if (err.location) {
-        tdText.appendChild(Object.assign(document.createElement("span"), {
-          className: "note",
-          textContent: "Emplacement : " + err.location,
-        }));
-      }
-      tr.appendChild(tdState);
-      tr.appendChild(tdText);
-      tbody.appendChild(tr);
-    }
-    table.appendChild(tbody);
-    sec.appendChild(table);
+    sec.appendChild(schematronTable(sch.erreurs));
   } else {
     const okP = document.createElement("p");
     okP.className = "notice";
     okP.style.color = "var(--ok)";
     okP.textContent = unevaluated.length ? "Aucune règle officielle enfreinte parmi celles qui ont pu être évaluées."
-      : "Aucune règle du Schematron officiel EN 16931 n'est enfreinte.";
+      : "Aucune règle du Schematron officiel n'est enfreinte.";
     if (unevaluated.length) okP.style.color = "";
     sec.appendChild(okP);
   }
+  schematronTail(sec, sch, unevaluated);
+  if (sch.br_fr && sch.br_fr.non_conformes) sec.open = true;
+  return sec;
+}
+
+/* Tableau des règles Schematron non respectées : identifiant, texte, emplacement. */
+function schematronTable(errors) {
+  const table = document.createElement("table");
+  table.className = "ctl-table";
+  const tbody = document.createElement("tbody");
+  for (const err of errors) {
+    const tr = document.createElement("tr");
+    tr.className = "ctl-row ctl-" + (err.flag === "warning" ? "alerte" : "ecart");
+    const tdState = document.createElement("td");
+    tdState.className = "ctl-etat";
+    tdState.appendChild(Object.assign(document.createElement("span"), {
+      className: "ctl-chip ctl-" + (err.flag === "warning" ? "alerte" : "ecart"),
+      textContent: err.id || (err.flag === "warning" ? "Avertissement" : "Non-conforme"),
+    }));
+    const tdText = document.createElement("td");
+    tdText.className = "ctl-rule";
+    tdText.textContent = err.texte;
+    if (err.location) {
+      tdText.appendChild(Object.assign(document.createElement("span"), {
+        className: "note",
+        textContent: "Emplacement : " + err.location,
+      }));
+    }
+    tr.appendChild(tdState);
+    tr.appendChild(tdText);
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+  return table;
+}
+
+function schematronTail(sec, sch, unevaluated) {
   if (unevaluated.length) {
     // Une valeur illisible (montant non numérique, par exemple) empêche d'évaluer certaines règles.
     sec.appendChild(Object.assign(document.createElement("p"), {
@@ -1472,12 +1494,28 @@ function schematronSection(f) {
     : "Règles Schematron officielles EN 16931 v" + (sch.version_regles || "") + " de la Commission européenne (EUPL 1.2), évaluées sur ce poste") +
     (sch.regles_declenchees ? " : " + sch.regles_declenchees + " contextes examinés" : "") +
     (sch.depuis_cache ? ", résultat repris de la bibliothèque" : sch.duree_ms != null ? " en " + sch.duree_ms + " ms" : "") + "." +
-    (sch.br_fr ? " Règles françaises BR-FR v" + sch.br_fr.version + " appliquées en plus (facture de la réforme française) : " +
-      (sch.br_fr.non_conformes ? sch.br_fr.non_conformes + " non respectée" + (sch.br_fr.non_conformes > 1 ? "s" : "") : "toutes respectées") + "." : "") +
     (sch.sur_xml_reindente ? " Le moteur n'a pas pu lire le XML d'origine : c'est sa version réindentée qui a été évaluée." : "");
   sec.appendChild(foot);
 
-  return sec;
+  // Règles françaises BR-FR : évaluées à part, sans effet sur le verdict du Schematron.
+  const fr = sch.br_fr;
+  if (fr) {
+    const nonEval = fr.non_evaluables || [];
+    const head = document.createElement("p");
+    head.id = "br-fr-rules";
+    head.className = "notice";
+    head.innerHTML = '<span class="ctl-chip ctl-' + (fr.non_conformes || nonEval.length ? "alerte" : "conforme") + '">Règles françaises BR-FR</span> ' +
+      esc(fr.non_conformes ? fr.non_conformes + " règle" + (fr.non_conformes > 1 ? "s" : "") + " de la réforme française non respectée" + (fr.non_conformes > 1 ? "s" : "")
+        : nonEval.length ? nonEval.length + " règle" + (nonEval.length > 1 ? "s" : "") + " non évaluable" + (nonEval.length > 1 ? "s" : "") + " : " + nonEval.join(", ")
+        : "Toutes les règles de la réforme française sont respectées");
+    sec.appendChild(head);
+    if (fr.erreurs && fr.erreurs.length) sec.appendChild(schematronTable(fr.erreurs));
+    sec.appendChild(Object.assign(document.createElement("p"), {
+      className: "verdict-note",
+      textContent: "Règles BR-FR v" + fr.version + " (FNFE-MPE, norme XP Z12-012), évaluées parce que la facture est au profil EXTENDED-CTC-FR ou que vendeur et acheteur sont en France. " +
+        "Ce critère ne tient pas compte des cas où la réforme ne s'applique pas (B2C, opérations hors obligation) : ces règles ont leur propre verdict et ne changent pas celui du Schematron.",
+    }));
+  }
 }
 
 function renderData(f) {
