@@ -601,6 +601,32 @@ npm run dev      # lance l'application en développement
 npm run build    # exécutable + installeurs dans src-tauri/target/release/bundle/
 ```
 
+### Développement sous macOS
+
+Rien n'a encore été vérifié sous macOS, hormis la construction de l'installeur par le workflow
+`Release` : ce qui suit est la marche à suivre attendue, à corriger au premier essai.
+
+```bash
+xcode-select --install          # outils de compilation, une fois
+# Rust : https://rustup.rs — Node.js : version LTS
+npm ci
+npm run dev                     # lance l'application
+cargo test --manifest-path src-tauri/Cargo.toml
+npx playwright install chromium
+npm run test:ui
+```
+
+- `npm run test:native` ne fonctionne que sous Windows : il pilote WebView2. Il n'a pas
+  d'équivalent macOS.
+- `samples/` (factures réelles) n'est pas dans le dépôt : sans ce dossier, le test
+  `tests/samples.rs` et les essais sur factures réelles sont sans effet. Copiez-le depuis le poste
+  d'origine si vous en avez besoin.
+- Les schémas XSD sont écrits dans le dossier temporaire du système le temps de leur chargement :
+  à vérifier sous macOS.
+- L'application installée depuis le `.dmg` n'est pas signée : au premier lancement, Gatekeeper la
+  bloque ; clic droit sur l'application, puis **Ouvrir**.
+- Données de l'application : `~/Library/Application Support/com.simongrossi.facturxreader/`.
+
 ### Structure
 
 ```

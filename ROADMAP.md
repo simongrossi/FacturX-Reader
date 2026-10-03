@@ -1,6 +1,6 @@
 # Roadmap
 
-Mise à jour : 3 octobre 2026, après la version 0.7.0 (travaux non publiés compris).
+Mise à jour : 4 octobre 2026, après la version 0.7.0 (travaux non publiés compris).
 Voir [CHANGELOG.md](CHANGELOG.md) pour le détail des versions, [README.md](README.md) pour
 l'utilisation et [VALIDATION.md](VALIDATION.md) pour le bilan de vérification P0.
 
@@ -8,7 +8,7 @@ l'utilisation et [VALIDATION.md](VALIDATION.md) pour le bilan de vérification P
 
 | Priorité | Thème | État |
 |---|---|---|
-| P0 | Valider l'existant | Presque terminé : reste macOS, Linux et l'installation des paquets |
+| P0 | Valider l'existant | Presque terminé : reste macOS (prochaine étape), Linux et l'installation des paquets |
 | P1 | Confort et fiabilité du moteur | Aux trois quarts : reste la provenance des valeurs, « Ouvrir avec », l'export Excel, les tests anonymisés |
 | P2 | Exploiter des lots de factures | Presque terminé : reste la recherche dans le PDF, le dossier surveillé, l'échéancier |
 | P3 | Conformité et distribution | Bien avancé : Schematron officiel (suite de tests officielle verte, résultat gardé entre sessions) et déclarations du conteneur ; reste PDF/A réel, règles nationales, signature des builds |
@@ -27,28 +27,49 @@ Versions publiées (pré-versions, builds non signés) :
 
 ## Prochaines étapes proposées
 
-Ordre guidé par le [comparatif](README.md#comparatif) : fermer d'abord les cases où Quba et
-Mustang font mieux, en commençant par ce qui réutilise le moteur existant.
+État au 4 octobre 2026 : `main` est à jour sur GitHub, CI verte (tests navigateur, tests Rust et
+test natif Windows). La 0.7.0 est publiée en pré-version ; la revue de code ci-dessous est
+postérieure et partira avec la version suivante.
 
-1. **Schematron, suite** (P3) : fait pour les profils Factur-X MINIMUM, BASIC WL, BASIC et
-   EXTENDED et pour le profil français EXTENDED-CTC-FR (CII et UBL), évalués avec leurs propres
-   règles, sur le XML d'origine, et pour les règles BR-FR de la réforme française. Reste : affiner
-   le périmètre des règles BR-FR (aujourd'hui : profil français, ou vendeur et acheteur en
-   France) et comparer ces jeux de règles à un moteur de référence.
-2. **Validation XSD, suite** (P3) : fait en Rust pur avec `uppsala`, pour le CII (schéma de
-   chaque profil Factur-X) et pour l'UBL 2.1. Reste : comparer le validateur à une référence
-   (Xerces ou libxml2) sur un grand jeu de documents, dont les exemples officiels Factur-X de
-   chaque profil.
-3. **Signature des builds** (P3) : hors comparatif, mais des installeurs non signés sont
-   distribués. Dépend d'un certificat Windows et d'un compte développeur Apple, à lancer en
-   parallèle.
-4. **Conteneur PDF/A-3** (P3) : sept contrôles réels partiels faits (chiffrement, profil de
-   sortie, polices incorporées, identifiant, scripts, métadonnées Factur-X, pièce jointe). Une
-   validation ISO 19005-3 complète reste le métier de veraPDF ; à décider : l'étendre ou non.
-5. **Fin de P1** : provenance des valeurs, « Ouvrir avec » et instance unique, export Excel natif.
+1. **Vérifier l'application sous macOS** (P0). Personne n'a encore installé un installeur publié
+   ni lancé l'application hors de Windows. Sur un Mac : installer le `.dmg` de la 0.7.0, ouvrir
+   une facture PDF et un XML, puis lancer `npm run dev`, `cargo test` et `npm run test:ui` (voir
+   [README](README.md#développement-sous-macos)). Noter ce qui diffère : menus, raccourcis,
+   glisser-déposer, impression, dossier de données, avertissement Gatekeeper.
+2. **Publier une 0.7.1** avec la revue de code, une fois le point 1 fait.
+3. **Comparer à une référence** les règles Factur-X, les règles françaises et le validateur XSD
+   (P3). Leur seul repère est qu'aucun des 41 exemples officiels ne les enfreint. Le dépôt
+   France_RFE fournit les feuilles XSLT officielles, qu'un moteur de référence peut exécuter sur
+   les mêmes fichiers ; Xerces ou libxml2 pour le XSD.
+4. **Suite de la revue de code** : expliquer chaque anomalie (valeur lue, valeur attendue,
+   vérification à faire) ; ne plus refuser un PDF entier pour une pièce jointe secondaire trop
+   volumineuse ; poursuivre le découpage de `app.js` et de `facturx.rs`.
+5. **Signature des builds** (P3) : dépend d'un certificat Windows et d'un compte développeur
+   Apple, à lancer en parallèle.
+6. **Affiner le périmètre des règles BR-FR** (B2C, opérations hors obligation, calendrier).
+7. **Fin de P1** : provenance des valeurs, « Ouvrir avec » et instance unique, export Excel natif.
+8. **Bibliothèque `facturx-core`** (P4) : le moteur est assez complet pour être extrait ; à
+   décider d'abord, la licence sous laquelle le publier.
 
-Non prioritaires : la conversion CII ↔ UBL (gros chantier, peu utile à un lecteur) et la création
-de factures (hors périmètre).
+Non prioritaires : une validation PDF/A-3 complète (métier de veraPDF), la conversion CII ↔ UBL
+(gros chantier, peu utile à un lecteur) et la création de factures (hors périmètre).
+
+### Revue de code du 3 octobre 2026
+
+Revue faite sur le code seul, sans lire la documentation. Les six points ont été vérifiés dans
+le code, puis traités ; ils ne figurent pas dans la 0.7.0.
+
+| # | Constat | État | Reste à faire |
+|---|---|---|---|
+| 1 | Contrôles non unifiés entre la fiche, le tableau et le rapport JSON | Fait : `web/controls.js` calcule les verdicts pour les trois ; colonnes et filtres Schematron, XSD, règles françaises, conteneur ; rapport JSON complet | — |
+| 2 | Filtres de la bibliothèque appliqués après la limite de 1000 résultats | Fait : filtres dans SQLite, nombre exact, pagination ; testé sur 1002 factures | Essai sur des milliers de factures réelles |
+| 3 | Imports volumineux ou ambigus | Fait : plafonds après décompression (32 Mo pour le XML, 2000 entrées par archive), choix explicite du XML et du PDF dans une archive ambiguë | Un PDF dont une pièce jointe secondaire dépasse le plafond est refusé en entier |
+| 4 | Facture déposée impossible à rouvrir depuis la bibliothèque | Fait : « Retrouver le fichier », avec vérification de l'empreinte du XML ; aucun original copié | — |
+| 5 | Faire ressortir ce qui demande une action | Fait en partie : synthèse en tête de fiche, avec accès direct aux blocs | Expliquer chaque anomalie : valeur lue, valeur attendue, vérification à faire |
+| 6 | Tests entre l'interface et le moteur réel | Fait : test natif lancé par la CI, bloquant, avec bibliothèque filtrée, rapport complet, réassociation et plafond de décompression | Scénario natif pour l'archive ambiguë (couvert par les tests Rust et navigateur) |
+
+Découpage du code : `web/controls.js`, `web/imports.js` et `src/facturx/imports.rs` sont sortis
+de `app.js` et de `facturx.rs`. Le reste est à faire au fil des chantiers.
 
 ### Écarts avec le comparatif
 
