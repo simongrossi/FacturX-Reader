@@ -609,8 +609,9 @@ npm run build    # exécutable + installeurs dans src-tauri/target/release/bundl
 
 ### Développement sous macOS
 
-Rien n'a encore été vérifié sous macOS, hormis la construction de l'installeur par le workflow
-`Release` : ce qui suit est la marche à suivre attendue, à corriger au premier essai.
+Un essai manuel sous macOS a confirmé le bon fonctionnement général le 4 octobre 2026.
+Quelques détails de présentation restent à améliorer. Cet essai ne constitue pas une
+vérification exhaustive des fonctions ni des installeurs ; voici les commandes de développement.
 
 ```bash
 xcode-select --install          # outils de compilation, une fois
@@ -781,6 +782,6 @@ Voir [ROADMAP.md](ROADMAP.md) pour les évolutions envisagées et [CHANGELOG.md]
 pour l'historique.
 
 [VALIDATION.md](VALIDATION.md) dit ce qui a été vérifié pour la version courante, ce qui ne l'a
-pas été (installeurs, macOS, Linux) et les limites de ce que l'application affirme.
+pas été (installeurs, vérification exhaustive macOS, Linux) et les limites de ce que l'application affirme.
 [NOTICE.md](NOTICE.md) détaille les licences, dont celle des règles de validation officielles.
 [COMPARATIF.md](COMPARATIF.md) situe l'application face aux autres outils locaux.

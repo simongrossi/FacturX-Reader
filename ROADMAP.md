@@ -1,6 +1,6 @@
 # Roadmap
 
-Mise à jour : 4 octobre 2026, après la version 0.7.0 (travaux non publiés compris).
+Mise à jour : 4 octobre 2026, préparation de la version 0.7.1.
 Voir [CHANGELOG.md](CHANGELOG.md) pour le détail des versions, [README.md](README.md) pour
 l'utilisation, [VALIDATION.md](VALIDATION.md) pour le bilan de vérification P0 et
 [COMPARATIF.md](COMPARATIF.md) pour le bilan face aux autres outils.
@@ -9,7 +9,7 @@ l'utilisation, [VALIDATION.md](VALIDATION.md) pour le bilan de vérification P0 
 
 | Priorité | Thème | État |
 |---|---|---|
-| P0 | Valider l'existant | Presque terminé : reste macOS (prochaine étape), Linux et l'installation des paquets |
+| P0 | Valider l'existant | Presque terminé : essai macOS positif ; reste la vérification exhaustive, Linux et l’installation des paquets |
 | P1 | Confort et fiabilité du moteur | Aux trois quarts : reste la provenance des valeurs, « Ouvrir avec », l'export Excel, les tests anonymisés |
 | P2 | Exploiter des lots de factures | Presque terminé : reste la recherche dans le PDF, le dossier surveillé, l'échéancier |
 | P3 | Conformité et distribution | Bien avancé : Schematron officiel (suite de tests officielle verte, résultat gardé entre sessions) et déclarations du conteneur ; reste PDF/A réel, règles nationales, signature des builds |
@@ -28,16 +28,14 @@ Versions publiées (pré-versions, builds non signés) :
 
 ## Prochaines étapes proposées
 
-État au 4 octobre 2026 : `main` est à jour sur GitHub, CI verte (tests navigateur, tests Rust et
-test natif Windows). La 0.7.0 est publiée en pré-version ; la revue de code ci-dessous est
-postérieure et partira avec la version suivante.
+État au 4 octobre 2026 : la 0.7.0 est publiée en pré-version. L’utilisateur confirme le bon
+fonctionnement général sous macOS ; quelques détails de présentation restent à améliorer.
+La revue de code postérieure à la 0.7.0 est intégrée dans la préparation de la 0.7.1.
 
-1. **Vérifier l'application sous macOS** (P0). Personne n'a encore installé un installeur publié
-   ni lancé l'application hors de Windows. Sur un Mac : installer le `.dmg` de la 0.7.0, ouvrir
-   une facture PDF et un XML, puis lancer `npm run dev`, `cargo test` et `npm run test:ui` (voir
-   [README](README.md#développement-sous-macos)). Noter ce qui diffère : menus, raccourcis,
-   glisser-déposer, impression, dossier de données, avertissement Gatekeeper.
-2. **Publier une 0.7.1** avec la revue de code, une fois le point 1 fait.
+1. **Publier une 0.7.1** avec la revue de code, après les vérifications de cette version.
+2. **Compléter la validation des plateformes** (P0) : essai macOS général fait ; restent les
+   vérifications détaillées (menus, raccourcis, glisser-déposer, impression, persistance),
+   Linux et l’installation documentée des paquets publiés.
 3. **Comparer à une référence** les règles Factur-X, les règles françaises et le validateur XSD
    (P3). Leur seul repère est qu'aucun des 41 exemples officiels ne les enfreint. Le dépôt
    France_RFE fournit les feuilles XSLT officielles, qu'un moteur de référence peut exécuter sur
@@ -108,7 +106,8 @@ lot avec historique et suivi. Ce qui en ressort pour le plan :
   CI verte sur `main` depuis la correction de la reprise de session (0.3.0).
 - [x] Test natif Windows sur le vrai exécutable : tableau, contrôles, vue côte à côte, suivi (0.4.0).
 - [x] Test natif Windows sur la machine d'intégration : lancé par la CI à chaque push, bloquant.
-- [ ] Vérification native macOS et Linux sur les machines correspondantes.
+- [x] Essai manuel général macOS : fonctionnement confirmé par l’utilisateur le 4 octobre 2026.
+- [ ] Vérification native détaillée macOS et Linux sur les machines correspondantes.
 - [ ] Installation et lancement réels des installeurs produits (`.exe`, `.msi`, `.dmg`, paquets Linux).
 
 ## P1 — Confort et fiabilité du moteur

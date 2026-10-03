@@ -166,7 +166,7 @@ test('PDF multipage : zoom et position après changement de vue et rechargement'
   await page.locator('#pdf-zoom').selectOption('1.5');
   await page.waitForFunction(() => getFile(state.selected)?.rendered.pdf && state.zoom === 1.5 && !workspaceScrollTarget);
   await page.evaluate(() => { document.querySelector('.main').scrollTop = 650; });
-  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('fx-workspace')).files[0].view.scroll.pdf)).toBe(650);
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('fx-workspace'))?.files[0]?.view?.scroll?.pdf)).toBe(650);
   await page.getByRole('button', { name: 'XML brut', exact: true }).click();
   await page.getByRole('button', { name: 'PDF', exact: true }).click();
   await expect.poll(() => page.evaluate(() => document.querySelector('.main').scrollTop)).toBe(650);

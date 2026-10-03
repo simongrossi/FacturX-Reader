@@ -1,6 +1,6 @@
-# Validation — version 0.7.0, 3 octobre 2026
+# Validation — version 0.7.1, 4 octobre 2026
 
-Bilan de ce qui a été vérifié avant la publication, et de ce qui ne l'a pas été.
+Bilan de ce qui a été vérifié pour cette version, et de ce qui ne l'a pas été.
 Les commandes sont décrites dans [README.md](README.md#tests).
 
 ## Vérifications réalisées
@@ -8,11 +8,12 @@ Les commandes sont décrites dans [README.md](README.md#tests).
 | Vérification | Résultat / portée |
 |---|---|
 | `npm run check:js` | Syntaxe de tous les scripts de l'interface |
-| `npm run test:rust` | 62 tests unitaires : bibliothèque (filtres avant pagination sur 1002 factures, réassociation par empreinte), imports (archive ambiguë, plafonds de décompression), exemples officiels français, règles BR-FR (fonctions, périmètre), conteneur PDF (déclarations, sept contrôles de structure), schéma XSD (XML d'origine validé, chargement des huit schémas, facture et avoir UBL, choix d'après le profil, exemple officiel valide, élément inconnu, attribut inconnu, montant non numérique, jamais « valide » sans évaluation), Schematron officiel (compilation de toutes les règles, suite de tests officielle de la Commission, exemples officiels, règles enfreintes, file de travail, résultat repris de la bibliothèque entre deux sessions, résultats identiques avec et sans optimisations), moteur UBL/CII, contrôles en décimaux exacts, règles EN 16931, conteneur PDF (déclarations lues, écarts), pointages et suivi (corruption, sauvegarde, restauration, fusion), bibliothèque SQLite |
-| Test Rust `samples.rs` | Factures réelles locales, hors dépôt : toutes analysées, sauf celles marquées sans XML |
-| `npm run test:ui` | 18 scénarios navigateur (Edge le 3 octobre ; Chromium par la CI), commandes Rust simulées, PDF.js réel |
+| `npm run test:rust` | 62 tests unitaires réussis sous macOS le 4 octobre (3 tests longs ignorés) : bibliothèque (filtres avant pagination sur 1002 factures, réassociation par empreinte), imports (archive ambiguë, plafonds de décompression), exemples officiels français, règles BR-FR (fonctions, périmètre), conteneur PDF (déclarations, sept contrôles de structure), schéma XSD (XML d'origine validé, chargement des huit schémas, facture et avoir UBL, choix d'après le profil, exemple officiel valide, élément inconnu, attribut inconnu, montant non numérique, jamais « valide » sans évaluation), Schematron officiel (compilation de toutes les règles, suite de tests officielle de la Commission, exemples officiels, règles enfreintes, file de travail, résultat repris de la bibliothèque entre deux sessions, résultats identiques avec et sans optimisations), moteur UBL/CII, contrôles en décimaux exacts, règles EN 16931, conteneur PDF (déclarations lues, écarts), pointages et suivi (corruption, sauvegarde, restauration, fusion), bibliothèque SQLite |
+| Test Rust `samples.rs` | Factures réelles vérifiées sur le poste d’origine ; sous macOS le 4 octobre, test sans effet car `samples/` est absent |
+| `npm run test:ui` | 18 scénarios navigateur (Edge le 3 octobre ; Chromium sous macOS le 4 octobre et par la CI), commandes Rust simulées, PDF.js réel |
 | `npm run test:native` | Vrai exécutable Windows, vraies commandes Rust, profil WebView2 et dossier de données jetables. Vert en local et sur la machine de GitHub |
-| Workflow `Checks` | Tests navigateur (Linux) et Rust (Windows) et test natif Windows verts sur `main` |
+| Workflow `Checks` | Tests navigateur (Linux), Rust (Windows) et test natif Windows verts sur `main` avant la préparation de la 0.7.1 |
+| Essai manuel macOS (4 octobre 2026) | Fonctionnement général confirmé par l’utilisateur ; détails de présentation à améliorer. Fonctions précises et mode d’installation non documentés |
 | Workflow `Release` | Installeurs Windows, macOS et Linux construits à chaque tag |
 
 ### Ce que couvre le test natif Windows
@@ -107,9 +108,10 @@ remontent des écarts de ligne, le prix unitaire et les frais déclarés ne redo
 
 ## Non vérifié
 
-- **Installeurs** : aucun `.exe`, `.msi`, `.dmg` ni paquet Linux téléchargé n'a été installé ni
-  lancé. Les tests portent sur l'exécutable de développement. Les builds ne sont pas signés.
-- **macOS et Linux** : aucun test natif ; seule la compilation des installeurs est constatée.
+- **Installeurs** : installation des paquets publiés non documentée ; le mode de lancement
+  de l’essai macOS n’est pas précisé. Les builds ne sont pas signés.
+- **macOS** : essai manuel général positif ; vérification exhaustive et test natif automatisé non réalisés.
+- **Linux** : aucun test natif ; seule la compilation des installeurs est constatée.
 - **Impression** : la mise en page est vérifiée en navigateur ; la boîte d'impression native
   n'a pas été ouverte, et le comportement sous macOS est inconnu.
 - **Reprise du suivi de la 0.4.0** (stockage de la WebView vers `suivi.json`) : testée en

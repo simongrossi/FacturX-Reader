@@ -5,6 +5,8 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 
 ## [Non publié]
 
+## [0.7.1] - 2026-10-04
+
 ### Ajouté
 
 - **Synthèse des vérifications** en tête de l'onglet Données : nombre de familles de contrôles à
@@ -24,6 +26,8 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 
 ### Corrigé
 
+- **Tests d’interface** : le scénario de reprise du PDF attend la sauvegarde différée de la
+  position avant de la lire, y compris sous macOS.
 - **Bibliothèque** : les filtres de date, de montant et de fournisseur étaient appliqués après la
   limite de 1000 résultats ; une facture au-delà de la millième restait introuvable. Ils sont
   appliqués dans la base, et le nombre de résultats affiché est exact.
