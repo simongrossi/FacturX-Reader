@@ -8,7 +8,7 @@ Les commandes sont décrites dans [README.md](README.md#tests).
 | Vérification | Résultat / portée |
 |---|---|
 | `npm run check:js` | Syntaxe de tous les scripts de l'interface |
-| `npm run test:rust` | 39 tests unitaires : Schematron officiel (compilation de toutes les règles, exemples officiels, règles enfreintes, file de travail, résultat repris de la bibliothèque entre deux sessions), moteur UBL/CII, contrôles en décimaux exacts, règles EN 16931, conteneur PDF (déclarations lues, écarts), pointages et suivi (corruption, sauvegarde, restauration, fusion), bibliothèque SQLite |
+| `npm run test:rust` | 42 tests unitaires : Schematron officiel (compilation de toutes les règles, suite de tests officielle de la Commission, exemples officiels, règles enfreintes, file de travail, résultat repris de la bibliothèque entre deux sessions, résultats identiques avec et sans optimisations), moteur UBL/CII, contrôles en décimaux exacts, règles EN 16931, conteneur PDF (déclarations lues, écarts), pointages et suivi (corruption, sauvegarde, restauration, fusion), bibliothèque SQLite |
 | Test Rust `samples.rs` | Factures réelles locales, hors dépôt : toutes analysées, sauf celles marquées sans XML |
 | `npm run test:ui` | 13 scénarios navigateur sous Chromium et Edge, commandes Rust simulées, PDF.js réel |
 | `npm run test:native` | Vrai exécutable Windows, vraies commandes Rust, profil WebView2 et dossier de données jetables |
@@ -31,6 +31,11 @@ démarrage, laissés intacts à l'écriture, puis restaurés depuis une sauvegar
   `BR-CO-15` ; un acheteur sans nom, `BR-07` ; une facture UBL sans date, `BR-03`.
 - Un XML sans rapport avec une facture, une facture CII soumise aux règles UBL ou un texte qui
   n'est pas du XML sont « non évalués », jamais « respectés ».
+- **Suite de tests officielle** de la Commission (v1.3.16, embarquée dans
+  `src-tauri/schematron/tests-officiels`) : 1169 cas, tous au résultat attendu — règle respectée,
+  enfreinte ou signalée en avertissement selon le cas, et aucune règle bloquante sur les 30
+  factures complètes. Exécutée à chaque `cargo test`, donc par la CI. Elle couvre surtout UBL :
+  la Commission n'y fournit que deux fichiers CII.
 - **Comparaison avec SaxonJS**, moteur XSLT de référence, faite une fois hors dépôt sur 583
   documents : 32 exemples officiels, 19 factures réelles et leurs variantes abîmées (un élément
   supprimé ou une valeur altérée). 304 documents enfreignaient au moins une règle bloquante, 93
@@ -60,8 +65,6 @@ remontent des écarts de ligne, le prix unitaire et les frais déclarés ne redo
 - **Schematron sur un gros dossier** : la file d'attente est testée avec 500 documents simulés,
   pas avec 500 vraies factures.
 - **Schematron en version de développement** : nettement plus lent qu'en version optimisée.
-- **Suite de tests officielle** de la Commission (un fichier par règle) : non exécutée ; la
-  comparaison avec SaxonJS en tient lieu pour l'instant.
 - **Conteneur PDF** : testé sur des PDF minimaux construits pour les tests et sur les factures
   réelles locales, pas sur des PDF protégés, chiffrés ou très volumineux.
 

@@ -14,8 +14,21 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 - **Liste des documents ouverts** : le chevron de la barre d'onglets ou `Ctrl+E` ouvre une liste
   filtrable au clavier. La molette fait défiler les onglets.
 
+- **Suite de tests officielle** de la Commission (1169 cas) exécutée à chaque `cargo test` :
+  chaque règle donne le résultat attendu.
+
+### Corrigé
+
+- Schematron : une règle de la forme « A et B » dont la seconde moitié ne pouvait pas être
+  calculée était classée « non évaluable » même quand la première était déjà fausse ; elle est
+  maintenant signalée comme enfreinte, comme le font les moteurs de référence (cas `BR-CO-15`
+  avec deux totaux de TVA dans la même devise).
+
 ### Modifié
 
+- **Schematron plus rapide** : les contextes des règles sont trouvés en un seul parcours du
+  document, et les assertions qui ne dépendent pas de la ligne ne sont évaluées qu'une fois.
+  Résultats identiques à l'évaluation d'origine sur 302 factures réelles et variantes.
 - **Accueil** : cinq documents récents, « Plus… » pour la liste complète, croix pour en retirer un.
 - Compilation de développement allégée : dépendances sans informations de débogage et
   bibliothèque liée une seule fois (cibles mobiles de Tauri abandonnées).

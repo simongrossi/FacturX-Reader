@@ -146,7 +146,8 @@ Versions publiées (pré-versions, builds non signés) :
   session à l'autre (mêmes règles, même version de l'application).
 - [ ] Schematron plus rapide : jusqu'à cinq secondes sur une facture de plus de cent lignes
   (contextes et assertions réévalués sur tout le document).
-- [ ] Intégrer la suite de tests officielle du dépôt de la Commission à la CI.
+- [x] Suite de tests officielle de la Commission embarquée et exécutée par `cargo test`, donc
+  par la CI : 1169 cas, tous au résultat attendu.
 - [ ] Schematron des profils Factur-X (MINIMUM, BASIC WL, BASIC, EXTENDED), pour ne plus évaluer
   ces profils avec les seules règles EN 16931.
 - [ ] Valider le XML d'origine plutôt que sa version réindentée.
