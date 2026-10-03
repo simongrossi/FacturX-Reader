@@ -31,23 +31,28 @@ Versions publiées (pré-versions, builds non signés) :
 fonctionnement général sous macOS ; quelques détails de présentation restent à améliorer.
 La revue de code postérieure à la 0.7.0 est intégrée dans la préparation de la 0.7.1.
 
+**Comparaison des validateurs terminée localement** (P3) : 955 XML, accord avec SaxonC-HE pour les profils
+Factur-X et les règles françaises, et avec libxml2 pour les huit schémas XSD. Le problème
+des montants UBL non numériques a été corrigé. Test reproductible et job CI ajoutés ;
+[bilan et limites](tests/reference/REPORT.md). Reste à examiner séparément la variante
+EXTENDED fix-FR04 de France_RFE et à remplacer le correctif `uppsala` épinglé par une version publiée.
+
+Travaux poussés : [préparation 0.7.1 (#1)](https://github.com/simongrossi/FacturX-Reader/pull/1)
+et [comparaison et correctifs (#2)](https://github.com/simongrossi/FacturX-Reader/pull/2).
+La PR #2 dépend de la première ; attendre les jobs CI avant fusion et publication.
+
 1. **Publier une 0.7.1** avec la revue de code, après les vérifications de cette version.
 2. **Compléter la validation des plateformes** (P0) : essai macOS général fait ; restent les
    vérifications détaillées (menus, raccourcis, glisser-déposer, impression, persistance),
    Linux et l’installation documentée des paquets publiés.
-3. **Comparaison des validateurs faite** (P3) : 955 XML, accord avec SaxonC-HE pour les profils
-   Factur-X et les règles françaises, et avec libxml2 pour les huit schémas XSD. Le problème
-   des montants UBL non numériques a été corrigé. Test reproductible et job CI ajoutés ;
-   [bilan et limites](tests/reference/REPORT.md). Reste à examiner séparément la variante
-   EXTENDED fix-FR04 de France_RFE et à remplacer le correctif `uppsala` épinglé par une version publiée.
-4. **Suite de la revue de code** : expliquer chaque anomalie (valeur lue, valeur attendue,
+3. **Suite de la revue de code** : expliquer chaque anomalie (valeur lue, valeur attendue,
    vérification à faire) ; ne plus refuser un PDF entier pour une pièce jointe secondaire trop
    volumineuse ; poursuivre le découpage de `app.js` et de `facturx.rs`.
-5. **Signature des builds** (P3) : dépend d'un certificat Windows et d'un compte développeur
+4. **Signature des builds** (P3) : dépend d'un certificat Windows et d'un compte développeur
    Apple, à lancer en parallèle.
-6. **Affiner le périmètre des règles BR-FR** (B2C, opérations hors obligation, calendrier).
-7. **Fin de P1** : provenance des valeurs, « Ouvrir avec » et instance unique, export Excel natif.
-8. **Bibliothèque `facturx-core`** (P4) : le moteur est assez complet pour être extrait ; à
+5. **Affiner le périmètre des règles BR-FR** (B2C, opérations hors obligation, calendrier).
+6. **Fin de P1** : provenance des valeurs, « Ouvrir avec » et instance unique, export Excel natif.
+7. **Bibliothèque `facturx-core`** (P4) : le moteur est assez complet pour être extrait ; à
    décider d'abord, la licence sous laquelle le publier.
 
 Non prioritaires : une validation PDF/A-3 complète (métier de veraPDF), la conversion CII ↔ UBL

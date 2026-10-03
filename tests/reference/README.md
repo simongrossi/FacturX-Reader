@@ -95,3 +95,12 @@ qui est retenu comme référence reproductible. SaxonJS ne fait pas partie des d
 Les références restent des outils de test. L'application conserve son moteur Rust hors ligne.
 Le correctif `uppsala` est épinglé au [commit amont de la PR #44](https://github.com/kushaldas/uppsala/pull/44)
 jusqu'à la publication d'une version contenant la correction des contenus simples hérités.
+
+## Suivi du correctif `uppsala`
+
+Pour revenir à une dépendance publiée, vérifier que la version retenue contient le correctif
+#44, mettre à jour la dépendance `uppsala`, retirer son entrée de `[patch.crates-io]`, puis
+mettre à jour `Cargo.lock`. Rejouer `npm run test:rust` et le corpus complet
+`npm run test:reference` dans l'environnement Python avant de pousser. L'accord avec libxml2
+sur les valeurs UBL invalides et sur les décimaux limites doit être conservé ; mettre ensuite
+à jour le bilan et les empreintes de `verified-summary.json` à partir de cette exécution.

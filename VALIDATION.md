@@ -3,6 +3,20 @@
 Bilan de ce qui a été vérifié pour cette version, et de ce qui ne l'a pas été.
 Les commandes sont décrites dans [README.md](README.md#tests).
 
+## Livraison et vérification distante
+
+Les changements sont poussés dans deux PR successives :
+[préparation de la 0.7.1 (#1)](https://github.com/simongrossi/FacturX-Reader/pull/1), puis
+[comparaison des validateurs et corrections XSD (#2)](https://github.com/simongrossi/FacturX-Reader/pull/2).
+La seconde repose sur la branche de la première ; ces travaux ne sont pas encore fusionnés
+dans `main` ni distribués dans une version publiée.
+
+Au dernier contrôle du 4 octobre, les tests navigateur de la PR #2 passent ; les jobs Rust
+(avec test natif Windows) et de comparaison aux références sont encore en cours.
+Le [workflow de la PR](https://github.com/simongrossi/FacturX-Reader/actions/runs/37161486957)
+donne leur état actuel et les rapports téléchargeables. Les résultats locaux détaillés restent
+consultables dans [tests/reference/REPORT.md](tests/reference/REPORT.md).
+
 ## Vérifications réalisées
 
 | Vérification | Résultat / portée |
