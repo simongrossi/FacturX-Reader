@@ -38,9 +38,11 @@ des montants UBL non numériques a été corrigé. Test reproductible et job CI 
 [bilan et limites](tests/reference/REPORT.md). Reste à examiner séparément la variante
 EXTENDED fix-FR04 de France_RFE et à remplacer le correctif `uppsala` épinglé par une version publiée.
 
-Travaux poussés : [préparation 0.7.1 (#1)](https://github.com/simongrossi/FacturX-Reader/pull/1)
+Travaux fusionnés dans `main` : [préparation 0.7.1 (#1)](https://github.com/simongrossi/FacturX-Reader/pull/1)
 et [comparaison et correctifs (#2)](https://github.com/simongrossi/FacturX-Reader/pull/2).
-La PR #2 dépend de la première ; attendre les jobs CI avant fusion et publication.
+Les deux PR sont intégrées, avec leurs contrôles CI verts. Les anciennes branches sont
+archivées ou déjà intégrées ; voir [l’inventaire](docs/BRANCHES.md). La prochaine livraison
+reste à publier après le contrôle de `main`.
 
 1. **Publier une 0.7.1** avec la revue de code, après les vérifications de cette version.
 2. **Compléter la validation des plateformes** (P0) : essai macOS général fait ; restent les

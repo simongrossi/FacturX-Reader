@@ -83,5 +83,6 @@ aucune facture réelle sur ce poste, car `samples/` est absent.
   SaxonC est la référence retenue ; aucun échec de SaxonJS n'a été interprété comme un accord.
 - Le périmètre juridique BR-FR (B2C, exceptions et calendrier) et la conformité PDF/A-3 complète
   restent hors de cette comparaison.
-- Le job `reference` est ajouté au workflow `Checks`. Ce bilan rapporte l'exécution locale ;
-  il ne présume pas du résultat de la prochaine CI.
+- Le job `reference` du workflow `Checks` a également réussi sur la PR #2, comme les tests
+  navigateur et natifs Windows : [exécution CI](https://github.com/simongrossi/FacturX-Reader/actions/runs/37161670374).
+  Les travaux sont fusionnés dans `main` ; ce bilan reste daté de la comparaison effectuée.

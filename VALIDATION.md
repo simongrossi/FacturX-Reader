@@ -5,17 +5,16 @@ Les commandes sont décrites dans [README.md](README.md#tests).
 
 ## Livraison et vérification distante
 
-Les changements sont poussés dans deux PR successives :
+Les deux PR sont fusionnées dans `main` :
 [préparation de la 0.7.1 (#1)](https://github.com/simongrossi/FacturX-Reader/pull/1), puis
 [comparaison des validateurs et corrections XSD (#2)](https://github.com/simongrossi/FacturX-Reader/pull/2).
-La seconde repose sur la branche de la première ; ces travaux ne sont pas encore fusionnés
-dans `main` ni distribués dans une version publiée.
+Les tests navigateur, Rust, natifs Windows et de comparaison aux références de la PR #2 sont
+verts dans le [workflow Checks](https://github.com/simongrossi/FacturX-Reader/actions/runs/37161670374).
+Ces travaux sont intégrés au code principal, mais ne sont pas encore distribués dans une
+version publiée. Le contrôle de `main` est relancé après l’intégration.
 
-Au dernier contrôle du 4 octobre, les tests navigateur de la PR #2 passent ; les jobs Rust
-(avec test natif Windows) et de comparaison aux références sont encore en cours.
-Le [workflow de la PR](https://github.com/simongrossi/FacturX-Reader/actions/runs/37161486957)
-donne leur état actuel et les rapports téléchargeables. Les résultats locaux détaillés restent
-consultables dans [tests/reference/REPORT.md](tests/reference/REPORT.md).
+L’[inventaire des branches](docs/BRANCHES.md) explique leur intégration et les repères d’archive.
+Les résultats détaillés sont dans [tests/reference/REPORT.md](tests/reference/REPORT.md).
 
 ## Vérifications réalisées
 
@@ -26,9 +25,9 @@ consultables dans [tests/reference/REPORT.md](tests/reference/REPORT.md).
 | Test Rust `samples.rs` | Factures réelles vérifiées sur le poste d’origine ; sous macOS le 4 octobre, test sans effet car `samples/` est absent |
 | `npm run test:ui` | 18 scénarios navigateur (Edge le 3 octobre ; Chromium sous macOS le 4 octobre et par la CI), commandes Rust simulées, PDF.js réel |
 | `npm run test:native` | Vrai exécutable Windows, vraies commandes Rust, profil WebView2 et dossier de données jetables. Vert en local et sur la machine de GitHub |
-| Workflow `Checks` | Tests navigateur (Linux), Rust (Windows) et test natif Windows verts sur `main` avant la préparation de la 0.7.1 |
+| Workflow `Checks` | Tests navigateur (Linux), Rust et test natif Windows, comparaison aux références (macOS) verts sur la PR #2 avant fusion ; contrôle de `main` relancé |
 | Essai manuel macOS (4 octobre 2026) | Fonctionnement général confirmé par l’utilisateur ; détails de présentation à améliorer. Fonctions précises et mode d’installation non documentés |
-| `npm run test:reference` | 955 XML : 1 208 comparaisons Schematron concordent avec SaxonC-HE 12.9 ; 955 verdicts XSD concordent avec libxml2 2.9.13, dont 433 invalides. Exécution locale macOS ; job ajouté à la CI |
+| `npm run test:reference` | 955 XML : 1 208 comparaisons Schematron concordent avec SaxonC-HE 12.9 ; 955 verdicts XSD concordent avec libxml2 2.9.13, dont 433 invalides. Exécution locale et job macOS de la PR #2 réussis |
 | Workflow `Release` | Installeurs Windows, macOS et Linux construits à chaque tag |
 
 ### Ce que couvre le test natif Windows
