@@ -663,9 +663,11 @@ tableau et ses filtres, les menus, le suivi et le rapport, les règles EN 16931 
 la protection des pointages, la bibliothèque et sa pagination, les verdicts du Schematron, le
 schéma XSD, les contrôles partagés entre les vues, l'archive ambiguë et « Retrouver le fichier ».
 
-Le workflow lance aussi le test natif ci-dessous. Sur la machine de GitHub il **échoue** pour
-l'instant : l'application démarre mais WebView2 n'ouvre pas son port de débogage. L'étape est
-donc non bloquante, et le test natif n'est réellement vérifié qu'en local.
+Le workflow lance aussi le test natif ci-dessous, sur le vrai exécutable Windows. Sur la machine
+de GitHub, WebView2 ignore les arguments ajoutés de l'extérieur (variable d'environnement,
+registre) ; le port de débogage dont le test a besoin y est donc inscrit dans la configuration de
+la fenêtre au moment de la compilation de test (`TAURI_CONFIG`). Les installeurs publiés viennent
+du workflow `Release`, qui ne le fait pas.
 
 Sous Windows, un test distinct lance le véritable exécutable dans un profil WebView2 jetable,
 sans changer la session ni les données de l'utilisateur. Il valide le moteur Rust, la reprise

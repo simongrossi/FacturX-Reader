@@ -69,8 +69,7 @@ de factures (hors périmètre).
 - [x] Tests navigateur reproductibles, Playwright verrouillé, scripts npm et workflow CI.
   CI verte sur `main` depuis la correction de la reprise de session (0.3.0).
 - [x] Test natif Windows sur le vrai exécutable : tableau, contrôles, vue côte à côte, suivi (0.4.0).
-- [ ] Test natif Windows sur la machine d'intégration : lancé par la CI, mais WebView2 n'y ouvre
-  pas son port de débogage ; étape non bloquante en attendant.
+- [x] Test natif Windows sur la machine d'intégration : lancé par la CI à chaque push, bloquant.
 - [ ] Vérification native macOS et Linux sur les machines correspondantes.
 - [ ] Installation et lancement réels des installeurs produits (`.exe`, `.msi`, `.dmg`, paquets Linux).
 
