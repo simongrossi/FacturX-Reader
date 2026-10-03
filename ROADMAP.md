@@ -1,6 +1,6 @@
 # Roadmap
 
-Mise à jour : 3 octobre 2026, après la version 0.7.0.
+Mise à jour : 3 octobre 2026, après la version 0.7.0 (travaux non publiés compris).
 Voir [CHANGELOG.md](CHANGELOG.md) pour le détail des versions, [README.md](README.md) pour
 l'utilisation et [VALIDATION.md](VALIDATION.md) pour le bilan de vérification P0.
 
@@ -69,6 +69,8 @@ de factures (hors périmètre).
 - [x] Tests navigateur reproductibles, Playwright verrouillé, scripts npm et workflow CI.
   CI verte sur `main` depuis la correction de la reprise de session (0.3.0).
 - [x] Test natif Windows sur le vrai exécutable : tableau, contrôles, vue côte à côte, suivi (0.4.0).
+- [ ] Test natif Windows sur la machine d'intégration : lancé par la CI, mais WebView2 n'y ouvre
+  pas son port de débogage ; étape non bloquante en attendant.
 - [ ] Vérification native macOS et Linux sur les machines correspondantes.
 - [ ] Installation et lancement réels des installeurs produits (`.exe`, `.msi`, `.dmg`, paquets Linux).
 
@@ -137,6 +139,9 @@ de factures (hors périmètre).
 - [ ] Recherche dans les lignes de toutes les factures et filtres dans la liste latérale
   (fournisseur, numéro, montant, statut), masquage des PDF sans XML.
 - [ ] Recherche dans le texte du PDF et surlignage ; décider séparément du besoin d'OCR.
+- [x] Verdicts communs à la fiche, au tableau et au rapport JSON ; synthèse de ce qui demande
+  une action en tête de la fiche ; colonnes et filtres Schematron, XSD, règles françaises.
+- [x] Imports bornés après décompression ; choix explicite dans une archive ambiguë.
 - [ ] Rapport de contrôle lisible (PDF ou HTML) et rapport consolidé sur plusieurs factures.
 - [x] Impression de la vue affichée (données, contrôles, tableau, XML, PDF).
 - [ ] Renommage et classement des fichiers depuis les métadonnées (`Fournisseur_Date_N°.pdf`),
@@ -151,8 +156,9 @@ de factures (hors périmètre).
 - [x] Alerte de changement d'IBAN par fournisseur (anti-fraude au virement).
 - [x] Doublons sur l'historique, au-delà des documents ouverts.
 - [x] Historique des prix unitaires par article et par fournisseur, variation signalée.
-- [x] Bibliothèque : filtres par période, montants et fournisseur. Reste : recherche dans les
-  commentaires, graphique de prix, validation explicite d'un nouvel IBAN, sauvegarde/export de la base.
+- [x] Bibliothèque : filtres par période, montants et fournisseur, appliqués dans la base avant
+  la pagination ; « Retrouver le fichier » avec vérification de l'empreinte. Reste : recherche
+  dans les commentaires, graphique de prix, validation explicite d'un nouvel IBAN, sauvegarde/export de la base.
 - [ ] Grille de prix négociés importée et alerte de dépassement.
 
 ## P3 — Conformité et distribution

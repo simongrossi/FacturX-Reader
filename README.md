@@ -184,9 +184,14 @@ Dans le panneau **Fichiers** : **🗑** vide la liste, **✕** (au survol) retir
 | Format | Détection | PDF affiché |
 |---|---|---|
 | Factur-X (PDF) | PDF avec pièce jointe XML (`/Filespec`) UBL ou CII | le PDF lui-même |
-| Factur-X (archive ZIP) | ZIP contenant un XML UBL/CII (+ PDF) | extrait du ZIP |
+| Factur-X (archive ZIP) | ZIP contenant un XML UBL/CII (+ PDF) ; s'il contient plusieurs XML ou plusieurs PDF, l'application demande lesquels ouvrir | extrait du ZIP, ou aucun si vous ouvrez le XML seul |
 | UBL 2.x (`Invoice`, `CreditNote`) | racine du XML | base64 intégré (`EmbeddedDocumentBinaryObject`) |
 | CII (`CrossIndustryInvoice`) | racine du XML, variantes EN 16931 et UN/CEFACT classique | base64 intégré |
+
+**Limites à l'import** : 200 Mo par fichier ; 32 Mo pour le XML une fois décompressé, qu'il vienne
+d'un ZIP ou d'un PDF ; 2000 entrées par archive. Au-delà, le fichier est refusé avec un message,
+plutôt que décompressé sans borne. Un PDF dont une pièce jointe dépasse ce plafond est refusé en
+entier.
 
 Types de facture, unités (UN/ECE), modes de paiement, catégories de TVA et profils sont
 traduits en français. Un champ non reconnu est affiché avec son étiquette brute et son chemin.
@@ -228,7 +233,10 @@ Sur le tableau des **lignes de facture** :
 
 ### Verdicts
 
-En tête de l'onglet **Données**, des verdicts indépendants, jamais fondus en un seul « conforme » :
+En tête de l'onglet **Données**, une **synthèse** dit d'abord ce qui demande une action : le
+nombre de familles de contrôles à examiner, le nombre de contrôles incomplets ou en cours, et un
+bouton par point qui ouvre le bloc concerné. Suivent des verdicts indépendants, jamais fondus en
+un seul « conforme » :
 
 | Verdict | Ce qu'il dit | Ce qu'il ne dit pas |
 |---|---|---|
@@ -242,8 +250,9 @@ En tête de l'onglet **Données**, des verdicts indépendants, jamais fondus en 
 
 Les autres constats (identifiants, échéance, doublons, IBAN) sont comptés à part comme alertes.
 **Non contrôlés** : la conformité PDF/A-3 complète du fichier et les règles nationales autres
-que françaises (XRechnung, Peppol…). Aucun de ces verdicts ne vaut certification. Le tableau multi-factures reprend
-les verdicts en colonnes, et le rapport JSON dans un bloc `verdicts`.
+que françaises (XRechnung, Peppol…). Aucun de ces verdicts ne vaut certification. La fiche, le
+tableau multi-factures et le rapport JSON tirent leurs verdicts du même calcul : une anomalie
+visible dans l'un l'est dans les autres.
 
 ### Schematron officiel
 
@@ -437,7 +446,9 @@ il ne dit rien du paiement. Le statut se retrouve dans le tableau multi-factures
 [Protection des pointages et du suivi](#protection-des-pointages-et-du-suivi).
 
 **Rapport JSON** (en-tête du bloc Contrôles, ou menu Fichier) enregistre la synthèse de la
-facture, tous les contrôles et le suivi de vérification.
+facture, les verdicts, tous les contrôles (doublons compris), les règles EN 16931, le résultat du
+Schematron, le détail des règles françaises, le schéma XSD, le conteneur PDF et le suivi de
+vérification.
 
 ### Export des lignes
 
@@ -448,17 +459,20 @@ dans sa propre colonne, colonne « Pointée ». **Copier** place le même tablea
 ### Tableau multi-factures
 
 Dès qu'un document est ouvert, l'onglet **Tableau** (à côté d'Accueil) liste toutes les factures
-ouvertes : fichier, vendeur, numéro, type, date, échéance, HT, TVA, TTC, à payer, devise et état
-(calculs, règles EN 16931, alertes). Un clic sur une ligne ouvre la facture.
+ouvertes : fichier, vendeur, numéro, type, date, échéance, HT, TVA, TTC, à payer, devise et une
+colonne par verdict (calculs, règles EN 16931, Schematron, schéma XSD, règles françaises,
+conteneur PDF, alertes). Un clic sur une ligne ouvre la facture.
 
 - **Tri** par clic sur un en-tête, **filtre** texte.
 - **Filtres métier** : période (date d'émission), plage de montants TTC, fournisseur ;
   « Effacer filtres » les remet à zéro.
-- **Filtre d'anomalies** : écart de calcul, alerte, échéance dépassée, sans TVA, émise un
-  week-end, doublon, avoirs, documents non lus.
+- **Filtre d'anomalies** : écart de calcul, alerte, règle EN 16931, Schematron ou schéma XSD non
+  respecté, règles françaises à examiner, contrôle incomplet ou en cours, échéance dépassée, sans
+  TVA, émise un week-end, doublon, avoirs, documents non lus.
 - **Totaux par devise** sur les lignes affichées ; les avoirs sont déduits.
 - **Exporter CSV** / **Copier** : le tableau affiché, plus les jours avant échéance et le détail
-  des contrôles en écart ou en alerte.
+  des contrôles en écart ou en alerte, des règles Schematron et françaises enfreintes et des
+  erreurs de schéma XSD.
 
 Les montants viennent du XML, sans recalcul. Le tableau porte sur les documents ouverts
 (500 au maximum), pas sur un historique.
@@ -472,10 +486,16 @@ dossier de données de l'application) : numéro, dates, vendeur, acheteur, monta
 L'onglet **Bibliothèque**, à côté d'Accueil et de Tableau, liste ces factures entre les sessions :
 
 - **Recherche** par fournisseur, numéro, date, montant, nom de fichier, référence ou désignation
-  d'article (1000 résultats au plus) ;
-- **filtres** par période, plage de montants TTC et fournisseur ;
-- un clic **rouvre la facture** depuis son emplacement d'origine. Un fichier ajouté par dépôt n'a
-  pas d'emplacement connu : l'application le dit et demande de rouvrir le fichier ;
+  d'article ;
+- **filtres** par période, plage de montants TTC et fournisseur. Recherche et filtres sont
+  appliqués dans la base avant tout découpage : le nombre de résultats affiché est exact, et
+  au-delà de 1000 les résultats se parcourent par pages (Précédent / Suivant). Avec une date
+  minimale, une facture sans date n'est pas retenue ;
+- un clic **rouvre la facture** depuis son emplacement d'origine, après vérification que le
+  fichier contient toujours le même XML ;
+- **Retrouver le fichier** rétablit le lien quand l'emplacement est inconnu (fichier ajouté par
+  dépôt) ou a changé : vous désignez le fichier, l'application vérifie l'empreinte de son XML, et
+  refuse un fichier qui ne correspond pas. Aucun original n'est copié ;
 - **✕** retire une facture de la bibliothèque, sans toucher au fichier.
 
 À l'ouverture d'une facture, la bibliothèque ajoute trois constats aux contrôles :
@@ -586,6 +606,8 @@ npm run build    # exécutable + installeurs dans src-tauri/target/release/bundl
 ```
 web/                       interface (aucune étape de compilation)
   index.html, app.js, style.css
+  controls.js              verdicts et synthèse, communs à la fiche, au tableau et au rapport
+  imports.js               choix du XML et du PDF dans une archive ambiguë
   workspace.js             accueil, onglets, session
   batch.js                 tableau multi-factures
   review.js                suivi de vérification, rapport de contrôle
@@ -597,6 +619,7 @@ web/                       interface (aucune étape de compilation)
 src-tauri/
   src/facturx.rs           moteur : PDF Factur-X, ZIP, UBL, CII
   src/facturx/controles.rs contrôles de cohérence (décimaux exacts)
+  src/facturx/imports.rs   plafonds de décompression, entrées d'une archive
   src/facturx/en16931.rs   règles métier EN 16931
   src/schematron.rs        Schematron officiel EN 16931 (évaluation XPath, fils de travail)
   schematron/              règles officielles EN 16931 (EUPL 1.2) et Factur-X (Apache 2.0), exemples, suite de tests
@@ -634,14 +657,19 @@ npm run test:ui
 
 Le workflow `.github/workflows/checks.yml` lance les tests navigateur et Rust à chaque push
 et pull request. Les tests navigateur simulent uniquement les commandes Rust ; le rendu
-PDF utilise le vrai PDF.js et une facture synthétique de deux pages. Quatorze scénarios couvrent
+PDF utilise le vrai PDF.js et une facture synthétique de deux pages. Dix-huit scénarios couvrent
 la session et la recherche, les quotas et les 500 documents, les contrôles et l'export CSV, le
 tableau et ses filtres, les menus, le suivi et le rapport, les règles EN 16931 et l'impression,
-la protection des pointages, la bibliothèque, les verdicts du Schematron et le schéma XSD.
+la protection des pointages, la bibliothèque et sa pagination, les verdicts du Schematron, le
+schéma XSD, les contrôles partagés entre les vues, l'archive ambiguë et « Retrouver le fichier ».
+
+Le workflow lance aussi le test natif ci-dessous. Sur la machine de GitHub il **échoue** pour
+l'instant : l'application démarre mais WebView2 n'ouvre pas son port de débogage. L'étape est
+donc non bloquante, et le test natif n'est réellement vérifié qu'en local.
 
 Sous Windows, un test distinct lance le véritable exécutable dans un profil WebView2 jetable,
 sans changer la session ni les données de l'utilisateur. Il valide le moteur Rust, la reprise
-après relance, le tableau, les contrôles, le Schematron officiel, le schéma XSD, la bibliothèque SQLite, le suivi
+après relance, le tableau, les contrôles, le Schematron officiel, le schéma XSD, la bibliothèque SQLite et ses filtres, le rapport complet, la synthèse, la réassociation d'un fichier par son empreinte, le plafond de décompression, le suivi
 et la restauration de fichiers de données corrompus :
 
 ```powershell
@@ -693,7 +721,8 @@ cargo run --example dump -- ../samples/facture.pdf > facture.json
 | `get_reviews` / `set_review` | suivi de vérification |
 | `data_status` / `restore_backup` | état des fichiers de données, restauration d'une sauvegarde |
 | `export_data` / `import_data` | export et import des pointages et du suivi |
-| `library_search` / `library_prices` | recherche dans la bibliothèque, historique des prix d'un article |
+| `library_search` / `library_prices` | recherche filtrée et paginée dans la bibliothèque, historique des prix d'un article |
+| `library_open` / `library_relink` | réouverture d'une facture de la bibliothèque, rétablissement du lien vers son fichier |
 | `library_status` / `library_remove` / `library_clear` / `library_reset` | état et entretien de la bibliothèque |
 | `save_pdf` | boîte « Enregistrer sous » et écriture du PDF |
 | `save_text` | boîte « Enregistrer sous » et écriture d'un export CSV |

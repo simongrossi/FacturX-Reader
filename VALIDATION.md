@@ -8,19 +8,20 @@ Les commandes sont décrites dans [README.md](README.md#tests).
 | Vérification | Résultat / portée |
 |---|---|
 | `npm run check:js` | Syntaxe de tous les scripts de l'interface |
-| `npm run test:rust` | 57 tests unitaires : exemples officiels français, règles BR-FR (fonctions, périmètre), conteneur PDF (déclarations, sept contrôles de structure), schéma XSD (XML d'origine validé, chargement des huit schémas, facture et avoir UBL, choix d'après le profil, exemple officiel valide, élément inconnu, attribut inconnu, montant non numérique, jamais « valide » sans évaluation), Schematron officiel (compilation de toutes les règles, suite de tests officielle de la Commission, exemples officiels, règles enfreintes, file de travail, résultat repris de la bibliothèque entre deux sessions, résultats identiques avec et sans optimisations), moteur UBL/CII, contrôles en décimaux exacts, règles EN 16931, conteneur PDF (déclarations lues, écarts), pointages et suivi (corruption, sauvegarde, restauration, fusion), bibliothèque SQLite |
+| `npm run test:rust` | 62 tests unitaires : bibliothèque (filtres avant pagination sur 1002 factures, réassociation par empreinte), imports (archive ambiguë, plafonds de décompression), exemples officiels français, règles BR-FR (fonctions, périmètre), conteneur PDF (déclarations, sept contrôles de structure), schéma XSD (XML d'origine validé, chargement des huit schémas, facture et avoir UBL, choix d'après le profil, exemple officiel valide, élément inconnu, attribut inconnu, montant non numérique, jamais « valide » sans évaluation), Schematron officiel (compilation de toutes les règles, suite de tests officielle de la Commission, exemples officiels, règles enfreintes, file de travail, résultat repris de la bibliothèque entre deux sessions, résultats identiques avec et sans optimisations), moteur UBL/CII, contrôles en décimaux exacts, règles EN 16931, conteneur PDF (déclarations lues, écarts), pointages et suivi (corruption, sauvegarde, restauration, fusion), bibliothèque SQLite |
 | Test Rust `samples.rs` | Factures réelles locales, hors dépôt : toutes analysées, sauf celles marquées sans XML |
-| `npm run test:ui` | 14 scénarios navigateur (Edge le 3 octobre ; Chromium par la CI), commandes Rust simulées, PDF.js réel |
-| `npm run test:native` | Vrai exécutable Windows, vraies commandes Rust, profil WebView2 et dossier de données jetables |
-| Workflow `Checks` | Tests navigateur (Linux) et Rust (Windows) verts sur `main` |
+| `npm run test:ui` | 18 scénarios navigateur (Edge le 3 octobre ; Chromium par la CI), commandes Rust simulées, PDF.js réel |
+| `npm run test:native` | Vrai exécutable Windows, vraies commandes Rust, profil WebView2 et dossier de données jetables. Vert en local ; en échec sur la machine de GitHub |
+| Workflow `Checks` | Tests navigateur (Linux) et Rust (Windows) verts sur `main` ; le test natif y est lancé mais non bloquant |
 | Workflow `Release` | Installeurs Windows, macOS et Linux construits à chaque tag |
 
 ### Ce que couvre le test natif Windows
 
 Reprise d'un PDF de deux pages après fermeture et relance (zoom, position), recherche, tableau
 multi-factures et ses totaux, contrôles calculés par le moteur, vue PDF et données, suivi écrit
-dans `suivi.json`, bibliothèque SQLite (enregistrement unique d'un même XML, recherche,
-réouverture), fichiers `pointages.json` et `suivi.json` corrompus à la main : signalés au
+dans `suivi.json`, bibliothèque SQLite (enregistrement unique d'un même XML, recherche, filtres
+appliqués dans la base, réouverture, réassociation d'un fichier par son empreinte), rapport JSON
+complet, synthèse des vérifications, plafond de décompression, fichiers `pointages.json` et `suivi.json` corrompus à la main : signalés au
 démarrage, laissés intacts à l'écriture, puis restaurés depuis une sauvegarde.
 
 ### Schematron officiel
@@ -113,7 +114,13 @@ remontent des écarts de ligne, le prix unitaire et les frais déclarés ne redo
   n'a pas été ouverte, et le comportement sous macOS est inconnu.
 - **Reprise du suivi de la 0.4.0** (stockage de la WebView vers `suivi.json`) : testée en
   navigateur simulé, pas sur une installation 0.4.0 réelle.
-- **Bibliothèque sur un grand volume** : testée sur quelques factures, pas sur des milliers.
+- **Bibliothèque sur un grand volume** : filtres et pagination testés sur 1002 factures
+  synthétiques, pas sur des milliers de factures réelles.
+- **Test natif sur la machine d'intégration** : il échoue sur GitHub (WebView2 n'y ouvre pas son
+  port de débogage) ; la cause n'est pas établie. Il n'est vérifié qu'en local.
+- **Plafonds d'import** : testés sur un ZIP et un PDF construits pour dépasser 32 Mo, pas sur de
+  vrais fichiers volumineux. Un PDF valide portant une autre pièce jointe de plus de 32 Mo est
+  refusé en entier.
 - **Schematron sur un gros dossier** : la file d'attente est testée avec 500 documents simulés,
   pas avec 500 vraies factures.
 - **Schematron en version de développement** : nettement plus lent qu'en version optimisée.
