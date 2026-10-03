@@ -1,6 +1,6 @@
 # Roadmap
 
-Mise à jour : 2 octobre 2026, après la version 0.6.0.
+Mise à jour : 3 octobre 2026, après la version 0.6.0 (travaux non publiés compris).
 Voir [CHANGELOG.md](CHANGELOG.md) pour le détail des versions, [README.md](README.md) pour
 l'utilisation et [VALIDATION.md](VALIDATION.md) pour le bilan de vérification P0.
 
@@ -11,7 +11,7 @@ l'utilisation et [VALIDATION.md](VALIDATION.md) pour le bilan de vérification P
 | P0 | Valider l'existant | Presque terminé : reste macOS, Linux et l'installation des paquets |
 | P1 | Confort et fiabilité du moteur | Aux trois quarts : reste la provenance des valeurs, « Ouvrir avec », l'export Excel, les tests anonymisés |
 | P2 | Exploiter des lots de factures | Presque terminé : reste la recherche dans le PDF, le dossier surveillé, l'échéancier |
-| P3 | Conformité et distribution | Bien avancé : Schematron officiel et déclarations du conteneur ; reste XSD, PDF/A réel, signature des builds |
+| P3 | Conformité et distribution | Bien avancé : Schematron officiel (suite de tests officielle verte, résultat gardé entre sessions) et déclarations du conteneur ; reste les profils Factur-X, XSD, PDF/A réel, signature des builds |
 | P4 | API, MCP et connecteurs | Pas commencé |
 
 Versions publiées (pré-versions, builds non signés) :
@@ -26,11 +26,39 @@ Versions publiées (pré-versions, builds non signés) :
 
 ## Prochaines étapes proposées
 
-1. **Signature des builds** (P3) : des installeurs sont désormais distribués sur GitHub. Demande
-   un certificat de signature Windows et un compte développeur Apple.
-2. **Schematron** : le rendre plus rapide sur les grosses factures et brancher la suite de tests
-   officielle sur la CI. Ses résultats sont désormais gardés d'une session à l'autre.
-3. **Fin de P1** : provenance des valeurs, « Ouvrir avec » et instance unique, export Excel natif.
+Ordre guidé par le [comparatif](README.md#comparatif) : fermer d'abord les cases où Quba et
+Mustang font mieux, en commençant par ce qui réutilise le moteur existant.
+
+1. **Schematron des profils Factur-X et XML d'origine** (P3) : MINIMUM, BASIC WL, BASIC et
+   EXTENDED évalués avec leurs propres règles, sur les octets d'origine plutôt que sur le XML
+   réindenté. Le moteur existe : il reste à embarquer les règles (licence FNFE-MPE à vérifier) et
+   à choisir le jeu de règles d'après le profil. Petit chantier, qui corrige des verdicts
+   aujourd'hui trompeurs sur ces profils.
+2. **Validation XSD** (P3) : seule ligne de validation du comparatif entièrement vide. Étude de
+   faisabilité d'abord : pas de validateur XSD mûr en Rust pur, `libxml2` à lier sur les trois
+   systèmes sinon.
+3. **Signature des builds** (P3) : hors comparatif, mais des installeurs non signés sont
+   distribués. Dépend d'un certificat Windows et d'un compte développeur Apple, à lancer en
+   parallèle.
+4. **Conteneur PDF/A-3, contrôles réels partiels** (P3) : polices incorporées, profil de sortie,
+   absence de chiffrement, extension XMP Factur-X. Annoncés comme partiels : une validation
+   ISO 19005-3 complète reste le métier de veraPDF.
+5. **Fin du Schematron plus rapide** : mesurer le gain des optimisations faites et mettre à jour
+   les durées annoncées.
+6. **Fin de P1** : provenance des valeurs, « Ouvrir avec » et instance unique, export Excel natif.
+
+Non prioritaires : la conversion CII ↔ UBL (gros chantier, peu utile à un lecteur) et la création
+de factures (hors périmètre).
+
+### Écarts avec le comparatif
+
+| Ligne du comparatif | Aujourd'hui | Pour cocher la case | Effort | Priorité |
+|---|---|---|---|---|
+| Schematron officiel EN 16931 | ✅ hors ligne, EN 16931 seul | Profils Factur-X, XML d'origine, règles nationales (CIUS) | Faible à moyen | 1 |
+| Validation XSD | — | Validateur XSD embarqué, schémas UBL 2.1 et CII | Moyen, faisabilité à établir | 2 |
+| Validation PDF/A-3 du fichier | Déclarations lues | Contrôles réels partiels, puis décision sur une validation complète | Moyen (partiel), élevé (complet) | 4 |
+| Conversion CII ↔ UBL, ZUGFeRD 1 → 2 | — | Table de correspondance complète des deux syntaxes | Élevé | Plus tard |
+| Création de factures | — | Hors périmètre du lecteur | — | Non retenu |
 
 ## P0 — Valider l'existant
 
@@ -144,15 +172,17 @@ Versions publiées (pré-versions, builds non signés) :
   la mention de ce qui n'est pas contrôlé.
 - [x] Résultat Schematron gardé dans la bibliothèque, par empreinte du XML, et repris d'une
   session à l'autre (mêmes règles, même version de l'application).
-- [ ] Schematron plus rapide : jusqu'à cinq secondes sur une facture de plus de cent lignes
-  (contextes et assertions réévalués sur tout le document).
+- [ ] Schematron plus rapide. Fait : contextes trouvés en un seul parcours, assertions
+  indépendantes du nœud évaluées une fois, résultats identiques vérifiés par test. Reste : mesurer
+  le gain sur les factures de plus de cent lignes (cinq secondes avant optimisation).
 - [x] Suite de tests officielle de la Commission embarquée et exécutée par `cargo test`, donc
   par la CI : 1169 cas, tous au résultat attendu.
 - [ ] Schematron des profils Factur-X (MINIMUM, BASIC WL, BASIC, EXTENDED), pour ne plus évaluer
   ces profils avec les seules règles EN 16931.
 - [ ] Valider le XML d'origine plutôt que sa version réindentée.
 - [ ] Validation du schéma XSD.
-- [ ] Validation PDF/A-3 réelle du fichier (type veraPDF).
+- [ ] Validation PDF/A-3 réelle du fichier (type veraPDF). Étape intermédiaire : contrôles réels
+  partiels (polices incorporées, profil de sortie, chiffrement, extension XMP Factur-X).
 - [ ] Comparaison PDF vs XML : montants clés recherchés dans le texte du PDF, écart mis en
   évidence (PDF texte uniquement). Puis synchronisation au clic XML ↔ PDF.
 - [ ] Signature électronique du PDF : détecter sa présence, puis vérifier l'intégrité.

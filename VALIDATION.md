@@ -1,4 +1,4 @@
-# Validation — version 0.6.0, 2 octobre 2026
+# Validation — version 0.6.0 et travaux non publiés, 3 octobre 2026
 
 Bilan de ce qui a été vérifié avant la publication, et de ce qui ne l'a pas été.
 Les commandes sont décrites dans [README.md](README.md#tests).
@@ -43,8 +43,10 @@ démarrage, laissés intacts à l'écriture, puis restaurés depuis une sauvegar
   documents. Sur les 5 autres, SaxonJS s'arrête sur une valeur illisible ; l'application continue
   et signale les règles non évaluables.
 - Exécuté dans la fenêtre native Windows par le test natif.
-- Durée mesurée en version optimisée : médiane sous la seconde, 4,5 à 5,6 s pour des factures de
-  112 lignes, soit environ quatre fois plus que SaxonJS, mais hors de l'interface.
+- Durée mesurée sur la 0.6.0, en version optimisée : médiane sous la seconde, 4,5 à 5,6 s pour
+  des factures de 112 lignes, soit environ quatre fois plus que SaxonJS, mais hors de l'interface.
+  Mesure antérieure aux optimisations d'évaluation (contextes en un parcours, assertions évaluées
+  une fois) : à refaire.
 
 ### Contrôles et règles sur des factures réelles
 

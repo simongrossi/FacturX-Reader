@@ -136,9 +136,11 @@ Ils sont produits par le workflow GitHub à chaque tag `vX.Y.Z`, ou localement p
 ### Accueil et reprise du travail
 
 L'onglet **Accueil** propose l'ouverture de fichiers ou d'un dossier, les paramètres,
-les douze derniers documents et la reprise de la dernière session. Chaque facture possède
-son propre onglet, avec fermeture par la croix, clic central ou `Ctrl+W`.
-`Ctrl+Tab` et `Ctrl+Maj+Tab` passent d'un document à l'autre.
+les cinq derniers documents (« Plus… » affiche la liste complète, la croix en retire un) et la
+reprise de la dernière session. Chaque facture possède son propre onglet, avec fermeture par la
+croix, clic central ou `Ctrl+W`. `Ctrl+Tab` et `Ctrl+Maj+Tab` passent d'un document à l'autre ;
+la molette fait défiler les onglets. Le chevron de la barre d'onglets, ou `Ctrl+E`, ouvre la
+**liste des documents ouverts**, filtrable au clavier.
 
 Par défaut, les documents ouverts et le document actif sont restaurés au lancement, avec
 leur vue PDF / Données / XML, leur position de défilement et leur zoom mémorisés.
@@ -257,8 +259,12 @@ le texte de la règle et son emplacement dans le XML.
   verdict est **« non évalué »**, jamais « respecté » ;
 - la validation porte sur le XML tel que réindenté par l'application, pas sur les octets d'origine ;
 - elle tourne en arrière-plan, sans bloquer l'interface : moins d'une seconde pour une facture
-  courante, jusqu'à cinq secondes pour une facture de plus de cent lignes. À l'ouverture d'un
-  dossier, plusieurs documents sont validés de front, celui qui est affiché en premier ;
+  courante, jusqu'à cinq secondes pour une facture de plus de cent lignes (mesure de la 0.6.0,
+  à refaire après les optimisations en cours). À l'ouverture d'un dossier, plusieurs documents
+  sont validés de front, celui qui est affiché en premier ;
+- le résultat est gardé dans la [bibliothèque locale](#bibliothèque-locale), par empreinte du
+  XML, et repris à la réouverture au lieu d'être recalculé. Il n'est repris que pour les mêmes
+  règles et la même version de l'application ; bibliothèque désactivée, rien n'est gardé ;
 - si une valeur du XML n'a pas le format attendu (un montant non numérique, par exemple), les
   règles qui en dépendent sont listées comme **non évaluables** et le verdict n'est pas
   « respecté » ;
@@ -269,7 +275,9 @@ Ce moteur n'est pas l'implémentation de référence : c'est une évaluation dir
 officielles. Il a été comparé à SaxonJS, le moteur XSLT de référence, sur 583 documents (exemples
 officiels, variantes abîmées, factures réelles) : mêmes règles enfreintes, en même nombre, dans
 578 cas ; dans les 5 autres, SaxonJS s'arrête sur une valeur illisible là où l'application
-continue et signale les règles non évaluables.
+continue et signale les règles non évaluables. La suite de tests officielle de la Commission
+(1169 cas, presque tous UBL) est rejouée à chaque `cargo test` : chaque règle y donne le résultat
+attendu.
 
 Le Schematron ajoute aux règles métier les règles de syntaxe (`UBL-CR`, `UBL-SR`, `CII-SR`) que
 les [règles natives](#règles-en-16931) de l'application ne couvrent pas.
@@ -305,8 +313,9 @@ Chaque ligne donne l'attendu, le constaté et l'écart ; un clic ouvre l'éléme
 Les états sont *conforme*, *écart*, *alerte*, *info* et *non vérifiable* (donnée absente du XML).
 Une facture avec écart porte une pastille rouge dans la liste des fichiers.
 
-Ces contrôles ne sont pas une validation EN 16931 (XSD / Schematron) : voir la roadmap. Aucun
-appel réseau : l'existence du SIREN ou la propriété de l'IBAN ne sont pas vérifiées.
+Ces contrôles ne sont pas une validation EN 16931 : celle-ci relève du
+[Schematron officiel](#schematron-officiel) ; le schéma XSD n'est pas contrôlé. Aucun appel
+réseau : l'existence du SIREN ou la propriété de l'IBAN ne sont pas vérifiées.
 
 ### Règles EN 16931
 
@@ -513,7 +522,7 @@ src-tauri/
   src/facturx/controles.rs contrôles de cohérence (décimaux exacts)
   src/facturx/en16931.rs   règles métier EN 16931
   src/schematron.rs        Schematron officiel EN 16931 (évaluation XPath, fils de travail)
-  schematron/              règles officielles (.sch, EUPL 1.2) et exemples de test
+  schematron/              règles officielles (.sch, EUPL 1.2), exemples et suite de tests officielle
   src/tables.rs            libellés français et tables de codes
   src/pointages.rs         pointages et suivi : persistance, sauvegardes, export/import
   src/bibliotheque.rs      bibliothèque locale (SQLite) : historique, IBAN, doublons, prix
@@ -576,8 +585,9 @@ cargo test
 ```
 
 - tests unitaires : moteur (UBL, CII, ZIP, PDF, conteneur), contrôles en décimaux, règles
-  EN 16931, Schematron officiel (toutes les règles se compilent, exemples officiels), pointages
-  et suivi, bibliothèque ;
+  EN 16931, Schematron officiel (toutes les règles se compilent, exemples officiels, suite de
+  tests officielle de 1169 cas, mêmes résultats avec et sans optimisations), pointages et suivi,
+  bibliothèque ;
 - `tests/samples.rs` analyse chaque fichier de `samples/` : il doit donner une facture UBL ou
   CII avec des lignes. Un fichier dont le nom contient `PAS DE XML` doit au contraire être
   rejeté. Sans dossier `samples/`, ce test est sans effet.
