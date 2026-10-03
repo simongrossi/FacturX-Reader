@@ -9,3 +9,8 @@ samples/
 # Sorties de tests Playwright
 test-results/
 playwright-report/
+
+# Sources de référence téléchargées, feuilles compilées, corpus dérivé et rapports détaillés
+tests/reference/cache/
+tests/reference/output/
+tests/reference/__pycache__/

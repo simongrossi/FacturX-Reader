@@ -7,6 +7,18 @@ mod schematron;
 mod xsd;
 mod tables;
 
+#[cfg(feature = "reference-validation")]
+pub mod reference_validation {
+    /// Évalue les XML d'origine avec les mêmes validateurs que l'application, sans cache disque.
+    pub fn validate(inputs: &[(String, String)]) -> Vec<serde_json::Value> {
+        let validator = crate::schematron::Validator::new();
+        inputs.iter().map(|(xml, format)| serde_json::json!({
+            "schematron": validator.validate(xml.clone(), format, false, None),
+            "xsd": crate::xsd::validate(xml, format),
+        })).collect()
+    }
+}
+
 use std::path::{Path, PathBuf};
 
 use base64::Engine;

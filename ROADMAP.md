@@ -1,6 +1,6 @@
 # Roadmap
 
-Mise à jour : 4 octobre 2026, préparation de la version 0.7.1.
+Mise à jour : 4 octobre 2026, préparation de la version 0.7.1 et comparaison des validateurs (non publiée).
 Voir [CHANGELOG.md](CHANGELOG.md) pour le détail des versions, [README.md](README.md) pour
 l'utilisation et [VALIDATION.md](VALIDATION.md) pour le bilan de vérification P0.
 
@@ -35,10 +35,11 @@ La revue de code postérieure à la 0.7.0 est intégrée dans la préparation de
 2. **Compléter la validation des plateformes** (P0) : essai macOS général fait ; restent les
    vérifications détaillées (menus, raccourcis, glisser-déposer, impression, persistance),
    Linux et l’installation documentée des paquets publiés.
-3. **Comparer à une référence** les règles Factur-X, les règles françaises et le validateur XSD
-   (P3). Leur seul repère est qu'aucun des 41 exemples officiels ne les enfreint. Le dépôt
-   France_RFE fournit les feuilles XSLT officielles, qu'un moteur de référence peut exécuter sur
-   les mêmes fichiers ; Xerces ou libxml2 pour le XSD.
+3. **Comparaison des validateurs faite** (P3) : 955 XML, accord avec SaxonC-HE pour les profils
+   Factur-X et les règles françaises, et avec libxml2 pour les huit schémas XSD. Le problème
+   des montants UBL non numériques a été corrigé. Test reproductible et job CI ajoutés ;
+   [bilan et limites](tests/reference/REPORT.md). Reste à examiner séparément la variante
+   EXTENDED fix-FR04 de France_RFE et à remplacer le correctif `uppsala` épinglé par une version publiée.
 4. **Suite de la revue de code** : expliquer chaque anomalie (valeur lue, valeur attendue,
    vérification à faire) ; ne plus refuser un PDF entier pour une pièce jointe secondaire trop
    volumineuse ; poursuivre le découpage de `app.js` et de `facturx.rs`.
@@ -73,8 +74,8 @@ de `app.js` et de `facturx.rs`. Le reste est à faire au fil des chantiers.
 
 | Ligne du comparatif | Aujourd'hui | Pour cocher la case | Effort | Priorité |
 |---|---|---|---|---|
-| Schematron officiel EN 16931 | ✅ hors ligne, EN 16931, profils Factur-X, EXTENDED-CTC-FR et BR-FR | Comparaison des règles Factur-X et françaises à un moteur de référence | Moyen | 1 |
-| Validation XSD | ✅ hors ligne, CII par profil Factur-X et UBL 2.1 | Comparaison à un validateur de référence | Faible | 2 |
+| Schematron officiel EN 16931 | ✅ hors ligne, EN 16931, profils Factur-X, EXTENDED-CTC-FR et BR-FR | Fait sur le corpus documenté (SaxonC-HE) ; couverture exhaustive des règles non revendiquée | — | — |
+| Validation XSD | ✅ hors ligne, CII par profil Factur-X et UBL 2.1 | Fait sur 955 XML (libxml2) ; tous les types et contraintes ne sont pas exercés | — | — |
 | Validation PDF/A-3 du fichier | Partielle : déclarations et sept points de structure | Décision sur une validation complète (espaces colorimétriques, transparence, flux…) | Élevé | 4 |
 | Conversion CII ↔ UBL, ZUGFeRD 1 → 2 | — | Table de correspondance complète des deux syntaxes | Élevé | Plus tard |
 | Création de factures | — | Hors périmètre du lecteur | — | Non retenu |
@@ -218,7 +219,9 @@ de `app.js` et de `facturx.rs`. Le reste est à faire au fil des chantiers.
   1.09.2 et CII D22B embarqués, choisis d'après le profil annoncé, validateur `uppsala` en Rust
   pur, à l'analyse de la facture.
 - [x] Schéma XSD des factures et avoirs UBL : schémas OASIS UBL 2.1 embarqués.
-- [ ] Schéma XSD : comparaison du validateur à une référence (Xerces ou libxml2).
+- [x] Comparaison reproductible à SaxonC-HE des règles Factur-X et françaises (CII/UBL),
+  erreurs et occurrences identiques sur le corpus documenté.
+- [x] Schéma XSD : comparaison à libxml2 sur 955 XML ; types simples hérités UBL corrigés.
 - [x] Conteneur PDF, contrôles réels partiels : chiffrement, profil de sortie, polices
   incorporées, identifiant, scripts, métadonnées Factur-X, relation et type de la pièce jointe.
 - [ ] Validation PDF/A-3 complète du fichier (type veraPDF).
