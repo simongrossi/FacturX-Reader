@@ -1,6 +1,6 @@
 # Roadmap
 
-Mise à jour : 3 octobre 2026, après la version 0.6.0 (travaux non publiés compris).
+Mise à jour : 3 octobre 2026, après la version 0.7.0.
 Voir [CHANGELOG.md](CHANGELOG.md) pour le détail des versions, [README.md](README.md) pour
 l'utilisation et [VALIDATION.md](VALIDATION.md) pour le bilan de vérification P0.
 
@@ -23,6 +23,7 @@ Versions publiées (pré-versions, builds non signés) :
 | 0.4.0 | Libellés accentués, suivi de vérification, vue PDF et données, rapport JSON, barre de menus, onglets fixes |
 | 0.5.0 | Bibliothèque locale (alerte IBAN, doublons, prix), règles métier EN 16931, impression, protection des pointages et du suivi, en-tête compact |
 | 0.6.0 | Schematron officiel EN 16931 évalué en Rust, déclarations du conteneur PDF, verdicts séparés, filtres métier |
+| 0.7.0 | Schéma XSD (CII par profil Factur-X, UBL 2.1), Schematron des profils Factur-X, règles françaises EXTENDED-CTC-FR et BR-FR, validation du XML d'origine, contrôles de structure PDF/A-3, Schematron plus rapide |
 
 ## Prochaines étapes proposées
 
@@ -183,8 +184,8 @@ de factures (hors périmètre).
 - [x] Règles du profil français EXTENDED-CTC-FR (FNFE-MPE, dépôt France_RFE 1.4.0.04), CII et
   UBL ; le moteur exécute les variables `let`.
 - [x] Règles BR-FR de la réforme française : fonctions `xsl:function` et variables globales
-  écrites dans les expressions ; appliquées au profil EXTENDED-CTC-FR et aux factures dont
-  vendeur et acheteur sont en France.
+  écrites dans les expressions ; évaluées, avec leur propre verdict, pour le profil
+  EXTENDED-CTC-FR et les factures dont vendeur et acheteur sont en France.
 - [ ] Règles BR-FR : affiner le périmètre (B2C, opérations hors obligation, calendrier).
 - [x] Schematron et schéma XSD sur le XML d'origine plutôt que sur sa version réindentée, avec
   repli signalé si le moteur ne lit pas l'original.

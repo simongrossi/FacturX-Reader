@@ -5,6 +5,8 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 
 ## [Non publié]
 
+## [0.7.0] - 2026-10-03
+
 ### Ajouté
 
 - **Schematron gardé d'une session à l'autre** : le résultat est enregistré dans la bibliothèque,
@@ -21,8 +23,9 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
   version 1.4.0.04, Apache 2.0), embarquées sans modification. Le moteur a appris les variables
   `let` des règles.
 - **Règles BR-FR de la réforme française** (même dépôt, 171 règles CII et 175 règles UBL) :
-  ajoutées au jeu de règles du profil pour une facture au profil EXTENDED-CTC-FR ou dont le
-  vendeur et l'acheteur sont tous deux en France. Le moteur écrit dans les expressions les
+  évaluées en plus, avec leur propre verdict, pour une facture au profil EXTENDED-CTC-FR ou dont
+  le vendeur et l'acheteur sont tous deux en France. Elles ne changent pas le verdict du
+  Schematron. Le moteur écrit dans les expressions les
   fonctions et les variables globales que ces règles définissent.
 - **Schematron des profils Factur-X** : une facture CII annoncée MINIMUM, BASIC WL, BASIC ou
   EXTENDED est évaluée avec les règles officielles Factur-X 1.09.2 de son profil, embarquées sans

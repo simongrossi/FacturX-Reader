@@ -1,4 +1,4 @@
-# Validation — version 0.6.0 et travaux non publiés, 3 octobre 2026
+# Validation — version 0.7.0, 3 octobre 2026
 
 Bilan de ce qui a été vérifié avant la publication, et de ce qui ne l'a pas été.
 Les commandes sont décrites dans [README.md](README.md#tests).
@@ -126,8 +126,9 @@ remontent des écarts de ligne, le prix unitaire et les frais déclarés ne redo
   l'application (UTF-8, UTF-16 ou Latin-1). Sur les 19 factures réelles locales, l'original est lu
   dans tous les cas et donne les mêmes résultats que la version réindentée. Les
   règles nationales autres que françaises ne sont pas contrôlées. Les règles BR-FR sont
-  appliquées selon un critère simple (profil français, ou vendeur et acheteur en France) qui
-  ignore les cas particuliers de la réforme. Les règles appliquées dépendent du profil que la
+  évaluées selon un critère simple (profil français, ou vendeur et acheteur en France) qui
+  ignore les cas particuliers de la réforme ; c'est pourquoi elles ont un verdict à part, en
+  alerte, sans effet sur celui du Schematron. Les règles appliquées dépendent du profil que la
   facture annonce : un profil mal annoncé donne une évaluation avec le mauvais jeu de règles.
   Les règles Factur-X et les règles françaises n'ont pas été comparées à un moteur de
   référence ; leur seul repère est qu'aucun exemple officiel ne les enfreint.
