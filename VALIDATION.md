@@ -1,19 +1,34 @@
-# Validation — version 0.7.1, 4 octobre 2026
+# Validation — version 0.7.1 et travaux non publiés, 4 octobre 2026
 
 Bilan de ce qui a été vérifié pour cette version, et de ce qui ne l'a pas été.
 Les commandes sont décrites dans [README.md](README.md#tests).
+
+## Livraison et vérification distante
+
+Les changements sont poussés dans deux PR successives :
+[préparation de la 0.7.1 (#1)](https://github.com/simongrossi/FacturX-Reader/pull/1), puis
+[comparaison des validateurs et corrections XSD (#2)](https://github.com/simongrossi/FacturX-Reader/pull/2).
+La seconde repose sur la branche de la première ; ces travaux ne sont pas encore fusionnés
+dans `main` ni distribués dans une version publiée.
+
+Au dernier contrôle du 4 octobre, les tests navigateur de la PR #2 passent ; les jobs Rust
+(avec test natif Windows) et de comparaison aux références sont encore en cours.
+Le [workflow de la PR](https://github.com/simongrossi/FacturX-Reader/actions/runs/37161486957)
+donne leur état actuel et les rapports téléchargeables. Les résultats locaux détaillés restent
+consultables dans [tests/reference/REPORT.md](tests/reference/REPORT.md).
 
 ## Vérifications réalisées
 
 | Vérification | Résultat / portée |
 |---|---|
 | `npm run check:js` | Syntaxe de tous les scripts de l'interface |
-| `npm run test:rust` | 62 tests unitaires réussis sous macOS le 4 octobre (3 tests longs ignorés) : bibliothèque (filtres avant pagination sur 1002 factures, réassociation par empreinte), imports (archive ambiguë, plafonds de décompression), exemples officiels français, règles BR-FR (fonctions, périmètre), conteneur PDF (déclarations, sept contrôles de structure), schéma XSD (XML d'origine validé, chargement des huit schémas, facture et avoir UBL, choix d'après le profil, exemple officiel valide, élément inconnu, attribut inconnu, montant non numérique, jamais « valide » sans évaluation), Schematron officiel (compilation de toutes les règles, suite de tests officielle de la Commission, exemples officiels, règles enfreintes, file de travail, résultat repris de la bibliothèque entre deux sessions, résultats identiques avec et sans optimisations), moteur UBL/CII, contrôles en décimaux exacts, règles EN 16931, conteneur PDF (déclarations lues, écarts), pointages et suivi (corruption, sauvegarde, restauration, fusion), bibliothèque SQLite |
+| `npm run test:rust` | 63 tests unitaires réussis sous macOS le 4 octobre (3 tests longs ignorés) : bibliothèque (filtres avant pagination sur 1002 factures, réassociation par empreinte), imports (archive ambiguë, plafonds de décompression), exemples officiels français, règles BR-FR (fonctions, périmètre), conteneur PDF (déclarations, sept contrôles de structure), schéma XSD (XML d'origine validé, chargement des huit schémas, facture et avoir UBL, choix d'après le profil, exemple officiel valide, élément inconnu, attribut inconnu, montant non numérique, jamais « valide » sans évaluation), Schematron officiel (compilation de toutes les règles, suite de tests officielle de la Commission, exemples officiels, règles enfreintes, file de travail, résultat repris de la bibliothèque entre deux sessions, résultats identiques avec et sans optimisations), moteur UBL/CII, contrôles en décimaux exacts, règles EN 16931, conteneur PDF (déclarations lues, écarts), pointages et suivi (corruption, sauvegarde, restauration, fusion), bibliothèque SQLite |
 | Test Rust `samples.rs` | Factures réelles vérifiées sur le poste d’origine ; sous macOS le 4 octobre, test sans effet car `samples/` est absent |
 | `npm run test:ui` | 18 scénarios navigateur (Edge le 3 octobre ; Chromium sous macOS le 4 octobre et par la CI), commandes Rust simulées, PDF.js réel |
 | `npm run test:native` | Vrai exécutable Windows, vraies commandes Rust, profil WebView2 et dossier de données jetables. Vert en local et sur la machine de GitHub |
 | Workflow `Checks` | Tests navigateur (Linux), Rust (Windows) et test natif Windows verts sur `main` avant la préparation de la 0.7.1 |
 | Essai manuel macOS (4 octobre 2026) | Fonctionnement général confirmé par l’utilisateur ; détails de présentation à améliorer. Fonctions précises et mode d’installation non documentés |
+| `npm run test:reference` | 955 XML : 1 208 comparaisons Schematron concordent avec SaxonC-HE 12.9 ; 955 verdicts XSD concordent avec libxml2 2.9.13, dont 433 invalides. Exécution locale macOS ; job ajouté à la CI |
 | Workflow `Release` | Installeurs Windows, macOS et Linux construits à chaque tag |
 
 ### Ce que couvre le test natif Windows
@@ -49,9 +64,10 @@ démarrage, laissés intacts à l'écriture, puis restaurés depuis une sauvegar
   facture franco-française sans mentions obligatoires enfreint `BR-FR-05` ; une facture adressée
   à l'étranger n'y est pas soumise (tests automatisés). Les 19 factures réelles locales, toutes
   franco-françaises, n'en enfreignent aucune.
-- **Non fait** pour les règles Factur-X : aucune comparaison avec un moteur de référence, aucune
-  suite de tests officielle (le paquet n'en fournit pas), et aucun fichier réel ni exemple
-  officiel aux profils MINIMUM ou BASIC.
+- **Comparaison reproductible à SaxonC-HE** : Factur-X MINIMUM, BASIC WL, BASIC, EXTENDED,
+  EXTENDED-CTC-FR et BR-FR CII/UBL, avec variantes invalides ; erreurs, gravités, occurrences,
+  chemins et compteurs identiques. [Bilan et limites](tests/reference/REPORT.md). MINIMUM et
+  BASIC sont couverts par des fixtures, sans facture réelle ni exemple officiel représentatif.
 - Tests Rust : une facture CII fictive complète et les exemples officiels CII et UBL de la
   Commission ne enfreignent aucune règle bloquante ; un total faux d'un centime enfreint
   `BR-CO-15` ; un acheteur sans nom, `BR-07` ; une facture UBL sans date, `BR-03`.
@@ -97,8 +113,10 @@ démarrage, laissés intacts à l'écriture, puis restaurés depuis une sauvegar
   les 18 exemples UBL officiels de la Commission validés une fois, hors dépôt. Un élément inconnu
   est signalé, et une facture présentée comme un avoir est refusée (tests automatisés).
 - Chargé et appliqué par le véritable exécutable Windows (test natif).
-- **Non fait** : comparaison avec un validateur de référence (Xerces, libxml2) sur un grand jeu
-  de documents, comme cela a été fait pour le Schematron avec SaxonJS.
+- **Comparaison à libxml2** : 955 XML, huit schémas, 522 valides et 433 invalides, mêmes
+  verdicts après correction des types simples hérités UBL (`uppsala`, commit amont épinglé).
+  Décimaux limites et enfants XML interdits également vérifiés.
+  [Bilan et corrections](tests/reference/REPORT.md).
 
 ### Contrôles et règles sur des factures réelles
 
@@ -140,10 +158,10 @@ remontent des écarts de ligne, le prix unitaire et les frais déclarés ne redo
   ignore les cas particuliers de la réforme ; c'est pourquoi elles ont un verdict à part, en
   alerte, sans effet sur celui du Schematron. Les règles appliquées dépendent du profil que la
   facture annonce : un profil mal annoncé donne une évaluation avec le mauvais jeu de règles.
-  Les règles Factur-X et les règles françaises n'ont pas été comparées à un moteur de
-  référence ; leur seul repère est qu'aucun exemple officiel ne les enfreint.
-- Le **schéma XSD** est contrôlé par un validateur jeune, qui n'a pas été comparé à un
-  validateur de référence. Pour le CII, le schéma est choisi d'après le profil que la facture
+  Les règles Factur-X et françaises concordent avec SaxonC-HE sur le corpus documenté ;
+  cette comparaison ne couvre pas individuellement toutes leurs assertions.
+- Le **schéma XSD** concorde avec libxml2 sur le corpus documenté ; tous les types et
+  contraintes XSD ne sont pas exercés. Pour le CII, le schéma est choisi d’après le profil que la facture
   annonce : un profil mal annoncé donne un contrôle contre le mauvais schéma.
 - Le **conteneur PDF** n'est validé que partiellement : ses déclarations et sept points de
   structure. Aucun de ces contrôles n'a été comparé à veraPDF, et un fichier sans anomalie

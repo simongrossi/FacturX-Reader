@@ -1,0 +1,233 @@
+{
+  "documents": 955,
+  "originals": 48,
+  "quick": false,
+  "counts": {
+    "xsd_agreements": 955,
+    "xsd_valid": 522,
+    "schematron_agreements": 1208,
+    "EN-CII_checks": 252,
+    "BR-CII_checks": 367,
+    "xsd_invalid": 433,
+    "CTC-CII_checks": 70,
+    "FX-BASICWL_checks": 26,
+    "FX-EXTENDED_checks": 84,
+    "EN-UBL_checks": 139,
+    "BR-UBL_checks": 174,
+    "CTC-UBL_checks": 70,
+    "FX-BASIC_checks": 14,
+    "FX-MINIMUM_checks": 12
+  },
+  "differences": [],
+  "rules_triggered": {
+    "BR-CII": [
+      "BR-FR-01_BT-1",
+      "BR-FR-02_BT-1",
+      "BR-FR-15_BT-95_BT-118",
+      "BR-FR-15_BT-95_BT-151",
+      "BR-FR-CO-07_BT-9",
+      "BR-FR-CO-12_BT-5",
+      "BR-FR-DEC-01_BT-112",
+      "BR-FR-MV-03_EXT-FR-FE-181",
+      "BR-FR-MV-09_EXT-FR-FE-181",
+      "BR-FR-MV-10_EXT-FR-FE-184",
+      "BR-FR-MV-11_BT-128"
+    ],
+    "BR-UBL": [
+      "BR-FR-01_BT-1-1",
+      "BR-FR-01_BT-1-2",
+      "BR-FR-02_BT-1",
+      "BR-FR-15_BT-151-1",
+      "BR-FR-BD-02_BT-30",
+      "BR-FR-BD-02_BT-47",
+      "BR-FR-BD-02_EXT-FR-FE-163",
+      "BR-FR-CO-12_BT-5",
+      "BR-FR-DEC-01_BT-112",
+      "BR-FR-MV-01_EXT-FR-FE-163",
+      "BR-FR-MV-02_EXT-FR-FE-163",
+      "BR-FR-MV-03_EXT-FR-FE-181",
+      "BR-FR-MV-09_EXT-FR-FE-181"
+    ],
+    "CTC-CII": [
+      "BR-02",
+      "BR-03",
+      "BR-06",
+      "BR-CL-04",
+      "BR-CL-14",
+      "BR-CL-18",
+      "BR-CL-23",
+      "BR-CO-16",
+      "BR-DEC-14",
+      "BR-FREXT-CO-15",
+      "BR-FXEXT-E-08",
+      "BR-FXEXT-E-08ini",
+      "BR-FXEXT-E-08rev",
+      "BR-FXEXT-S-08",
+      "BR-FXEXT-S-08ini",
+      "BR-FXEXT-S-08rev"
+    ],
+    "CTC-UBL": [
+      "BR-02",
+      "BR-03",
+      "BR-06",
+      "BR-CL-04",
+      "BR-CL-14",
+      "BR-CL-18",
+      "BR-CL-23",
+      "BR-CO-16",
+      "BR-DEC-14",
+      "BR-FREXT-22",
+      "BR-FREXT-23",
+      "BR-FREXT-26",
+      "BR-FREXT-CO-04",
+      "BR-FREXT-CO-10",
+      "BR-FREXT-CO-13",
+      "BR-FREXT-CO-15",
+      "BR-FREXT-E-08",
+      "BR-FREXT-E-08ini",
+      "BR-FREXT-E-08rev",
+      "BR-FREXT-S-08",
+      "BR-FREXT-S-08ini",
+      "BR-FREXT-S-08rev",
+      "UBL-DT-01"
+    ],
+    "EN-CII": [
+      "BR-02",
+      "BR-03",
+      "BR-06",
+      "BR-CL-04",
+      "BR-CL-14",
+      "BR-CL-18",
+      "BR-CL-23",
+      "BR-CO-15",
+      "BR-CO-16",
+      "BR-DEC-14",
+      "BR-E-08",
+      "BR-S-08"
+    ],
+    "EN-UBL": [
+      "BR-02",
+      "BR-03",
+      "BR-06",
+      "BR-CL-04",
+      "BR-CL-14",
+      "BR-CL-18",
+      "BR-CL-23",
+      "BR-CO-15",
+      "BR-CO-16",
+      "BR-DEC-14",
+      "BR-E-08",
+      "BR-S-01",
+      "BR-S-08",
+      "UBL-DT-01"
+    ],
+    "FX-BASIC": [
+      "BR-02",
+      "BR-03",
+      "BR-06",
+      "BR-CO-15",
+      "BR-CO-16",
+      "BR-DEC-14",
+      "BR-S-08",
+      "FX-NON-UTILISE",
+      "FX-SCH-A-000409",
+      "FX-SCH-A-000502",
+      "FX-SCH-A-000514",
+      "FX-SCH-A-000534",
+      "FX-SCH-A-000537",
+      "PEPPOL-EN16931-R008"
+    ],
+    "FX-BASICWL": [
+      "BR-02",
+      "BR-03",
+      "BR-06",
+      "BR-CO-15",
+      "BR-CO-16",
+      "BR-DEC-14",
+      "FX-NON-UTILISE",
+      "FX-SCH-A-000179",
+      "FX-SCH-A-000409",
+      "FX-SCH-A-000443",
+      "FX-SCH-A-000464"
+    ],
+    "FX-EXTENDED": [
+      "BR-02",
+      "BR-03",
+      "BR-06",
+      "BR-DEC-14",
+      "BR-FXEXT-CO-15",
+      "BR-FXEXT-CO-16",
+      "BR-FXEXT-E-08b",
+      "BR-FXEXT-E-08ini",
+      "BR-FXEXT-E-08rev",
+      "BR-FXEXT-S-08ini",
+      "BR-FXEXT-S-08rev",
+      "BR-FXEXT-S08b",
+      "FX-NON-UTILISE",
+      "FX-SCH-A-000409",
+      "FX-SCH-A-000777",
+      "FX-SCH-A-000861",
+      "FX-SCH-A-001076",
+      "FX-SCH-A-001128",
+      "PEPPOL-EN16931-R008"
+    ],
+    "FX-MINIMUM": [
+      "BR-02",
+      "BR-03",
+      "BR-06",
+      "BR-DEC-14",
+      "FX-NON-UTILISE",
+      "FX-SCH-A-000036",
+      "FX-SCH-A-000040",
+      "FX-SCH-A-000409"
+    ]
+  },
+  "xsd_by_schema": {
+    "CrossIndustryInvoice_100pD22B.xsd": {
+      "valid": 66,
+      "invalid": 54
+    },
+    "Factur-X_1.09.2_BASIC.xsd": {
+      "valid": 11,
+      "invalid": 9
+    },
+    "Factur-X_1.09.2_BASICWL.xsd": {
+      "valid": 20,
+      "invalid": 18
+    },
+    "Factur-X_1.09.2_EN16931.xsd": {
+      "valid": 187,
+      "invalid": 153
+    },
+    "Factur-X_1.09.2_EXTENDED.xsd": {
+      "valid": 66,
+      "invalid": 54
+    },
+    "Factur-X_1.09.2_MINIMUM.xsd": {
+      "valid": 8,
+      "invalid": 10
+    },
+    "UBL-CreditNote-2.1.xsd": {
+      "valid": 10,
+      "invalid": 9
+    },
+    "UBL-Invoice-2.1.xsd": {
+      "valid": 154,
+      "invalid": 126
+    }
+  },
+  "reference_versions": {
+    "saxonc": "SaxonC-HE 12.9 from Saxonica",
+    "libxml2": "xmllint: using libxml version 20913"
+  },
+  "source_manifest_sha256": "670ec6fd901c063b80c2fbee29c4fe93f9da531ae8efeabd79f623c445a763a3",
+  "engine_sources_sha256": {
+    "src-tauri/src/schematron.rs": "5341aae6c20183731b97ec98d9fb652b98475d869810ac2fc6cf499c957f59b4",
+    "src-tauri/src/xsd.rs": "b940dadab6b033de1012fddc2c5abf7053cd48e8c592a5c8f1d882acc056b280",
+    "src-tauri/Cargo.lock": "8cbde3622dac37843cff7d1575a85daea2333d92cd5b77fc9c9c29069bcdcac0"
+  },
+  "sources": {
+    "france_revision": "97ba0f3d4ef2abed5780e9490d5c3a2be832ab1d",
+    "skeleton_revision": "77dcd36c53d12ed786c144ece3b2af7694abdc56"
+  }
+}

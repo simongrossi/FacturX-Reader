@@ -91,3 +91,13 @@ validateur XSD (BSD-2-Clause), include_dir (MIT), et leurs dépendances.
 
 L'application n'embarque plus aucun composant propriétaire : le moteur SaxonJS, utilisé un temps
 pour exécuter le Schematron, a été remplacé par une évaluation directe des règles en Rust.
+
+
+### Outils de comparaison (développement uniquement)
+
+Le test `tests/reference/` utilise SaxonC-HE, libxml2 et l'implémentation ISO Schematron.
+Ces outils ne sont pas embarqués dans l'application. Les sources téléchargées, leurs versions
+épinglées et leurs licences sont détaillées dans [tests/reference/README.md](tests/reference/README.md).
+Les fixtures BASIC, EXTENDED et D22B sont dérivées de l'exemple de la Commission européenne
+`CII_example3.xml` (© Union européenne, EUPL 1.2). Le correctif du validateur `uppsala`
+reste sous BSD-2-Clause et est repris au commit amont indiqué dans `Cargo.toml`.

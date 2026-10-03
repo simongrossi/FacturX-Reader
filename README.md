@@ -681,6 +681,12 @@ npm run test:ui
 npm run test:rust
 ```
 
+La comparaison des validateurs à **SaxonC-HE et libxml2** se lance avec
+`npm run test:reference`, après installation de son environnement Python. Elle couvre les
+profils Factur-X, les règles françaises et les huit schémas XSD sur des exemples et des variantes
+invalides. Voir [tests/reference/README.md](tests/reference/README.md) pour les prérequis et
+[le bilan](tests/reference/REPORT.md) pour les résultats et les limites.
+
 Pour utiliser Edge déjà installé sous PowerShell :
 
 ```powershell

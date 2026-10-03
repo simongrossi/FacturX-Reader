@@ -3,6 +3,42 @@ on: [push, pull_request, workflow_dispatch]
 permissions:
   contents: read
 jobs:
+  reference:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: tests/reference/requirements.txt
+      - run: python3 -m pip install -r tests/reference/requirements.txt
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - uses: actions/cache@v4
+        with:
+          path: |
+            tests/reference/cache/examples
+            tests/reference/cache/france
+            tests/reference/cache/factur-x
+            tests/reference/cache/en16931
+            tests/reference/cache/skeleton
+          key: reference-sources-${{ hashFiles('tests/reference/sources.json') }}
+      - run: python3 -m unittest discover -s tests/reference -p 'test_*.py'
+      - run: python3 tests/reference/compare.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reference-validation
+          path: |
+            tests/reference/output/summary.json
+            tests/reference/output/results.json
+            tests/reference/output/manifest.json
+            tests/reference/output/corpus
+
   browser:
     runs-on: ubuntu-latest
     steps:

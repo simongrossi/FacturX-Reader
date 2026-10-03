@@ -112,7 +112,8 @@ fn decimal_false_positive(message: &str) -> bool {
         .strip_suffix("' is not a valid decimal")
         .and_then(|m| m.strip_prefix('\''))
         .and_then(|v| v.trim().strip_suffix('.'))
-        .map(|v| v.trim_start_matches(['+', '-']))
+        // Un seul signe est permis : « ++12. » reste une erreur XSD.
+        .map(|v| v.strip_prefix('+').or_else(|| v.strip_prefix('-')).unwrap_or(v))
         .is_some_and(|digits| !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit()))
 }
 
@@ -203,6 +204,32 @@ mod tests {
         let report = validate(CII_OFFICIEL, "CII");
         assert_eq!(report["evalue"], true, "{report}");
         assert_eq!(report["ok"], true, "{}", messages(&report));
+    }
+
+    #[test]
+    fn ubl_types_simples_herites_verifies() {
+        // Écart découvert par comparaison à libxml2 : uppsala 0.10.1 acceptait ces
+        // valeurs car cbc:AmountType dérive du type complexe udt:AmountType.
+        for (before, after) in [
+            (">2005.00</cbc:TaxInclusiveAmount>", ">pas-un-montant</cbc:TaxInclusiveAmount>"),
+            (">2</cbc:InvoicedQuantity>", ">pas-une-quantite</cbc:InvoicedQuantity>"),
+            (">25</cbc:Percent>", ">pas-un-taux</cbc:Percent>"),
+            (">2013-04-10</cbc:IssueDate>", ">2026-02-30</cbc:IssueDate>"),
+        ] {
+            let invalid = UBL.replacen(before, after, 1);
+            assert_ne!(invalid, UBL);
+            let report = validate(&invalid, "UBL");
+            assert_eq!(report["evalue"], true, "{report}");
+            assert_eq!(report["ok"], false, "{report}");
+            assert!(report["total"].as_u64().unwrap() > 0, "{report}");
+        }
+        // Un enfant XML ne peut pas remplacer la valeur d'un contenu simple.
+        let child = UBL.replacen(">2005.00</cbc:TaxInclusiveAmount>", "><cbc:ID>2005.00</cbc:ID></cbc:TaxInclusiveAmount>", 1);
+        assert_eq!(validate(&child, "UBL")["ok"], false);
+        // Les attributs hérités restent obligatoires après la correction du type.
+        let missing_currency = UBL.replacen("<cbc:TaxInclusiveAmount currencyID=\"DKK\">", "<cbc:TaxInclusiveAmount>", 1);
+        assert_eq!(validate(&missing_currency, "UBL")["ok"], false);
+        assert_eq!(validate(UBL, "UBL")["ok"], true);
     }
 
     #[test]
@@ -311,6 +338,8 @@ mod tests {
         assert!(!decimal_false_positive("'.' is not a valid decimal"));
         assert!(!decimal_false_positive("'1e3' is not a valid decimal"));
         assert!(!decimal_false_positive("'12.5x' is not a valid decimal"));
+        assert!(!decimal_false_positive("'++12.' is not a valid decimal"));
+        assert!(!decimal_false_positive("'--12.' is not a valid decimal"));
     }
 
     #[test]
