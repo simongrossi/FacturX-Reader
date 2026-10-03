@@ -30,7 +30,7 @@ vérifié » ne sont connus que par l'étude. Corrections bienvenues.
 
 | | Factur-X Reader | Quba Viewer | Treesoft Viewer | 7-PDF Validator | Aloaha GUI |
 |---|---|---|---|---|---|
-| Prix et licence | Gratuit, PolyForm Noncommercial | Gratuit, Apache 2.0 | Gratuit | Partagiciel : 10 validations, puis licence sur demande | Payant |
+| Prix et licence | Gratuit, PolyForm Shield | Gratuit, Apache 2.0 | Gratuit | Partagiciel : 10 validations, puis licence sur demande | Payant |
 | Systèmes | Windows ; macOS et Linux construits, non vérifiés | Windows, macOS, Linux | Non précisé sur la page | Windows | Windows, portable |
 | Interface | Français | Allemand, anglais, français | Anglais, allemand | Non documenté | Non documenté |
 | ZUGFeRD 1.x | — | ✅ | Non documenté | Non documenté | Non documenté |
@@ -73,7 +73,7 @@ Les autres visionneuses affichent une facture ; celle-ci sert à la vérifier.
 | Validation « partielle (parsing syntaxique) », pas de Schematron | Schematron officiel EN 16931, profils Factur-X, EXTENDED-CTC-FR et BR-FR ; schéma XSD ; contrôle partiel du conteneur PDF |
 | Pas de traitement par lots | Ouverture d'un dossier, 500 documents, tableau multi-factures, bibliothèque |
 | Pas de rapport d'erreur | Rapport de contrôle JSON, export CSV |
-| « Open Source (Libre) » | PolyForm Noncommercial : source consultable, usage commercial soumis à accord |
+| « Open Source (Libre) » | PolyForm Shield : utilisation libre et source consultable, mais produit concurrent interdit. Ce n'est pas une licence open source |
 | Windows, macOS, Linux | Seul Windows est vérifié (voir [VALIDATION.md](VALIDATION.md)) |
 | Démarrage en moins d'une seconde, 35 à 50 Mo de mémoire, 15 Mo | Démarrage et mémoire jamais mesurés. L'exécutable Windows 0.7.0 pèse 19 Mo, son installeur 5 Mo |
 
@@ -116,18 +116,20 @@ Les autres visionneuses affichent une facture ; celle-ci sert à la vérifier.
 | Chiffres mesurés | Poids annoncé faux de 4 Mo, démarrage et mémoire jamais mesurés | Faible | Mesurer et publier : c'est l'argument face à Electron |
 | Export vers la comptabilité | Les progiciels créent les écritures ; l'application s'arrête au CSV | — | Hors périmètre, comme la création de factures |
 
-### Une décision avant le reste : la licence
+### La licence, tranchée le 4 octobre 2026
 
-Quba est sous Apache 2.0, Treesoft est gratuit pour tous. Factur-X Reader interdit l'usage
-commercial sans accord écrit : une entreprise qui l'emploierait pour contrôler ses factures
-fournisseurs doit donc le demander. Or c'est le public visé. Ce n'est pas un défaut à corriger
-d'office, c'est un choix à faire en connaissance de cause par les deux auteurs :
+Quba est sous Apache 2.0, Treesoft est gratuit pour tous. Jusqu'à la 0.7.0, Factur-X Reader
+était sous PolyForm Noncommercial : une entreprise ne pouvait pas l'employer pour contrôler ses
+factures fournisseurs sans accord écrit, alors que c'est le public visé, et chacun pouvait en
+diffuser une version modifiée à titre non commercial.
 
-- garder la licence, et dire clairement dans le README comment obtenir un accord ;
-- ou autoriser l'usage interne en entreprise tout en réservant la revente (PolyForm Internal Use
-  ou PolyForm Shield, par exemple).
+Les auteurs voulaient l'inverse : que tout le monde puisse l'utiliser, le vérifier et y
+contribuer, sans que personne puisse s'approprier le travail. La licence passe donc à
+**PolyForm Shield 1.0.0** : tout usage est permis, sauf fournir un produit concurrent. Un
+[CONTRIBUTING.md](CONTRIBUTING.md) fixe les droits sur les contributions.
 
-La licence de `facturx-core` (ROADMAP, P4) dépend de la même décision.
+Reste ouverte la licence de `facturx-core` (ROADMAP, P4) : une bibliothèque sous Shield ne
+pourrait pas être reprise par un autre lecteur de factures.
 
 ## Sources
 

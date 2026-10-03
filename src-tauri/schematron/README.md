@@ -19,7 +19,7 @@ La suite `tests-officiels/` sert seulement aux tests : chaque cas indique, pour 
 elle doit être respectée (`success`), enfreinte (`error`) ou signalée en avertissement
 (`warning`) ; `testfiles/` contient des factures complètes qui ne doivent enfreindre aucune
 règle bloquante. Elle est presque entièrement UBL : la Commission n'y fournit que deux cas CII.
-Ils restent sous EUPL 1.2 : la licence PolyForm Noncommercial de Factur-X Reader ne s'y applique pas.
+Ils restent sous EUPL 1.2 : la licence PolyForm Shield de Factur-X Reader ne s'y applique pas.
 
 ## Règles Factur-X
 

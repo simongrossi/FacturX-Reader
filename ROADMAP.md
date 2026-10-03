@@ -96,7 +96,7 @@ lot avec historique et suivi. Ce qui en ressort pour le plan :
 
 | Sujet | Décision proposée |
 |---|---|
-| Licence | À trancher d'abord par les auteurs : les concurrents gratuits sont utilisables en entreprise, pas Factur-X Reader sans accord |
+| Licence | Fait : passage à PolyForm Shield 1.0.0, utilisable par tous y compris en entreprise, produit concurrent interdit ; `CONTRIBUTING.md` pour les contributions |
 | Comparaison PDF ↔ XML (P3) | À remonter : aucun outil consulté ne la fait, et c'est le risque propre au format hybride |
 | Renommage et classement, rapport lisible (P2) | Confirmés : Treesoft et 7-PDF les proposent |
 | ZUGFeRD 1.x | Nouveau : un PDF ZUGFeRD 1.x est annoncé « sans XML de facture ». Le dire clairement, puis le lire si le besoin se présente |

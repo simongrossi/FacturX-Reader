@@ -27,7 +27,7 @@
   },
   "bundle": {
     "active": true,
-    "copyright": "© 2026 Christophe Mehault, Simon Grossi — PolyForm Noncommercial 1.0.0",
+    "copyright": "© 2026 Christophe Mehault, Simon Grossi — PolyForm Shield 1.0.0",
     "targets": "all",
     "icon": [
       "icons/32x32.png",
