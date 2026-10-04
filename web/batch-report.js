@@ -147,8 +147,8 @@ async function batchPdfBuffer(snapshot, onProgress) {
   heading("Totaux par devise (avoirs déduits)");
   if (!snapshot.totals.length) line("Aucune facture chiffrée disponible.");
   for (const t of snapshot.totals) line((t.currency || "Sans devise") + " : " + t.n + " document" + (t.n > 1 ? "s" : "") +
-    " dont " + t.avoirs + " avoir" + (t.avoirs > 1 ? "s" : "") + " · HT " + (t.ht / 100).toFixed(2) + " · TVA " + (t.tva / 100).toFixed(2) +
-    " · TTC " + (t.ttc / 100).toFixed(2) + " · À payer " + (t.a_payer / 100).toFixed(2));
+    " dont " + t.avoirs + " avoir" + (t.avoirs > 1 ? "s" : "") + " · HT " + decimalCentsText(t.ht) + " · TVA " + decimalCentsText(t.tva) +
+    " · TTC " + decimalCentsText(t.ttc) + " · À payer " + decimalCentsText(t.a_payer));
   heading("Détail par facture");
   for (let i = 0; i < snapshot.documents.length; i++) {
     const item = snapshot.documents[i];

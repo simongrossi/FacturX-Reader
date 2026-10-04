@@ -47,14 +47,12 @@ const BATCH_FILTERS = {
   france: (r) => ["alerte", "ecart"].includes(r.verdicts.france?.etat),
   incomplet: (r) => Object.values(r.verdicts).some(incompleteVerdict),
   echue: (r) => r.jours != null && r.jours < 0,
-  sanstva: (r) => r.lu && !(parseFloat(r.tva) > 0),
+  sanstva: (r) => r.lu && decimalCompare(r.tva, "0") !== 1,
   weekend: (r) => r.weekEnd,
   doublon: (r) => r.doublon,
   avoir: (r) => r.avoir,
   erreur: (r) => !r.lu,
 };
-
-const batchMoney = new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 8 });
 
 function batchRows() {
   const files = state.files;
@@ -109,13 +107,11 @@ function batchVisibleRows() {
     const fn = batch.fournisseur.toLowerCase();
     rows = rows.filter((r) => r.vendeur && r.vendeur.toLowerCase().includes(fn));
   }
-  if (batch.montantMin !== "" && !isNaN(parseFloat(batch.montantMin))) {
-    const minVal = parseFloat(batch.montantMin);
-    rows = rows.filter((r) => r.ttc !== "" && parseFloat(r.ttc) >= minVal);
+  if (batch.montantMin !== "" && decimalUnits(batch.montantMin) != null) {
+    rows = rows.filter((r) => { const cmp = decimalCompare(r.ttc, batch.montantMin); return cmp != null && cmp >= 0; });
   }
-  if (batch.montantMax !== "" && !isNaN(parseFloat(batch.montantMax))) {
-    const maxVal = parseFloat(batch.montantMax);
-    rows = rows.filter((r) => r.ttc !== "" && parseFloat(r.ttc) <= maxVal);
+  if (batch.montantMax !== "" && decimalUnits(batch.montantMax) != null) {
+    rows = rows.filter((r) => { const cmp = decimalCompare(r.ttc, batch.montantMax); return cmp != null && cmp <= 0; });
   }
   if (q) rows = rows.filter((r) => [...BATCH_COLS.map((c) => r[c.key]), r.commentaire].join(" ").toLowerCase().includes(q));
   const { key, dir } = batch.sort;
@@ -123,7 +119,7 @@ function batchVisibleRows() {
   if (col) rows.sort((a, b) => {
     const av = a[key], bv = b[key];
     if (!av || !bv) return (av ? -1 : bv ? 1 : 0);   // valeurs vides en dernier
-    const cmp = col.num ? parseFloat(av) - parseFloat(bv) : String(av).localeCompare(String(bv), "fr", { numeric: true });
+    const cmp = col.num ? (decimalCompare(av, bv) ?? 0) : String(av).localeCompare(String(bv), "fr", { numeric: true });
     return cmp * dir;
   });
   return rows;
@@ -134,10 +130,13 @@ function batchTotals(rows) {
   const totals = new Map();
   for (const r of rows) {
     if (!r.lu) continue;
-    const t = totals.get(r.devise) || { n: 0, avoirs: 0, ht: 0, tva: 0, ttc: 0, a_payer: 0 };
+    const t = totals.get(r.devise) || { n: 0, avoirs: 0, ht: 0n, tva: 0n, ttc: 0n, a_payer: 0n };
     t.n++;
     if (r.avoir) t.avoirs++;
-    for (const k of BATCH_MONEY) t[k] += (r.avoir ? -1 : 1) * Math.round((parseFloat(r[k]) || 0) * 100);
+    for (const k of BATCH_MONEY) {
+      const cents = decimalCents(r[k]);
+      if (cents != null) t[k] += (r.avoir ? -cents : cents);
+    }
     totals.set(r.devise, t);
   }
   return totals;
@@ -198,7 +197,7 @@ function renderBatch() {
         else td.textContent = "—";
       } else if (col.num) {
         td.classList.add("num");
-        td.textContent = v === "" ? "—" : batchMoney.format(parseFloat(v));
+        td.textContent = v === "" ? "—" : decimalFormat(v);
       } else if (col.key === "echeance" && r.jours != null && r.jours < 0) {
         td.textContent = v;
         td.appendChild(Object.assign(document.createElement("span"), { className: "note batch-late", textContent: "échue depuis " + -r.jours + " j" }));
@@ -224,8 +223,8 @@ function renderBatch() {
     for (const k of BATCH_MONEY) {
       const td = tr.insertCell();
       td.className = "num";
-      td.dataset.value = (t[k] / 100).toFixed(2);
-      td.textContent = batchMoney.format(t[k] / 100);
+      td.dataset.value = decimalCentsText(t[k]);
+      td.textContent = decimalCentsFormat(t[k]);
     }
     tr.insertCell().textContent = devise;
     for (let i = 0; i < 4; i++) tr.insertCell();

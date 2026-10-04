@@ -21,7 +21,8 @@ use sha2::{Digest, Sha256};
 use crate::tables;
 
 mod controles;
-use controles::{mul_cents, round_div, Dec, CENT, SCALE};
+pub(crate) use controles::Dec;
+use controles::{mul_cents, round_div, CENT, SCALE};
 mod imports;
 pub use imports::ArchiveSelection;
 use imports::{decompress_candidates, read_bounded, MAX_EXPANDED, MAX_XML, MAX_METADATA};

@@ -14,10 +14,7 @@ function scheduleDate(value) {
 }
 
 function scheduleCents(value) {
-  const raw = String(value ?? "").trim().replace(",", ".");
-  if (!/^-?\d+(?:\.\d+)?$/.test(raw)) return null;
-  const number = Number(raw);
-  return Number.isFinite(number) && Math.abs(number) < 9e13 ? Math.round(number * 100) : null;
+  return decimalCents(value);
 }
 
 function scheduleToday() {
@@ -32,7 +29,7 @@ function scheduleEntries(today = scheduleToday()) {
     const cents = scheduleCents(credit ? s.ttc : s.a_payer);
     const due = scheduleDate(s.echeance);
     return { f, filename: f.name, seller: s.vendeur || "", number: s.numero || "", currency: s.devise || "",
-      credit, cents: cents == null ? null : credit ? -Math.abs(cents) : cents, due,
+      credit, cents: cents == null ? null : credit ? -(cents < 0n ? -cents : cents) : cents, due,
       status: !due ? "undated" : due < today ? "overdue" : due === today ? "today" : "upcoming" };
   }).sort((a, b) => (a.due || "9999-99-99").localeCompare(b.due || "9999-99-99") ||
     a.currency.localeCompare(b.currency, "fr") || a.filename.localeCompare(b.filename, "fr"));
@@ -43,7 +40,7 @@ function scheduleGroups(entries) {
   for (const entry of entries) {
     const key = entry.due + "\u0000" + entry.currency;
     if (!groups.has(key)) groups.set(key, { due: entry.due, currency: entry.currency, status: entry.status,
-      entries: [], net: 0, known: 0, missing: 0, credits: 0 });
+      entries: [], net: 0n, known: 0, missing: 0, credits: 0 });
     const group = groups.get(key);
     group.entries.push(entry);
     if (entry.credit) group.credits++;
@@ -59,7 +56,7 @@ function scheduleVisible(entries = scheduleEntries()) {
 }
 
 function scheduleMoney(cents) {
-  return batchMoney.format(cents / 100);
+  return decimalCentsFormat(cents);
 }
 
 function scheduleDateLabel(due) {
@@ -83,7 +80,7 @@ function renderSchedule() {
   summary.replaceChildren();
   const totals = new Map();
   for (const entry of entries) {
-    const t = totals.get(entry.currency) || { count: 0, known: 0, net: 0, credits: 0, undatedCredits: 0, missing: 0 };
+    const t = totals.get(entry.currency) || { count: 0, known: 0, net: 0n, credits: 0, undatedCredits: 0, missing: 0 };
     t.count++;
     if (entry.credit) { t.credits++; if (!entry.due) t.undatedCredits++; }
     if (entry.cents == null) t.missing++;
@@ -134,7 +131,7 @@ function renderSchedule() {
       item.appendChild(Object.assign(document.createElement("span"), { textContent: entry.seller || "Vendeur inconnu" }));
       item.appendChild(Object.assign(document.createElement("span"), { textContent: entry.credit ? "Avoir" : "Facture" }));
       item.appendChild(Object.assign(document.createElement("strong"), { textContent: entry.cents == null ? "Montant indisponible" :
-        (entry.cents < 0 ? "−" : "") + scheduleMoney(Math.abs(entry.cents)) + " " + (entry.currency || "") }));
+        (entry.cents < 0n ? "−" : "") + scheduleMoney(entry.cents < 0n ? -entry.cents : entry.cents) + " " + (entry.currency || "") }));
       list.appendChild(item);
     }
     block.appendChild(list); container.appendChild(block);
@@ -147,9 +144,9 @@ function scheduleExportRows() {
   for (const group of groups) {
     for (const entry of group.entries) rows.push(["Document", entry.due, entry.currency, scheduleStatusLabel(entry.status),
       entry.filename, entry.seller, entry.number, entry.credit ? "Avoir" : "Facture",
-      entry.cents == null ? "" : (entry.cents / 100).toFixed(2).replace(".", ",")]);
+      entry.cents == null ? "" : decimalCentsText(entry.cents).replace(".", ",")]);
     rows.push(["Total échéance", group.due, group.currency, scheduleStatusLabel(group.status), "", "", "", "",
-      group.known ? (group.net / 100).toFixed(2).replace(".", ",") : ""]);
+      group.known ? decimalCentsText(group.net).replace(".", ",") : ""]);
   }
   return rows;
 }
