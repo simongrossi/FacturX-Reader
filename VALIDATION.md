@@ -34,7 +34,8 @@ Le dossier surveillé et l’affichage décimal des lignes ont été vérifiés 
 de développement 0.8.0 : `npm run check:js`, 28 scénarios navigateur (choix, stabilisation,
 pause, annulation et reprise après redémarrage), 71 tests Rust réussis (3 ignorés) et
 `samples.rs`. Les tests Rust couvrent le relevé borné du dossier et les prix/TVA de ligne UBL/CII
-reconstitués en décimaux exacts. Le test natif Windows et les références seront vérifiés en CI.
+reconstitués en décimaux exacts. La [PR #10](https://github.com/simongrossi/FacturX-Reader/pull/10)
+est fusionnée (`d0b7623`) : ses jobs navigateur, références et Rust/natif Windows sont verts.
 
 L’[inventaire des branches](docs/BRANCHES.md) explique leur intégration et les repères d’archive.
 Les résultats détaillés sont dans [tests/reference/REPORT.md](tests/reference/REPORT.md).
