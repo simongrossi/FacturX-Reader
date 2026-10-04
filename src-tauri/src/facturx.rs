@@ -2620,6 +2620,44 @@ mod tests {
     }
 
     #[test]
+    fn provenance_tva_par_taux_cii_occurrences_distinctes() {
+        let xml = CII.replace(
+            "<ram:ApplicableTradeTax><ram:CalculatedAmount currencyID=\"EUR\">20.00</ram:CalculatedAmount>",
+            "<ram:ApplicableTradeTax><ram:CalculatedAmount currencyID=\"EUR\">20.00</ram:CalculatedAmount><ram:BasisAmount currencyID=\"EUR\">100.00</ram:BasisAmount>",
+        ).replace(
+            "</ram:ApplicableTradeTax>\n   <ram:LineTotalAmount",
+            "</ram:ApplicableTradeTax><ram:ApplicableTradeTax><ram:CalculatedAmount currencyID=\"EUR\">19.00</ram:CalculatedAmount><ram:BasisAmount currencyID=\"EUR\">100.00</ram:BasisAmount><ram:CategoryTradeTax><ram:RateApplicablePercent>20.0</ram:RateApplicablePercent></ram:CategoryTradeTax></ram:ApplicableTradeTax>\n   <ram:LineTotalAmount",
+        );
+        let r = parse_file("test-cii.xml", xml.as_bytes()).unwrap();
+        let proofs = r["synthese"]["provenance_tva_taux"].as_array().unwrap();
+        assert_eq!(proofs.len(), 2);
+        assert_eq!(proofs[0]["comparison"]["expected"], "20.00");
+        assert_eq!(proofs[0]["comparison"]["matches"], true);
+        assert_eq!(proofs[1]["comparison"]["found"], "19.00");
+        assert_eq!(proofs[1]["comparison"]["difference"], "-1.00");
+        assert_eq!(proofs[1]["comparison"]["matches"], false);
+        assert!(proofs[1]["inputs"][0]["path"].as_str().unwrap().contains("ApplicableTradeTax[2]"));
+        let controls = r["controles"].as_array().unwrap();
+        let tax_controls: Vec<_> = controls.iter().filter(|c| c["tax_breakdown_index"].is_number()).collect();
+        assert_eq!(tax_controls.len(), 2);
+        assert_eq!(tax_controls[0]["tax_breakdown_index"], 0);
+        assert_eq!(tax_controls[1]["tax_breakdown_index"], 1);
+        assert_eq!(tax_controls[1]["etat"], "ecart");
+    }
+
+    #[test]
+    fn provenance_tva_par_taux_ubl_incomplete() {
+        let xml = UBL.replace("  <cac:LegalMonetaryTotal>",
+            "  <cac:TaxTotal><cac:TaxSubtotal><cbc:TaxableAmount>100.00</cbc:TaxableAmount><cac:TaxCategory><cbc:Percent>20</cbc:Percent></cac:TaxCategory></cac:TaxSubtotal></cac:TaxTotal>\n  <cac:LegalMonetaryTotal>");
+        let r = parse_file("test-ubl.xml", xml.as_bytes()).unwrap();
+        let proof = &r["synthese"]["provenance_tva_taux"][0];
+        assert_eq!(proof["inputs"][0]["value"], "100.00");
+        assert!(proof["inputs"][0]["path"].as_str().unwrap().ends_with("/TaxableAmount"));
+        assert_eq!(proof["inputs"][2]["note"], "Absent ou non numérique dans le XML");
+        assert!(proof["comparison"].is_null());
+    }
+
+    #[test]
     fn synthese_cii() {
         let r = parse_file("test-cii.xml", CII.as_bytes()).unwrap();
         let s = &r["synthese"];

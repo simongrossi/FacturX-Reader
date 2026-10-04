@@ -10,7 +10,7 @@ l'utilisation, [VALIDATION.md](VALIDATION.md) pour le bilan de vérification P0 
 | Priorité | Thème | État |
 |---|---|---|
 | P0 | Valider l'existant | Presque terminé : essai macOS positif ; reste la vérification exhaustive, Linux et l’installation des paquets |
-| P1 | Confort et fiabilité du moteur | Provenance des dates, totaux et lignes développée ; restent « Ouvrir avec », les tests anonymisés et la TVA par taux |
+| P1 | Confort et fiabilité du moteur | Provenance des dates, totaux, lignes et TVA par taux développée ; restent les tests anonymisés et les calculs d’affichage en décimaux exacts. « Ouvrir avec » est différé |
 | P2 | Exploiter des lots de factures | Presque terminé : revue du lot et échéancier développés ; restent la recherche dans le PDF et le dossier surveillé |
 | P3 | Conformité et distribution | Bien avancé : Schematron officiel (suite de tests officielle verte, résultat gardé entre sessions) et déclarations du conteneur ; reste PDF/A réel, règles nationales, signature des builds |
 | P4 | API, MCP et connecteurs | Pas commencé |
@@ -90,10 +90,11 @@ Les anciennes branches sont archivées ou déjà intégrées ; voir [l’inventa
    Linux et l’installation documentée des paquets publiés.
 2. **Suite de la revue de code** : ne plus refuser un PDF entier pour une pièce jointe secondaire trop
    volumineuse ; poursuivre le découpage de `app.js` et de `facturx.rs`.
-3. **Signature des builds** (P3) : dépend d'un certificat Windows et d'un compte développeur
-   Apple, à lancer en parallèle.
+3. **Calculs et provenance** (P1) : détail de la TVA par taux terminé ; traiter les calculs
+   d’affichage encore en `f64` et élargir les tests anonymisés.
 4. **Affiner le périmètre des règles BR-FR** (B2C, opérations hors obligation, calendrier).
-5. **Fin de P1** : provenance des valeurs, « Ouvrir avec » et instance unique.
+5. **Intégration au système différée** : signature des builds, « Ouvrir avec » et instance unique
+   seront réévalués lors d’un chantier de distribution ; les builds actuels restent non signés.
 6. **Bibliothèque `facturx-core`** (P4) : le moteur est assez complet pour être extrait ; à
    décider d'abord, la licence sous laquelle le publier.
 
@@ -172,7 +173,7 @@ lot avec historique et suivi. Ce qui en ressort pour le plan :
 - [x] Menu clic droit : copie de cellule, ligne, colonne ou tableau en TSV, CSV, JSON ou Markdown
   (0.3.0) ; actions sur les onglets et la liste des fichiers (0.4.0).
 - [x] Export Excel natif (.xlsx), lignes et tableau filtrés (0.7.1).
-- [ ] Associations de fichiers, « Ouvrir avec » et instance unique.
+- [ ] Associations de fichiers, « Ouvrir avec » et instance unique (différés avec la distribution signée).
 - [ ] Dossiers dans les récents.
 
 ### Socle de fiabilité
@@ -181,8 +182,8 @@ lot avec historique et suivi. Ce qui en ressort pour le plan :
   ouverts (0.2.0). Reste : comparer aussi le montant, et l'historique entre sessions (bibliothèque).
 - [ ] Calculs monétaires décimaux partout. Fait pour les contrôles (0.2.0) ; l'affichage du P.U.
   et de la TVA de ligne reconstitués reste en `f64`.
-- [x] Provenance des dates, totaux et lignes : distinguer XML et TVA reconstituée, montrer la
-  valeur d'origine, le chemin et les formules de contrôle. Reste le détail dédié de la TVA par taux.
+- [x] Provenance des dates, totaux, lignes et ventilations de TVA par taux : distinguer XML et
+  TVA reconstituée, montrer la valeur d'origine, le chemin et les formules de contrôle.
 - [x] Extraction PDF avec un vrai parseur, au-delà des expressions régulières : structures
   complexes, pièces jointes multiples, choix du XML pertinent (`lopdf`, repli de secours).
 - [x] Protection des pointages et du suivi : sauvegarde quotidienne, restauration, export/import,
@@ -248,8 +249,9 @@ lot avec historique et suivi. Ce qui en ressort pour le plan :
 
 ## P3 — Conformité et distribution
 
-- [ ] **Signature Windows, notarisation macOS**, puis mise à jour automatique Tauri. À traiter en
-  premier : des installeurs non signés sont déjà distribués.
+- [ ] **Signature Windows, notarisation macOS**, puis mise à jour automatique Tauri. À reprendre
+  lors du chantier de distribution, avant de promouvoir l’intégration au système. Les
+  installeurs actuels restent non signés et présentés comme préversions.
 - [x] Règles métier EN 16931 évaluées nativement : BR, BR-CO, BR-DEC et règles par catégorie de
   TVA, reliées aux données concernées. Hors Schematron officiel.
 - [ ] Compléter les règles natives : listes de codes (pays, devises, unités, types de facture),

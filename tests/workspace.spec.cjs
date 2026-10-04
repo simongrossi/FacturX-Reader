@@ -164,6 +164,40 @@ test('provenance des lignes dans la fiche et dans l’anomalie exacte', async ({
   await expect(page.locator('#xml-table tr.flash')).toHaveAttribute('data-path', path);
   expect(errors).toEqual([]);
 });
+test('provenance TVA par taux dans la fiche et l’anomalie de la bonne occurrence', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  const prefix = 'Invoice/TaxTotal/TaxSubtotal[2]/';
+  const tax = (value, path) => ({ label: value === '19.00' ? 'TVA déclarée' : 'Base imposable déclarée', value, path });
+  const proof = { rate: '20', inputs: [tax('100.00', prefix + 'TaxableAmount'),
+    { label: 'Taux déclaré (%)', value: '20', path: prefix + 'TaxCategory/Percent' },
+    tax('19.00', prefix + 'TaxAmount')],
+    comparison: { formula: 'Base imposable × taux / 100 (arrondi au centime)', expected: '20.00',
+      found: '19.00', difference: '-1.00', tolerance: '0.01', matches: false } };
+  await mockBackend(page, null, {
+    format: 'UBL', summary: [{ title: 'Total TVA', value: '39.00 EUR' }],
+    synthese: { numero: 'F-TVA', devise: 'EUR', provenance_tva_taux: [
+      { rate: '20', inputs: [{ label: 'TVA déclarée', value: '20.00' }], comparison: null }, proof,
+    ] },
+    rows: [{ title: 'TVA', tag: 'TaxAmount', value: '19.00', path: prefix + 'TaxAmount' }],
+    controles: [{ regle: 'TVA 20.00 % = base × taux', famille: 'calcul', etat: 'ecart',
+      attendu: '20.00', constate: '19.00', ecart: '-1.00', path: prefix + 'TaxAmount', tax_breakdown_index: 1 }],
+  });
+  await page.goto(url);
+  await page.locator('#file-input').setInputFiles({ name: 'tva.xml', mimeType: 'text/xml', buffer: Buffer.from('<Invoice/>') });
+  await page.locator('.tab[data-tab="data"]').click();
+  const issue = page.locator('.anomaly-card').filter({ hasText: 'TVA 20.00 %' });
+  await issue.locator('.tax-provenance summary').click();
+  await expect(issue).toContainText('TVA attendue : 20.00 · TVA déclarée : 19.00');
+  await expect(issue).not.toContainText('TVA déclarée : 20.00');
+  await issue.getByRole('button', { name: 'Voir dans le XML' }).last().click();
+  await expect(page.locator('#xml-table tr.flash')).toHaveAttribute('data-path', prefix + 'TaxAmount');
+  await page.locator('.tab[data-tab="data"]').click();
+  const panel = page.locator('#tax-breakdown .tax-provenance[data-tax-index="1"]');
+  await panel.locator('summary').click();
+  await expect(panel).toContainText('Écart : -1.00 · Tolérance du contrôle : ±0.01');
+  expect(errors).toEqual([]);
+});
 test('session, accueil, onglets, récents et recherche transversale', async ({ page }) => {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
