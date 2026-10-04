@@ -157,14 +157,17 @@ impl Format {
     /// Version sous laquelle un resultat est garde : celle du jeu de regles et celle des
     /// regles BR-FR, qui peuvent s'y ajouter.
     fn stamp(self) -> String {
-        format!("{}+br-fr-{CTC_FR_VERSION}", self.version())
+        format!("{}+br-fr-{CTC_FR_VERSION}+scope-2", self.version())
     }
 }
 
 /// Pays (code ISO) de l'adresse postale d'une partie, vendeur ou acheteur.
+fn party_node<'a>(doc: &'a roxmltree::Document, party: &[&str]) -> Option<roxmltree::Node<'a, 'a>> {
+    doc.descendants().find(|n| party.contains(&n.tag_name().name()))
+}
+
 fn party_country(doc: &roxmltree::Document, party: &[&str]) -> Option<String> {
-    doc.descendants()
-        .find(|n| party.contains(&n.tag_name().name()))?
+    party_node(doc, party)?
         .descendants()
         .find(|n| matches!(n.tag_name().name(), "PostalTradeAddress" | "PostalAddress"))?
         .descendants()
@@ -172,22 +175,48 @@ fn party_country(doc: &roxmltree::Document, party: &[&str]) -> Option<String> {
         .and_then(|n| n.text().map(|t| t.trim().to_ascii_uppercase()))
 }
 
-/// Les regles BR-FR valent pour une facture de la reforme francaise : profil EXTENDED-CTC-FR,
-/// ou vendeur et acheteur tous deux etablis en France. Une facture etrangere, ou vers
-/// l'etranger, n'y est pas soumise.
-fn french_scope(xml: &str, format: Format) -> bool {
-    if matches!(format, Format::CtcFrCii | Format::CtcFrUbl) {
-        return true;
-    }
-    let Ok(doc) = roxmltree::Document::parse(xml.trim_start_matches('\u{feff}')) else { return false };
+/// Indices lisibles dans le XML, sans prétendre trancher l'assujettissement ni la taille.
+fn french_scope(xml: &str, format: Format) -> (&'static str, &'static str) {
+    let Ok(doc) = roxmltree::Document::parse(xml.trim_start_matches('\u{feff}')) else {
+        return ("indetermine", "XML illisible : périmètre français indéterminé");
+    };
+    let profile = matches!(format, Format::CtcFrCii | Format::CtcFrUbl);
     let france = |party: &[&str]| party_country(&doc, party).as_deref() == Some("FR");
-    france(&["SellerTradeParty", "AccountingSupplierParty"]) && france(&["BuyerTradeParty", "AccountingCustomerParty"])
+    let seller = &["SellerTradeParty", "AccountingSupplierParty"];
+    let buyer = &["BuyerTradeParty", "AccountingCustomerParty"];
+    if !france(seller) || !france(buyer) {
+        return ("hors_champ", "Vendeur ou acheteur sans adresse établie en France dans le XML");
+    }
+    let date = doc.descendants().find(|n| matches!(n.tag_name().name(), "IssueDate" | "IssueDateTime"));
+    let date_text = date.and_then(|n| n.descendants().filter_map(|child| child.text())
+        .find(|text| text.chars().any(|c| c.is_ascii_digit()))).unwrap_or("");
+    let digits: String = date_text.chars().filter(|c| c.is_ascii_digit()).take(8).collect();
+    if !profile && digits.len() == 8 && digits.as_str() < "20260901" {
+        return ("hors_champ", "Facture antérieure au 1er septembre 2026 ; BR-FR non appliquées automatiquement");
+    }
+    if profile {
+        return ("applique", "Profil EXTENDED-CTC-FR déclaré ; contrôle technique, sans conclusion sur l'obligation légale");
+    }
+    let tax_categories: Vec<_> = doc.descendants().filter(|n| matches!(n.tag_name().name(), "CategoryCode" | "TaxCategory"))
+        .filter_map(|n| if n.tag_name().name() == "TaxCategory" {
+            n.children().find(|c| c.tag_name().name() == "ID").and_then(|c| c.text())
+        } else { n.text() }).map(str::trim).collect();
+    if !tax_categories.is_empty() && tax_categories.iter().all(|c| matches!(*c, "E" | "O")) {
+        return ("indetermine", "Catégorie de TVA exonérée ou hors champ : vérifier la nature de l'opération et la dispense de facturation");
+    }
+    let identified = party_node(&doc, buyer).is_some_and(|node| node.descendants().any(|n| {
+        matches!(n.tag_name().name(), "GlobalID" | "SpecifiedTaxRegistration" | "PartyTaxScheme" | "PartyLegalEntity")
+            && n.descendants().any(|d| matches!(d.tag_name().name(), "ID" | "CompanyID") && d.text().is_some_and(|t| !t.trim().is_empty()))
+    }));
+    if !identified {
+        return ("indetermine", "Acheteur français sans identifiant d'entreprise ou de TVA : B2C possible");
+    }
+    ("applique", "Deux parties françaises et identifiant professionnel de l'acheteur ; contrôle BR-FR indicatif")
 }
 
 /// Joint au resultat du jeu de regles principal celui des regles BR-FR, sans les confondre :
 /// le verdict du Schematron reste celui du profil, les regles francaises ont le leur. Le
-/// critere de `french_scope` est une approximation de la reforme ; une facture qu'il retient
-/// a tort ne doit pas voir son verdict principal en patir.
+/// critere de `french_scope` est indicatif ; il ne doit pas modifier le verdict principal.
 fn attach_br_fr(result: &mut Value, extra: Value) {
     if result["evalue"] != true || extra["evalue"] != true {
         return;
@@ -1081,7 +1110,10 @@ fn worker(queue: Arc<Queue>) {
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             let mut result = engines.entry(job.format).or_insert_with(|| Engine::new(job.format)).validate(&job.xml);
             // Facture de la reforme francaise : les regles BR-FR sont evaluees en plus, a part.
-            if french_scope(&job.xml, job.format) {
+            let (scope, reason) = french_scope(&job.xml, job.format);
+            result["br_fr_perimetre"] = json!({ "etat": scope, "raison": reason,
+                "calendrier": "Émission obligatoire depuis le 01/09/2026 pour GE/ETI et depuis le 01/09/2027 pour PME/micro ; taille et exceptions non déductibles du seul XML." });
+            if scope == "applique" {
                 let extra = if job.format.is_cii() { Format::BrFrCii } else { Format::BrFrUbl };
                 attach_br_fr(&mut result, engines.entry(extra).or_insert_with(|| Engine::new(extra)).validate(&job.xml));
             }
@@ -1310,7 +1342,9 @@ mod tests {
         // mentions propres a la France lui manquent, son verdict EN 16931 reste respecte.
         let domestic = CII.replacen("<ram:CountryID>BE<", "<ram:CountryID>FR<", 1);
         assert_ne!(domestic, CII);
-        assert!(french_scope(&domestic, Format::Cii));
+        assert_eq!(french_scope(&domestic, Format::Cii).0, "indetermine");
+        let domestic = domestic.replacen("</ram:BuyerTradeParty>", "<ram:SpecifiedTaxRegistration><ram:ID schemeID=\"VA\">FR11123456782</ram:ID></ram:SpecifiedTaxRegistration></ram:BuyerTradeParty>", 1);
+        assert_eq!(french_scope(&domestic, Format::Cii).0, "applique");
         let report = run(domestic, "CII");
         assert!(french(&report).iter().any(|id| id.starts_with("BR-FR-05")), "{:?}", french(&report));
         assert_eq!(report["ok"], true, "{:?}", fatals(&report));
@@ -1319,10 +1353,26 @@ mod tests {
         let location = report["br_fr"]["erreurs"].as_array().unwrap().iter().find(|e| e["id"] == "BR-FR-05_BT-22_PMT").unwrap()["location"].as_str().unwrap();
         assert_eq!(location, "/rsm:CrossIndustryInvoice/rsm:ExchangedDocument");
         // Acheteur etranger (la facture de test) : la reforme ne s'applique pas, aucune regle BR-FR.
-        assert!(!french_scope(CII, Format::Cii));
+        assert_eq!(french_scope(CII, Format::Cii).0, "hors_champ");
         assert!(run(CII.to_string(), "CII")["br_fr"].is_null());
         // Exemple officiel de la Commission, vendeur et acheteur hors de France.
-        assert!(!french_scope(UBL, Format::Ubl));
+        assert_eq!(french_scope(UBL, Format::Ubl).0, "hors_champ");
+    }
+
+    #[test]
+    fn perimetre_br_fr_cas_limites_anonymises() {
+        let cii = CII.replacen("<ram:CountryID>BE<", "<ram:CountryID>FR<", 1);
+        assert_eq!(french_scope(&cii, Format::Cii).0, "indetermine", "un acheteur français sans identifiant peut être un particulier");
+        let b2b = cii.replacen("</ram:BuyerTradeParty>", "<ram:SpecifiedTaxRegistration><ram:ID schemeID=\"VA\">FR11123456782</ram:ID></ram:SpecifiedTaxRegistration></ram:BuyerTradeParty>", 1);
+        assert_eq!(french_scope(&b2b, Format::Cii).0, "applique");
+        assert_eq!(french_scope(&b2b.replace("20260924", "20260831"), Format::Cii).0, "hors_champ");
+        assert_eq!(french_scope(&b2b.replace("20260924", "\n 20260831"), Format::Cii).0, "hors_champ");
+        assert_eq!(french_scope(&b2b.replace("<ram:CategoryCode>S<", "<ram:CategoryCode>E<"), Format::Cii).0, "indetermine");
+        assert_eq!(french_scope(&b2b.replace("<ram:CountryID>FR<", "<ram:CountryID>BE<"), Format::Cii).0, "hors_champ");
+        let ubl = r#"<Invoice><IssueDate>2026-10-02</IssueDate><AccountingSupplierParty><Party><PostalAddress><Country><IdentificationCode>FR</IdentificationCode></Country></PostalAddress></Party></AccountingSupplierParty><AccountingCustomerParty><Party><PostalAddress><Country><IdentificationCode>FR</IdentificationCode></Country></PostalAddress><PartyTaxScheme><CompanyID>FR11123456782</CompanyID></PartyTaxScheme></Party></AccountingCustomerParty></Invoice>"#;
+        assert_eq!(french_scope(ubl, Format::Ubl).0, "applique");
+        assert_eq!(french_scope(&ubl.replace("<PartyTaxScheme><CompanyID>FR11123456782</CompanyID></PartyTaxScheme>", ""), Format::Ubl).0, "indetermine");
+        assert_eq!(french_scope(&ubl.replace("2026-10-02", "2026-08-31"), Format::Ubl).0, "hors_champ");
     }
 
     /// Exemples officiels du FNFE-MPE : aucune regle bloquante, aucune regle non evaluable,

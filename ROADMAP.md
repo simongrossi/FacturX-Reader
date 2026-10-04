@@ -225,7 +225,7 @@ lot avec historique et suivi. Ce qui en ressort pour le plan :
   ligne ne redonnent pas le total (plusieurs écarts par facture sur certains fournisseurs).
 - [ ] Recherche dans les lignes de toutes les factures et filtres dans la liste latérale
   (fournisseur, numéro, montant, statut), masquage des PDF sans XML.
-- [ ] Recherche dans le texte du PDF et surlignage ; décider séparément du besoin d'OCR.
+- [x] Recherche dans le texte du PDF, surlignage et navigation entre occurrences ; OCR à décider séparément.
 - [x] Verdicts communs à la fiche, au tableau et au rapport JSON ; synthèse de ce qui demande
   une action en tête de la fiche ; colonnes et filtres Schematron, XSD, règles françaises.
 - [x] Imports bornés après décompression ; choix explicite dans une archive ambiguë.
@@ -282,7 +282,7 @@ lot avec historique et suivi. Ce qui en ressort pour le plan :
 - [x] Règles BR-FR de la réforme française : fonctions `xsl:function` et variables globales
   écrites dans les expressions ; évaluées, avec leur propre verdict, pour le profil
   EXTENDED-CTC-FR et les factures dont vendeur et acheteur sont en France.
-- [ ] Règles BR-FR : affiner le périmètre (B2C, opérations hors obligation, calendrier).
+- [x] Règles BR-FR : distinguer B2B probable, B2C possible, catégories TVA à examiner et calendrier ; l'obligation légale reste à confirmer hors XML.
 - [x] Schematron et schéma XSD sur le XML d'origine plutôt que sur sa version réindentée, avec
   repli signalé si le moteur ne lit pas l'original.
 - [x] Validation du schéma XSD des factures CII : schémas officiels des cinq profils Factur-X

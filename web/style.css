@@ -446,6 +446,8 @@ button, input, select { font: inherit; color: inherit; }
   border-radius: var(--radius);
 }
 .pdf-pageinfo { min-width: 90px; text-align: center; color: var(--muted); font-size: 13px; }
+.pdf-search { min-width: 150px; width: 190px; max-width: 30vw; padding: 6px 9px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel-2); color: var(--text); }
+.pdf-search-status { min-width: 75px; color: var(--muted); font-size: 12px; }
 .toolbar-sep { width: 1px; height: 22px; background: var(--border); margin: 0 4px; }
 .zoom-select {
   background: var(--panel-2);
@@ -455,13 +457,18 @@ button, input, select { font: inherit; color: inherit; }
 }
 .pdf-pages { display: flex; flex-direction: column; align-items: center; gap: 18px; }
 .pdf-page {
+  position: relative;
   background: #fff;
   box-shadow: var(--page-shadow);
   border-radius: 4px;
   overflow: hidden;
-  max-width: 100%;
+  max-width: none;
 }
-.pdf-page canvas { display: block; max-width: 100%; height: auto; }
+.pdf-page canvas { display: block; max-width: none; height: auto; }
+.pdf-text-layer { position: absolute; inset: 0 auto auto 0; overflow: hidden; line-height: 1; text-align: initial; -webkit-text-size-adjust: none; forced-color-adjust: none; }
+.pdf-text-layer span { color: transparent; position: absolute; white-space: pre; cursor: text; transform-origin: 0 0; }
+.pdf-match { position: absolute; background: rgba(255, 211, 62, .58); pointer-events: none; mix-blend-mode: multiply; }
+.pdf-match.active { background: rgba(255, 137, 36, .78); }
 .pdf-page-label {
   text-align: center;
   color: #6b7280;
