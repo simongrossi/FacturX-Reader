@@ -88,8 +88,7 @@ Les anciennes branches sont archivées ou déjà intégrées ; voir [l’inventa
 1. **Compléter la validation des plateformes** (P0) : essai macOS général fait ; restent les
    vérifications détaillées (menus, raccourcis, glisser-déposer, impression, persistance),
    Linux et l’installation documentée des paquets publiés.
-2. **Suite de la revue de code** : ne plus refuser un PDF entier pour une pièce jointe secondaire trop
-   volumineuse ; poursuivre le découpage de `app.js` et de `facturx.rs`.
+2. **Suite de la revue de code** : poursuivre le découpage de `app.js` et de `facturx.rs`.
 3. **Calculs et provenance** (P1) : détail de la TVA par taux et affichage des lignes en
    décimaux exacts terminés ; élargir les tests anonymisés, puis examiner les calculs du
    tableau et de la bibliothèque qui utilisent encore des nombres flottants.
@@ -111,7 +110,7 @@ le code, puis traités ; ils ne figurent pas dans la 0.7.0.
 |---|---|---|---|
 | 1 | Contrôles non unifiés entre la fiche, le tableau et le rapport JSON | Fait : `web/controls.js` calcule les verdicts pour les trois ; colonnes et filtres Schematron, XSD, règles françaises, conteneur ; rapport JSON complet | — |
 | 2 | Filtres de la bibliothèque appliqués après la limite de 1000 résultats | Fait : filtres dans SQLite, nombre exact, pagination ; testé sur 1002 factures | Essai sur des milliers de factures réelles |
-| 3 | Imports volumineux ou ambigus | Fait : plafonds après décompression (32 Mo pour le XML, 2000 entrées par archive), choix explicite du XML et du PDF dans une archive ambiguë | Un PDF dont une pièce jointe secondaire dépasse le plafond est refusé en entier |
+| 3 | Imports volumineux ou ambigus | Fait : plafonds après décompression (32 Mo pour le XML, 2000 entrées par archive), choix explicite du XML et du PDF dans une archive ambiguë ; une pièce jointe PDF secondaire trop volumineuse n'empêche plus d'extraire un XML de facture valide | — |
 | 4 | Facture déposée impossible à rouvrir depuis la bibliothèque | Fait : « Retrouver le fichier », avec vérification de l'empreinte du XML ; aucun original copié | — |
 | 5 | Faire ressortir ce qui demande une action | Fait : synthèse et centre d’anomalies avec aides, valeurs disponibles et accès aux champs | Enrichir les aides et traduire davantage de messages officiels |
 | 6 | Tests entre l'interface et le moteur réel | Fait : test natif lancé par la CI, bloquant, avec bibliothèque filtrée, rapport complet, réassociation et plafond de décompression | Scénario natif pour l'archive ambiguë (couvert par les tests Rust et navigateur) |

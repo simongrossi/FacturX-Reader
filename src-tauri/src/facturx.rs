@@ -1873,6 +1873,9 @@ fn extract_pdf_with_lopdf(data: &[u8]) -> Result<Option<(Vec<u8>, String, PdfCon
 
     // Recherche parmi les objets Filespec
     let mut candidate_xml: Option<(Vec<u8>, String, bool, Option<String>, Option<String>)> = None;
+    // Une annexe trop volumineuse ne doit pas masquer un autre XML de facture valide.
+    // On conserve l'erreur si aucun XML exploitable n'est trouvé.
+    let mut first_stream_error: Option<FacturXError> = None;
 
     for (id, obj) in &doc.objects {
         if let lopdf::Object::Dictionary(dict) = obj {
@@ -1907,8 +1910,21 @@ fn extract_pdf_with_lopdf(data: &[u8]) -> Result<Option<(Vec<u8>, String, PdfCon
                 let stream_ref = ef.get(b"UF").or_else(|_| ef.get(b"F")).ok().and_then(|o| o.as_reference().ok());
                 if let Some(sref) = stream_ref {
                     if let Ok(stream_obj) = doc.get_object(sref).and_then(|o| o.as_stream()) {
-                        let stream_bytes = imports::pdf_stream(stream_obj, MAX_XML)?;
-                        for cand in decompress_candidates(&stream_bytes)? {
+                        let stream_bytes = match imports::pdf_stream(stream_obj, MAX_XML) {
+                            Ok(bytes) => bytes,
+                            Err(error) => {
+                                first_stream_error.get_or_insert(error);
+                                continue;
+                            }
+                        };
+                        let candidates = match decompress_candidates(&stream_bytes) {
+                            Ok(candidates) => candidates,
+                            Err(error) => {
+                                first_stream_error.get_or_insert(error);
+                                continue;
+                            }
+                        };
+                        for cand in candidates {
                             if is_invoice_xml(&cand) {
                                 let is_primary_name = name.to_lowercase().contains("factur-x")
                                     || name.to_lowercase().contains("zugferd")
@@ -1925,7 +1941,12 @@ fn extract_pdf_with_lopdf(data: &[u8]) -> Result<Option<(Vec<u8>, String, PdfCon
         }
     }
 
-    let Some((xml, xml_name, piece_jointe_declaree, af_relationship, mime)) = candidate_xml else { return Ok(None); };
+    let Some((xml, xml_name, piece_jointe_declaree, af_relationship, mime)) = candidate_xml else {
+        return match first_stream_error {
+            Some(error) => Err(error),
+            None => Ok(None),
+        };
+    };
     let cii = xml.windows(20).any(|w| w == b"CrossIndustryInvoice");
     let structure = pdf_structure(&doc, xmp_text.as_deref(), &xml_name, cii, af_relationship.as_deref(), mime.as_deref());
     Ok(Some((
@@ -1961,11 +1982,19 @@ fn extract_pdf_xml(data: &[u8]) -> Result<(Vec<u8>, String, PdfContainerInfo), F
         .map(|c| c[1].iter().map(|&b| b as char).collect());
 
     let piece_jointe_declaree = xml_name.is_some();
+    let mut first_stream_error: Option<FacturXError> = None;
 
     if let Some(name) = &xml_name {
         let stream = PDF_FILESPEC_REF.captures(data).and_then(|c| pdf_object_stream(data, &c[1]));
         if let Some(stream) = stream {
-            for cand in decompress_candidates(&stream)? {
+            let candidates = match decompress_candidates(&stream) {
+                Ok(candidates) => candidates,
+                Err(error) => {
+                    first_stream_error.get_or_insert(error);
+                    Vec::new()
+                }
+            };
+            for cand in candidates {
                 if is_invoice_xml(&cand) {
                     return Ok((
                         cand,
@@ -1988,7 +2017,14 @@ fn extract_pdf_xml(data: &[u8]) -> Result<(Vec<u8>, String, PdfContainerInfo), F
     }
 
     for c in PDF_STREAM.captures_iter(data) {
-        for cand in decompress_candidates(&c[1])? {
+        let candidates = match decompress_candidates(&c[1]) {
+            Ok(candidates) => candidates,
+            Err(error) => {
+                first_stream_error.get_or_insert(error);
+                continue;
+            }
+        };
+        for cand in candidates {
             if is_invoice_xml(&cand) {
                 let name = xml_name.unwrap_or_else(|| "factur-x.xml".into());
                 return Ok((
@@ -2009,6 +2045,7 @@ fn extract_pdf_xml(data: &[u8]) -> Result<(Vec<u8>, String, PdfContainerInfo), F
         }
     }
 
+    if let Some(error) = first_stream_error { return Err(error); }
     Err(FacturXError(
         "PDF sans XML de facture intégré : aucune pièce jointe UBL/CII trouvée (ce n'est pas une facture Factur-X ?)"
             .into(),
@@ -2385,6 +2422,70 @@ mod tests {
         let mut out = Vec::new();
         doc.save_to(&mut out).unwrap();
         out
+    }
+
+    #[test]
+    fn pdf_ignores_oversized_secondary_attachment_but_bounds_invoice_xml() {
+        use lopdf::{dictionary, Document, Object, Stream};
+
+        let build = |large_first: bool, large_invoice: bool| {
+            let mut doc = Document::with_version("1.7");
+            let pages = doc.new_object_id();
+            let page = doc.add_object(dictionary! { "Type" => "Page", "Parent" => pages, "MediaBox" => vec![0.into(), 0.into(), 595.into(), 842.into()] });
+            doc.objects.insert(pages, Object::Dictionary(dictionary! { "Type" => "Pages", "Kids" => vec![page.into()], "Count" => 1 }));
+
+            let mut large = Stream::new(dictionary! { "Type" => "EmbeddedFile" }, vec![b'x'; MAX_XML + 1]);
+            large.compress().unwrap();
+            let large_stream = doc.add_object(large);
+            let mut invoice = CII.as_bytes().to_vec();
+            if large_invoice { invoice.resize(MAX_XML + 1, b' '); }
+            let mut invoice_stream = Stream::new(dictionary! { "Type" => "EmbeddedFile" }, invoice);
+            invoice_stream.compress().unwrap();
+            let invoice_stream = doc.add_object(invoice_stream);
+
+            let add_spec = |doc: &mut Document, name: &str, stream| doc.add_object(dictionary! {
+                "Type" => "Filespec", "F" => Object::string_literal(name),
+                "UF" => Object::string_literal(name), "EF" => dictionary! { "F" => stream },
+            });
+            let (invoice_spec, secondary_spec) = if large_first {
+                let secondary = add_spec(&mut doc, "annexe.txt", large_stream);
+                (add_spec(&mut doc, "factur-x.xml", invoice_stream), secondary)
+            } else {
+                let invoice = add_spec(&mut doc, "factur-x.xml", invoice_stream);
+                (invoice, add_spec(&mut doc, "annexe.txt", large_stream))
+            };
+            let files = if large_first { vec![secondary_spec.into(), invoice_spec.into()] } else { vec![invoice_spec.into(), secondary_spec.into()] };
+            let root = doc.add_object(dictionary! { "Type" => "Catalog", "Pages" => pages, "AF" => files });
+            doc.trailer.set("Root", root);
+            let mut out = Vec::new();
+            doc.save_to(&mut out).unwrap();
+            out
+        };
+
+        for large_first in [true, false] {
+            let pdf = build(large_first, false);
+            let result = parse_file("avec-annexe.pdf", &pdf).unwrap();
+            assert_eq!(result["format"], "CII");
+            assert_eq!(result["conteneur"]["nom_piece_jointe"], "factur-x.xml");
+        }
+
+        let pdf = build(true, true);
+        let error = parse_file("xml-trop-grand.pdf", &pdf).unwrap_err().to_string();
+        assert!(error.contains("plafond") || error.contains("décompression"), "{error}");
+    }
+
+    #[test]
+    fn pdf_fallback_skips_oversized_secondary_stream() {
+        let mut encoder = flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::default());
+        encoder.write_all(&vec![b'x'; MAX_XML + 1]).unwrap();
+        let large = encoder.finish().unwrap();
+        let mut pdf = b"%PDF-1.7\n1 0 obj\n<< /Filter /FlateDecode >>\nstream\n".to_vec();
+        pdf.extend(large);
+        pdf.extend_from_slice(b"\nendstream\nendobj\n2 0 obj\n<< /Type /Filespec /UF (factur-x.xml) /EF << /F 3 0 R >> >>\nendobj\n3 0 obj\n<< /Type /EmbeddedFile >>\nstream\n");
+        pdf.extend_from_slice(CII.as_bytes());
+        pdf.extend_from_slice(b"\nendstream\nendobj\n%%EOF");
+        let result = parse_file("avec-annexe.pdf", &pdf).unwrap();
+        assert_eq!(result["format"], "CII");
     }
 
     fn xmp(part: &str, level: &str) -> String {

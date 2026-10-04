@@ -20,6 +20,8 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 
 ### Corrigé
 
+- Un PDF peut être lu si une pièce jointe secondaire dépasse 32 Mo après décompression,
+  dès lors qu'un XML de facture valide reste sous ce plafond ; un XML trop volumineux est refusé.
 - Le menu contextuel du tableau reste utilisable dans une petite fenêtre : un défilement
   programmatique ne le ferme plus pendant le clic sur une action.
 - L’affichage des prix unitaires, frais/remises et TVA de ligne reconstitués en UBL/CII utilise
