@@ -128,6 +128,9 @@ function actionSummary(v) {
     textContent: `${incomplete.length} contrôle${incomplete.length > 1 ? "s incomplets, non évalués" : " incomplet, non évalué"} ou en cours.`,
   }));
   const actions = Object.assign(document.createElement("div"), { className: "action-summary-links" });
+  const center = Object.assign(document.createElement("button"), { type: "button", className: "btn btn-sm", textContent: "Ouvrir le centre d’anomalies" });
+  center.addEventListener("click", () => focusControlSection("anomaly-center"));
+  actions.appendChild(center);
   for (const item of [...issues, ...incomplete.filter((item) => !issues.includes(item))]) {
     const button = Object.assign(document.createElement("button"), { type: "button", className: "btn btn-sm", textContent: item.verdict.label });
     button.addEventListener("click", () => focusControlSection(item.target));

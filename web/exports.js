@@ -124,6 +124,21 @@ async function controlPdfBuffer(report) {
   for (const [title, data] of [["Contrôles de cohérence", report.controles], ["Règles EN 16931", report.regles_en16931], ["Schéma XSD", report.schema_xsd], ["Schematron officiel et règles françaises", report.schematron], ["Conteneur PDF", report.conteneur]]) {
     section(title); if (data == null) text("Non évalué ou non applicable."); else details(data);
   }
+  if (report.aide_correction) {
+    section("Aide à la correction");
+    for (const issue of report.aide_correction.issues) {
+      text(issue.title + (issue.rule ? " [" + issue.rule + "]" : ""));
+      text("Contrôle : " + ANOMALY_SOURCES[issue.source]);
+      if (issue.found != null) text("Valeur trouvée : " + issue.found);
+      if (issue.expected != null) text("Valeur attendue : " + issue.expected);
+      text("Action conseillée : " + issue.action);
+      y += 3;
+    }
+    if (report.aide_correction.incomplete.length) {
+      text("Vérification à compléter :");
+      for (const message of report.aide_correction.incomplete) text(message);
+    }
+  }
   section("Suivi manuel de vérification");
   text("Statut : " + report.suivi.statut);
   text("Commentaire : " + (report.suivi.commentaire || "Aucun"));

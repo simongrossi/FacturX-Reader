@@ -1,6 +1,6 @@
 # Roadmap
 
-Mise à jour : 4 octobre 2026, préparation de la version 0.7.1 et comparaison des validateurs (non publiée).
+Mise à jour : 4 octobre 2026, préparation de la version 0.7.1, exports enrichis et centre d’anomalies (non publiés).
 Voir [CHANGELOG.md](CHANGELOG.md) pour le détail des versions, [README.md](README.md) pour
 l'utilisation, [VALIDATION.md](VALIDATION.md) pour le bilan de vérification P0 et
 [COMPARATIF.md](COMPARATIF.md) pour le bilan face aux autres outils.
@@ -26,13 +26,20 @@ Versions publiées (pré-versions, builds non signés) :
 | 0.6.0 | Schematron officiel EN 16931 évalué en Rust, déclarations du conteneur PDF, verdicts séparés, filtres métier |
 | 0.7.0 | Schéma XSD (CII par profil Factur-X, UBL 2.1), Schematron des profils Factur-X, règles françaises EXTENDED-CTC-FR et BR-FR, validation du XML d'origine, contrôles de structure PDF/A-3, Schematron plus rapide |
 
-### Exports enrichis (non publiés)
+### Exports enrichis (intégrés, non publiés)
 
 - [x] Export XLSX des lignes affichées et du tableau filtré, avec totaux par devise.
 - [x] Rapport de contrôle PDF avec diagnostics, limites et suivi manuel.
+- Intégrés dans `main` par la PR #3 (`e35e7cc`) ; [documentation](docs/EXPORTS.md).
 - Tests : relecture des XLSX, types numériques et références, texte non interprété comme formule,
   précision supérieure à Excel, accents PDF, rapports longs, pagination et filtre vide.
 
+### Centre d’anomalies (non publié)
+
+- [x] Anomalies regroupées, recherche et filtres, valeurs disponibles, aides à la correction.
+- [x] Accès à l’occurrence XML exacte ou au contrôle d’origine, demande de vérification à copier.
+- [x] Contrôles incomplets séparés, actualisation Schematron, aide intégrée aux rapports JSON/PDF.
+- [Fonctionnement et limites](docs/ANOMALIES.md).
 
 ## Prochaines étapes proposées
 
@@ -46,9 +53,10 @@ des montants UBL non numériques a été corrigé. Test reproductible et job CI 
 [bilan et limites](tests/reference/REPORT.md). Reste à examiner séparément la variante
 EXTENDED fix-FR04 de France_RFE et à remplacer le correctif `uppsala` épinglé par une version publiée.
 
-Travaux fusionnés dans `main` : [préparation 0.7.1 (#1)](https://github.com/simongrossi/FacturX-Reader/pull/1)
-et [comparaison et correctifs (#2)](https://github.com/simongrossi/FacturX-Reader/pull/2).
-Les deux PR sont intégrées, avec leurs contrôles CI verts. Les anciennes branches sont
+Travaux fusionnés dans `main` : [préparation 0.7.1 (#1)](https://github.com/simongrossi/FacturX-Reader/pull/1),
+[comparaison et correctifs (#2)](https://github.com/simongrossi/FacturX-Reader/pull/2)
+et [exports Excel/PDF (#3)](https://github.com/simongrossi/FacturX-Reader/pull/3).
+Ces PR sont intégrées ; le contrôle de `main` sur `e35e7cc` est vert. Les anciennes branches sont
 archivées ou déjà intégrées ; voir [l’inventaire](docs/BRANCHES.md). La prochaine livraison
 reste à publier après le contrôle de `main`.
 
@@ -56,7 +64,7 @@ reste à publier après le contrôle de `main`.
 2. **Compléter la validation des plateformes** (P0) : essai macOS général fait ; restent les
    vérifications détaillées (menus, raccourcis, glisser-déposer, impression, persistance),
    Linux et l’installation documentée des paquets publiés.
-3. **Suite de la revue de code** : expliquer chaque anomalie (valeur lue, valeur attendue,
+3. **Suite de la revue de code** : centre d’anomalies développé (valeurs disponibles et
    vérification à faire) ; ne plus refuser un PDF entier pour une pièce jointe secondaire trop
    volumineuse ; poursuivre le découpage de `app.js` et de `facturx.rs`.
 4. **Signature des builds** (P3) : dépend d'un certificat Windows et d'un compte développeur
@@ -80,7 +88,7 @@ le code, puis traités ; ils ne figurent pas dans la 0.7.0.
 | 2 | Filtres de la bibliothèque appliqués après la limite de 1000 résultats | Fait : filtres dans SQLite, nombre exact, pagination ; testé sur 1002 factures | Essai sur des milliers de factures réelles |
 | 3 | Imports volumineux ou ambigus | Fait : plafonds après décompression (32 Mo pour le XML, 2000 entrées par archive), choix explicite du XML et du PDF dans une archive ambiguë | Un PDF dont une pièce jointe secondaire dépasse le plafond est refusé en entier |
 | 4 | Facture déposée impossible à rouvrir depuis la bibliothèque | Fait : « Retrouver le fichier », avec vérification de l'empreinte du XML ; aucun original copié | — |
-| 5 | Faire ressortir ce qui demande une action | Fait en partie : synthèse en tête de fiche, avec accès direct aux blocs | Expliquer chaque anomalie : valeur lue, valeur attendue, vérification à faire |
+| 5 | Faire ressortir ce qui demande une action | Fait : synthèse et centre d’anomalies avec aides, valeurs disponibles et accès aux champs | Enrichir les aides et traduire davantage de messages officiels |
 | 6 | Tests entre l'interface et le moteur réel | Fait : test natif lancé par la CI, bloquant, avec bibliothèque filtrée, rapport complet, réassociation et plafond de décompression | Scénario natif pour l'archive ambiguë (couvert par les tests Rust et navigateur) |
 
 Découpage du code : `web/controls.js`, `web/imports.js` et `src/facturx/imports.rs` sont sortis

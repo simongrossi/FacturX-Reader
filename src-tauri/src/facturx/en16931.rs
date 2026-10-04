@@ -360,6 +360,10 @@ impl Rules {
     fn present(&mut self, id: &str, label: &str, field: &OF) {
         let path = field.as_ref().map_or("", |f| f.path.as_str());
         self.check(id, label, field.is_some(), "Absent du XML.", path);
+        if let Some(rule) = self.out.last_mut() {
+            rule["attendu"] = "Valeur renseignée".into();
+            rule["constate"] = field.as_ref().map_or("Absent du XML", |f| f.v.as_str()).into();
+        }
     }
 }
 
@@ -538,6 +542,10 @@ fn calculation_rules(r: &mut Rules, inv: &Invoice, level: Level) {
         };
         let ok = (value.0 - expected.0).abs() <= tolerance;
         r.check(id, label, ok, format!("Attendu {expected}, constaté {value}."), &f.path);
+        if let Some(rule) = r.out.last_mut() {
+            rule["attendu"] = expected.to_string().into();
+            rule["constate"] = value.to_string().into();
+        }
     };
     if level == Level::Full && !inv.lines.is_empty() && inv.lines.iter().all(|l| amount(&l.net).is_some()) {
         let sum = Dec(inv.lines.iter().filter_map(|l| amount(&l.net)).map(|d| d.0).sum());
@@ -814,6 +822,17 @@ mod tests {
     fn mentions_et_calculs() {
         let xml = CII.replace("<ram:Name>Acheteur SARL</ram:Name>", "").replace("<ram:GrandTotalAmount>120.00", "<ram:GrandTotalAmount>120.01");
         assert_eq!(failed(&xml), ["BR-07", "BR-CO-15", "BR-CO-16"]);
+        // L’aide expose les valeurs du moteur en décimaux exacts, sans les reconstituer en JS.
+        let doc = parse_xml(&xml).unwrap();
+        let root = doc.root_element();
+        let report = run(root, "CII", &Paths::build(root));
+        let rules = report["liste"].as_array().unwrap();
+        let missing = rules.iter().find(|rule| rule["id"] == "BR-07").unwrap();
+        assert_eq!(missing["constate"], "Absent du XML");
+        assert_eq!(missing["attendu"], "Valeur renseignée");
+        let total = rules.iter().find(|rule| rule["id"] == "BR-CO-15").unwrap();
+        assert_eq!(total["attendu"], "120.00");
+        assert_eq!(total["constate"], "120.01");
         // Trois decimales et virement sans compte.
         let xml = CII
             .replace("<ram:DuePayableAmount>120.00", "<ram:DuePayableAmount>120.000")

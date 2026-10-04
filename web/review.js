@@ -131,6 +131,7 @@ function controlReport(f) {
     conteneur: r.conteneur || null,
     synthese: r.synthese || null,
     controles: [...duplicateChecks(f), ...(r.controles || [])],
+    aide_correction: invoiceAnomalies(f),
     regles_en16931: r.regles || null,
     schema_xsd: r.xsd || null,
     suivi: { statut: review.status, commentaire: review.comment, lignes: review.lines },

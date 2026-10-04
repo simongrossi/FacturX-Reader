@@ -5,13 +5,15 @@ Les commandes sont décrites dans [README.md](README.md#tests).
 
 ## Livraison et vérification distante
 
-Les deux PR sont fusionnées dans `main` :
+Les PR #1 et #2 sont fusionnées dans `main` :
 [préparation de la 0.7.1 (#1)](https://github.com/simongrossi/FacturX-Reader/pull/1), puis
 [comparaison des validateurs et corrections XSD (#2)](https://github.com/simongrossi/FacturX-Reader/pull/2).
 Les tests navigateur, Rust, natifs Windows et de comparaison aux références de la PR #2 sont
 verts dans le [workflow Checks](https://github.com/simongrossi/FacturX-Reader/actions/runs/37161670374).
 Ces travaux sont intégrés au code principal, mais ne sont pas encore distribués dans une
-version publiée. Le contrôle de `main` est relancé après l’intégration.
+version publiée. Les exports Excel/PDF (PR #3) sont également intégrés ; tous les jobs
+du [contrôle de `main` sur `e35e7cc`](https://github.com/simongrossi/FacturX-Reader/actions/runs/37192860140)
+sont verts (navigateur, Rust/natif Windows et références).
 
 L’[inventaire des branches](docs/BRANCHES.md) explique leur intégration et les repères d’archive.
 Les résultats détaillés sont dans [tests/reference/REPORT.md](tests/reference/REPORT.md).
@@ -23,9 +25,9 @@ Les résultats détaillés sont dans [tests/reference/REPORT.md](tests/reference
 | `npm run check:js` | Syntaxe de tous les scripts de l'interface |
 | `npm run test:rust` | 63 tests unitaires réussis sous macOS le 4 octobre (3 tests longs ignorés) : bibliothèque (filtres avant pagination sur 1002 factures, réassociation par empreinte), imports (archive ambiguë, plafonds de décompression), exemples officiels français, règles BR-FR (fonctions, périmètre), conteneur PDF (déclarations, sept contrôles de structure), schéma XSD (XML d'origine validé, chargement des huit schémas, facture et avoir UBL, choix d'après le profil, exemple officiel valide, élément inconnu, attribut inconnu, montant non numérique, jamais « valide » sans évaluation), Schematron officiel (compilation de toutes les règles, suite de tests officielle de la Commission, exemples officiels, règles enfreintes, file de travail, résultat repris de la bibliothèque entre deux sessions, résultats identiques avec et sans optimisations), moteur UBL/CII, contrôles en décimaux exacts, règles EN 16931, conteneur PDF (déclarations lues, écarts), pointages et suivi (corruption, sauvegarde, restauration, fusion), bibliothèque SQLite |
 | Test Rust `samples.rs` | Factures réelles vérifiées sur le poste d’origine ; sous macOS le 4 octobre, test sans effet car `samples/` est absent |
-| `npm run test:ui` | 19 scénarios navigateur (Edge le 3 octobre ; Chromium sous macOS le 4 octobre et par la CI), commandes Rust simulées, PDF.js réel |
+| `npm run test:ui` | 21 scénarios navigateur (Edge le 3 octobre ; Chromium sous macOS le 4 octobre et par la CI), commandes Rust simulées, PDF.js réel |
 | `npm run test:native` | Vrai exécutable Windows, vraies commandes Rust, profil WebView2 et dossier de données jetables. Vert en local et sur la machine de GitHub |
-| Workflow `Checks` | Tests navigateur (Linux), Rust et test natif Windows, comparaison aux références (macOS) verts sur la PR #2 avant fusion ; contrôle de `main` relancé |
+| Workflow `Checks` | Tests navigateur (Linux), Rust et test natif Windows, comparaison aux références (macOS) verts sur la PR #2 avant fusion et sur `main` après les exports (PR #3) |
 | Essai manuel macOS (4 octobre 2026) | Fonctionnement général confirmé par l’utilisateur ; détails de présentation à améliorer. Fonctions précises et mode d’installation non documentés |
 | `npm run test:reference` | 955 XML : 1 208 comparaisons Schematron concordent avec SaxonC-HE 12.9 ; 955 verdicts XSD concordent avec libxml2 2.9.13, dont 433 invalides. Exécution locale et job macOS de la PR #2 réussis |
 | Workflow `Release` | Installeurs Windows, macOS et Linux construits à chaque tag |
@@ -179,6 +181,8 @@ remontent des écarts de ligne, le prix unitaire et les frais déclarés ne redo
 [PR #3](https://github.com/simongrossi/FacturX-Reader/pull/3) : les trois jobs
 `browser`, `rust` (dont le test natif Windows existant) et `reference` ont réussi sur
 `8fef64f`, [exécution Checks](https://github.com/simongrossi/FacturX-Reader/actions/runs/37191537060).
+Le contrôle complet de `main` sur `e35e7cc` est également vert
+([Checks](https://github.com/simongrossi/FacturX-Reader/actions/runs/37192860140)).
 Le test navigateur des exports utilise de vrais générateurs ExcelJS/jsPDF et PDF.js ;
 seule la boîte native d’enregistrement est simulée. Il relit le XLSX et vérifie les types,
 la précision, les zéros initiaux, les filtres et un résultat vide ; il extrait toutes les
@@ -189,3 +193,19 @@ ont été rendues avec Poppler et inspectées visuellement sous macOS.
 Le test natif Windows existant ne pilote pas encore les nouvelles boîtes XLSX/PDF.
 L’ouverture des fichiers produits dans Excel, LibreOffice et Aperçu reste à vérifier
 manuellement sur les systèmes ciblés. Détails et limites : [docs/EXPORTS.md](docs/EXPORTS.md).
+
+## Centre d’anomalies — chantier du 4 octobre 2026
+
+- Suite navigateur : **21 scénarios verts** sous Chromium/macOS, commandes Rust simulées.
+  Deux nouveaux scénarios couvrent les six sources, les valeurs et les valeurs inconnues,
+  filtres combinés, presse-papiers, messages HTML inertes, seconde occurrence XML avec
+  préfixes/indices, diagnostics XSD tronqués, états incomplets et actualisation avec focus conservé.
+- Suite Rust : **63 tests réussis, 3 longs ignorés**. Le test de mentions/calculs est enrichi
+  pour vérifier `attendu`/`constate` sur un nom d’acheteur absent et un TTC décalé d’un centime.
+- Le test PDF/XLSX existant vérifie aussi la section d’aide à la correction et ses actions.
+  Interface et section PDF inspectées visuellement ; les commandes JavaScript et les
+  empreintes des distributions embarquées sont vérifiées par `npm run check:js`.
+- Aucun nouveau test natif Windows spécifique au centre ; essais manuels macOS/Windows/Linux
+  à effectuer. Le changement n’altère pas les moteurs Schematron/XSD ni leurs règles.
+
+[Documentation complète et limites](docs/ANOMALIES.md).

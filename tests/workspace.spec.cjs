@@ -952,6 +952,9 @@ test('exports Excel typés et rapport PDF paginé avec accents et commentaires',
   await page.goto(url);
   await page.locator('#file-input').setInputFiles({ name: 'échéance.xml', mimeType: 'text/xml', buffer: Buffer.from('<Invoice/>') });
   await page.getByRole('button', { name: 'Données', exact: true }).click();
+  await expect(page.locator('#anomaly-center .anomaly-card')).toHaveCount(50);
+  await page.locator('#anomaly-center').getByRole('button', { name: 'Afficher davantage' }).click();
+  await expect(page.locator('#anomaly-center .anomaly-card')).toHaveCount(65);
   await page.locator('#btn-lines-excel').click();
   await expect.poll(() => page.evaluate(() => window.__binary?.filename)).toBe('échéance-lignes.xlsx');
   const ExcelJS = require('exceljs');
@@ -983,6 +986,8 @@ test('exports Excel typés et rapport PDF paginé avec accents et commentaires',
   expect(text).toContain('Échéance à corriger');
   expect(text).toContain('Quantité à confirmer');
   expect(text).toContain('Contrôle numéro 64');
+  expect(text).toContain('Aide à la correction');
+  expect(text).toContain('Action conseillée');
   expect(text).toContain('Non évalué');
   extracted.texts.forEach((text, i) => expect(text).toContain(`${i + 1} / ${extracted.pages}`));
   await page.evaluate(() => showBatch());
@@ -1008,4 +1013,108 @@ test('exports Excel typés et rapport PDF paginé avec accents et commentaires',
   await expect(page.locator('#batch-excel')).toBeEnabled();
   await expect(page.getByText('Export impossible : Disque plein')).toBeVisible();
   expect(errors).toEqual([]);
+});
+
+test('centre d’anomalies : valeurs, sources, filtres, demande copiée et occurrence XML exacte', async ({ page }, testInfo) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await mockBackend(page, null, {
+    format: 'UBL', synthese: { numero: 'F-ANOM', vendeur: 'Fournisseur', devise: 'EUR' },
+    xml_pretty: '<Invoice xmlns:cbc="urn:cbc" xmlns:cac="urn:cac"><cbc:ID>F-ANOM</cbc:ID><cac:InvoiceLine><cbc:LineExtensionAmount>50.00</cbc:LineExtensionAmount></cac:InvoiceLine><cac:InvoiceLine><cbc:LineExtensionAmount>50.01</cbc:LineExtensionAmount></cac:InvoiceLine></Invoice>',
+    rows: [{ path: 'Invoice', title: 'Facture', tag: 'Invoice', value: '' },
+      { path: 'Invoice/ID', title: 'Numéro', tag: 'ID', value: 'F-ANOM' },
+      { path: 'Invoice/InvoiceLine[1]/LineExtensionAmount', title: 'Montant de ligne', tag: 'LineExtensionAmount', value: '50.00' },
+      { path: 'Invoice/InvoiceLine[2]/LineExtensionAmount', title: 'Montant de ligne', tag: 'LineExtensionAmount', value: '50.01' }],
+    controles: [
+      { famille: 'calcul', etat: 'ecart', regle: 'Total TTC à recalculer', constate: '120.01', attendu: '120.00', ecart: '0.01', path: 'Invoice/ID', detail: 'Vérifier la TVA' },
+      { famille: 'historique', etat: 'alerte', regle: 'IBAN nouveau pour ce fournisseur', detail: 'FR76...' },
+    ],
+    regles: { evaluees: 1, non_conformes: 1, liste: [{ id: 'BR-07', libelle: 'Nom de l’acheteur', etat: 'non_conforme', detail: 'Absent du XML.', constate: 'Absent du XML', attendu: 'Valeur renseignée', path: '' }] },
+    xsd: { evalue: true, ok: false, total: 2, schema: 'UBL 2.1', lignes_origine: true, erreurs: [{ message: 'Invalid decimal', ligne: 4, colonne: 8 }] },
+    warnings: ['<img src=x onerror="window.__xss=true">'],
+  });
+  await page.addInitScript(() => sessionStorage.setItem('mock-schematron', JSON.stringify({
+    evalue: true, non_conformes: 1, erreurs: [{ id: 'BR-CO-10', flag: 'fatal', texte: 'Line amounts must be consistent', location: '/Invoice/cac:InvoiceLine[2]/cbc:LineExtensionAmount[1]' }],
+    br_fr: { evalue: true, non_conformes: 1, erreurs: [{ id: 'BR-FR-01', flag: 'fatal', texte: 'Mention française requise', location: '/Invoice/cbc:ID' }] },
+  })));
+  await page.goto(url);
+  await page.evaluate(() => { clipboardWrite = async text => { window.__clip = text; }; });
+  await page.locator('#file-input').setInputFiles({ name: 'anomalies.xml', mimeType: 'text/xml', buffer: Buffer.from('<Invoice/>') });
+  await page.getByRole('button', { name: 'Données', exact: true }).click();
+  const center = page.locator('#anomaly-center');
+  await expect(center.locator('.anomaly-card')).toHaveCount(7);
+  const total = center.locator('.anomaly-card').filter({ hasText: 'Total TTC à recalculer' });
+  await expect(total).toContainText('120.01'); await expect(total).toContainText('120.00');
+  await expect(total).toContainText('Recalculer les montants');
+  await expect(center.locator('.anomaly-card[data-rule="BR-07"]')).toContainText('Valeur renseignée');
+  await expect(center.locator('.anomaly-card[data-rule="BR-FR-01"]')).toContainText('périmètre');
+  await expect(center.locator('.anomaly-card[data-source="xsd"]')).toContainText('Ligne 4, colonne 8 du XML d’origine');
+  await expect(center).toContainText('seules les 1 premières');
+  expect(await page.evaluate(() => window.__xss)).toBeUndefined();
+  await expect(center.locator('img')).toHaveCount(0);
+  await page.locator('#anomaly-source').selectOption('coherence');
+  await page.locator('#anomaly-severity').selectOption('ecart');
+  await expect(center.locator('.anomaly-card')).toHaveCount(1);
+  await page.locator('#anomaly-copy-all').click();
+  const request = await page.evaluate(() => window.__clip);
+  expect(request).toContain('F-ANOM'); expect(request).toContain('120.01'); expect(request).toContain('120.00');
+  expect(request).not.toContain('IBAN'); expect(request).not.toContain('BR-FR');
+  await page.locator('#anomaly-search').fill('introuvable');
+  await expect(page.locator('#anomaly-copy-all')).toBeDisabled();
+  await expect(center).toContainText('Aucune anomalie ne correspond');
+  await page.locator('#anomaly-search').fill('');
+  await page.locator('#anomaly-source').selectOption('schematron');
+  await page.locator('#anomaly-severity').selectOption('all');
+  await expect(center.locator('.anomaly-card')).toHaveCount(1);
+  await expect(center.locator('.anomaly-card')).toContainText('50.01');
+  await center.getByRole('button', { name: 'Voir le champ dans le XML' }).click();
+  await expect(page.locator('#tab-xml')).toHaveClass(/active/);
+  await expect(page.locator('#xml-table tr.flash')).toHaveAttribute('data-path', 'Invoice/InvoiceLine[2]/LineExtensionAmount');
+  await page.getByRole('button', { name: 'Données', exact: true }).click();
+  await expect(page.locator('#anomaly-source')).toHaveValue('schematron');
+  await page.locator('#anomaly-source').selectOption('coherence');
+  await page.locator('#anomaly-search').fill('IBAN');
+  await expect(center.locator('.anomaly-card')).toHaveCount(1);
+  await expect(center.locator('.anomaly-card')).toContainText('contact connu');
+  await center.getByRole('button', { name: 'Copier la demande de vérification' }).click();
+  expect(await page.evaluate(() => window.__clip)).toContain('si nécessaire');
+  await page.locator('#anomaly-search').fill(''); await page.locator('#anomaly-source').selectOption('all');
+  await page.evaluate(() => { const panel = document.querySelector("#anomaly-center"), pane = document.querySelector("main"); pane.scrollTop += panel.getBoundingClientRect().top - pane.getBoundingClientRect().top - 55; });
+  await page.screenshot({ path: testInfo.outputPath('centre-anomalies.png') });
+  await page.locator('#btn-control-report').click();
+  const report = await page.evaluate(() => window.__report.report);
+  expect(report.aide_correction.issues).toHaveLength(7);
+  expect(report.aide_correction.issues[0]).toMatchObject({ found: '120.01', expected: '120.00' });
+  expect(errors).toEqual([]);
+});
+
+test('centre d’anomalies : évaluation incomplète, actualisation et conservation de la recherche', async ({ page }) => {
+  await mockBackend(page, null, {
+    synthese: { numero: 'PARTIEL', vendeur: 'V' },
+    controles: [{ famille: 'calcul', etat: 'non_verifiable', regle: 'Total TTC', detail: 'Total HT absent' }],
+    xsd: { evalue: false, raison: 'XML non reconnu' },
+  });
+  await page.goto(url);
+  await page.locator('#file-input').setInputFiles({ name: 'partiel.xml', mimeType: 'text/xml', buffer: Buffer.from('<Invoice/>') });
+  await page.getByRole('button', { name: 'Données', exact: true }).click();
+  await page.getByRole('button', { name: 'Ouvrir le centre d’anomalies' }).click();
+  const center = page.locator('#anomaly-center');
+  await expect(center).toContainText('Vérification à compléter');
+  await expect(center).toContainText('Total HT absent');
+  await expect(center).not.toContainText('Aucune anomalie relevée par les contrôles exécutés.');
+  await expect(page.locator('#anomaly-copy-all')).toBeDisabled();
+  await page.locator('#anomaly-search').fill('BR-03');
+  await page.evaluate(() => {
+    const f = getFile(state.selected);
+    f.result.schematron = { evalue: true, non_conformes: 1, erreurs: [{ id: 'BR-03', texte: 'Invoice date missing', location: '/Invoice' }] };
+    refreshSchematronViews(f);
+  });
+  await expect(page.locator('#anomaly-search')).toHaveValue('BR-03');
+  await expect(page.locator('#anomaly-search')).toBeFocused();
+  await expect(center.locator('.anomaly-card')).toHaveCount(1);
+  await expect(center.locator('.anomaly-card')).toContainText('Non fournie par ce contrôle');
+  await expect(center.locator('.anomaly-card')).toContainText('Compléter la donnée');
+  // Les chemins non supportés ou ambigus ne naviguent pas vers un champ arbitraire.
+  expect(await page.evaluate(() => resolveAnomalyPath(getFile(state.selected), '//*'))).toBeNull();
+  expect(await page.evaluate(() => resolveAnomalyPath(getFile(state.selected), '/missing:Invoice'))).toBeNull();
 });

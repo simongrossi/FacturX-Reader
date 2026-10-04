@@ -1,6 +1,6 @@
 # Exports Excel et rapports PDF
 
-Chantier du 4 octobre 2026, PR #3, fonctionnalités non encore distribuées dans une version publiée.
+Chantier du 4 octobre 2026, PR #3 fusionnée dans `main` (`e35e7cc`), CI complète verte. Fonctionnalités non encore distribuées dans une version publiée.
 
 ## Utilisation
 
@@ -31,4 +31,6 @@ L’audit npm d’ExcelJS signale une vulnérabilité de son `uuid` transitif da
 
 Voir [VALIDATION.md](../VALIDATION.md#exports-excel-et-pdf--chantier-du-4-octobre-2026) pour les preuves locales et CI. Le scénario Playwright relit les XLSX et extrait toutes les pages du PDF, avec un rapport long et des caractères accentués. Une vérification visuelle de neuf pages a été réalisée.
 
-Restent à développer séparément : rapport consolidé multi-factures, inclusion de l’aide à la correction, test natif des nouvelles boîtes d’enregistrement. L’usage dans Excel/LibreOffice et Aperçu demande encore un essai manuel des fichiers produits.
+Le chantier suivant ajoute l’aide à la correction aux rapports JSON/PDF : voir [Centre d’anomalies](ANOMALIES.md).
+
+Restent à développer séparément : rapport consolidé multi-factures, test natif des nouvelles boîtes d’enregistrement. L’usage dans Excel/LibreOffice et Aperçu demande encore un essai manuel des fichiers produits.
