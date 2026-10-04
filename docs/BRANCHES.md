@@ -62,3 +62,8 @@ La provenance des valeurs a été fusionnée dans `main` par la
 des jobs navigateur, références et Rust/natif Windows. La branche `codex/value-provenance`
 a été supprimée. Ce chantier rejoint la 0.8.0 en préparation et n’est pas dans la 0.7.1.
 [Fonctionnement et limites](PROVENANCE.md).
+
+La provenance des lignes a été fusionnée ensuite par la
+[PR #8](https://github.com/simongrossi/FacturX-Reader/pull/8) (`a428505`) après validation
+des mêmes jobs. La branche `codex/line-provenance` a été supprimée. Le développement reste
+destiné à la 0.8.0. [Détail et limites](PROVENANCE.md).

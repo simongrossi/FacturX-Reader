@@ -245,6 +245,7 @@ manuellement sur les systèmes ciblés. Détails et limites : [docs/EXPORTS.md](
 
 ## Provenance des lignes — chantier du 4 octobre 2026
 
+- [PR #8 fusionnée dans `main`](https://github.com/simongrossi/FacturX-Reader/pull/8) ; jobs navigateur, références et Rust/natif Windows verts sur la branche.
 - Les tests Rust couvrent une ligne UBL avec frais et une ligne CII avec remise, les chemins des valeurs, les deux résultats acceptés du contrôle, l’absence de calcul pour une ligne incomplète et l’index exact de la ligne en anomalie.
 - Le scénario navigateur supplémentaire vérifie le détail d’une ligne et celui de son anomalie, même lorsque deux lignes portent le même numéro affiché, ainsi que l’accès au total déclaré dans le XML. La suite compte désormais **25 scénarios**.
 - `npm run check:js` et `git diff --check` réussis. Les essais manuels de cette interaction dans les applications natives restent à faire.
