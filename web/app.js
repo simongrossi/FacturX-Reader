@@ -1428,7 +1428,12 @@ function renderData(f) {
   if (r.summary && r.summary.length) {
     const cards = document.createElement("div");
     cards.className = "cards";
-    for (const s of r.summary) {
+    const titles = { "Date d'émission": "date", "Échéance": "echeance", "Total HT": "ht", "Total TVA": "tva", "Total TTC": "ttc", "À payer": "a_payer" };
+    const summaries = [...r.summary];
+    if (!summaries.some(s => s.title === "Total TVA") && r.synthese?.provenance?.tva) {
+      summaries.push({ title: "Total TVA", value: r.synthese.tva + (r.synthese.devise ? " " + r.synthese.devise : "") });
+    }
+    for (const s of summaries) {
       const c = document.createElement("div");
       c.className = "card";
       const money = /HT|TTC|TVA|payer|EUR|€|\d/.test(s.value) &&
@@ -1436,6 +1441,44 @@ function renderData(f) {
       c.innerHTML =
         '<div class="card-title">' + esc(s.title) + "</div>" +
         '<div class="card-value' + (money ? " money" : "") + '">' + esc(s.value) + "</div>";
+      const key = titles[s.title], proof = r.synthese?.provenance?.[key];
+      if (proof) {
+        c.dataset.provenance = key;
+        const details = document.createElement("details");
+        details.className = "provenance-details";
+        details.appendChild(Object.assign(document.createElement("summary"), { textContent: "Voir la provenance" }));
+        details.appendChild(Object.assign(document.createElement("p"), {
+          textContent: (proof.type === "calculated" ? "Valeur calculée : " : proof.type === "extracted" ? "Valeur extraite : " : "Valeur exacte du XML : ") + proof.value,
+        }));
+        if (proof.formula) details.appendChild(Object.assign(document.createElement("p"), { textContent: "Calcul : " + proof.formula }));
+        function sourceLink(path, label) {
+          const row = document.createElement("p");
+          row.className = "provenance-path";
+          row.appendChild(document.createTextNode(label + " · " + path + " "));
+          const button = Object.assign(document.createElement("button"), { type: "button", className: "btn btn-sm", textContent: "Voir dans le XML" });
+          button.addEventListener("click", () => {
+            setTab("xml");
+            byId("xml-search").value = "";
+            filterXmlTable("");
+            gotoXml(path);
+          });
+          row.appendChild(button);
+          return row;
+        }
+        if (proof.path) details.appendChild(sourceLink(proof.path, "Champ source"));
+        for (const input of proof.inputs || []) if (input.path) details.appendChild(sourceLink(input.path, input.value));
+        if (proof.comparison) {
+          details.appendChild(Object.assign(document.createElement("p"), {
+            textContent: "Contrôle : " + proof.comparison.formula + " = " + proof.comparison.expected,
+          }));
+          for (const input of proof.comparison.inputs || []) {
+            const label = input.label + " : " + input.value + (input.note ? " (" + input.note + ")" : "");
+            details.appendChild(input.path ? sourceLink(input.path, label) :
+              Object.assign(document.createElement("p"), { textContent: label }));
+          }
+        }
+        c.appendChild(details);
+      }
       cards.appendChild(c);
     }
     pane.appendChild(cards);

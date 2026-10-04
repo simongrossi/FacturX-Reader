@@ -508,6 +508,10 @@ button, input, select { font: inherit; color: inherit; }
   word-break: break-word;
 }
 .card .card-value.money { color: var(--accent); }
+.provenance-details { margin-top: 8px; font-size: 12px; color: var(--muted); }
+.provenance-details summary { cursor: pointer; color: var(--accent); }
+.provenance-details p { margin: 7px 0 0; overflow-wrap: anywhere; }
+.provenance-path .btn { margin-left: 4px; }
 
 /* ---------- sections de données ---------- */
 .section {

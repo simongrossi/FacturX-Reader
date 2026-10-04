@@ -92,12 +92,14 @@ pub(super) fn mul_cents(a: Dec, b: Dec, divisor: Dec) -> Option<Dec> {
 struct Amt {
     v: Dec,
     dp: u32,
+    raw: String,
     path: String,
 }
 
 fn amt(el: ON, paths: &Paths) -> Option<Amt> {
-    let (v, dp) = Dec::parse(&text(el))?;
-    Some(Amt { v, dp, path: paths.of(el) })
+    let raw = text(el);
+    let (v, dp) = Dec::parse(&raw)?;
+    Some(Amt { v, dp, raw, path: paths.of(el) })
 }
 
 // ------------------------------------------------------------------ donnees communes
@@ -610,6 +612,21 @@ fn check_dates(out: &mut Vec<Value>, s: &Map<String, Value>, t: &Totals, is_cred
 
 // ------------------------------------------------------------------ point d'entree
 
+fn provenance_input(label: &str, amount: Option<&Amt>) -> Value {
+    match amount {
+        Some(a) => json!({ "label": label, "value": a.raw, "path": a.path }),
+        None => json!({ "label": label, "value": "0", "note": "Absent du XML, compté pour zéro dans ce contrôle" }),
+    }
+}
+
+fn provenance_comparison(provenance: &mut Map<String, Value>, key: &str, formula: &str, expected: Dec, inputs: Vec<Value>) {
+    if let Some(entry) = provenance.get_mut(key).and_then(Value::as_object_mut) {
+        entry.insert("comparison".into(), json!({
+            "formula": formula, "expected": expected.to_string(), "inputs": inputs,
+        }));
+    }
+}
+
 /// Synthese d'une facture pour le tableau multi-factures : montants en decimaux
 /// sans devise, tels que lus dans le XML (jamais reconstitues, sauf la TVA
 /// sommee par taux quand le total est absent).
@@ -623,6 +640,61 @@ fn synthese(s: &Map<String, Value>, t: &Totals, type_code: &str, is_credit_note:
         (!t.breakdown.is_empty() && t.breakdown.iter().all(|b| b.tax.is_some()))
             .then(|| Dec(t.breakdown.iter().map(|b| val(&b.tax)).sum()))
     });
+    // La provenance suit exactement les choix de valeur faits ci-dessus : un
+    // champ XML reste un champ XML, même lorsque son libellé diffère (HT), et
+    // seule la somme de TVA par taux est présentée comme calculée.
+    let mut provenance = Map::new();
+    for (key, title) in [("date", "Date d'émission"), ("echeance", "Date d'échéance")] {
+        if let Some((value, path)) = field(s, None, &[title]) {
+            if !path.is_empty() {
+                provenance.insert(key.into(), json!({ "type": "extracted", "value": value, "path": path }));
+            }
+        }
+    }
+    let mut put_xml = |key: &str, value: String, path: String| {
+        if !value.is_empty() && !path.is_empty() {
+            provenance.insert(key.into(), json!({ "type": "xml", "value": value, "path": path }));
+        }
+    };
+    for (key, amount) in [
+        ("ht", t.basis.as_ref().or(t.lines_sum.as_ref())),
+        ("ttc", t.grand.as_ref()),
+        ("a_payer", t.payable.as_ref()),
+    ] {
+        if let Some(amount) = amount { put_xml(key, amount.raw.clone(), amount.path.clone()); }
+    }
+    if let Some(amount) = &t.tax {
+        put_xml("tva", amount.raw.clone(), amount.path.clone());
+    } else if let Some(total) = tva {
+        let inputs: Vec<Value> = t.breakdown.iter().filter_map(|b| b.tax.as_ref())
+            .map(|a| json!({ "value": a.raw, "path": a.path })).collect();
+        provenance.insert("tva".into(), json!({
+            "type": "calculated", "value": total.to_string(),
+            "formula": "Somme des montants de TVA par taux", "inputs": inputs,
+        }));
+    }
+    if let (Some(lines), Some(_basis)) = (&t.lines_sum, &t.basis) {
+        let expected = Dec(lines.v.0 - val(&t.allowances) + val(&t.charges));
+        provenance_comparison(&mut provenance, "ht", "Total des lignes − remises + frais", expected, vec![
+            provenance_input("Total des lignes", Some(lines)),
+            provenance_input("Remises", t.allowances.as_ref()),
+            provenance_input("Frais", t.charges.as_ref()),
+        ]);
+    }
+    if let (Some(ht), Some(tax), Some(_grand)) = (t.basis.as_ref().or(t.lines_sum.as_ref()), tva, &t.grand) {
+        let tax_input = t.tax.as_ref().map(|a| provenance_input("TVA", Some(a))).unwrap_or_else(||
+            json!({ "label": "TVA (somme des taux)", "value": tax.to_string(), "note": "Détail dans la carte Total TVA" }));
+        provenance_comparison(&mut provenance, "ttc", "Total HT + total TVA", Dec(ht.v.0 + tax.0), vec![
+            provenance_input("Total HT", Some(ht)), tax_input,
+        ]);
+    }
+    if let (Some(grand), Some(_payable)) = (&t.grand, &t.payable) {
+        provenance_comparison(&mut provenance, "a_payer", "Total TTC − acomptes + arrondi", Dec(grand.v.0 - val(&t.prepaid) + val(&t.rounding)), vec![
+            provenance_input("Total TTC", Some(grand)),
+            provenance_input("Acomptes", t.prepaid.as_ref()),
+            provenance_input("Arrondi", t.rounding.as_ref()),
+        ]);
+    }
     let seller = |titles: &[&str]| field(s, Some("Vendeur"), titles).map(|(v, _)| v).unwrap_or_default();
     let iban = field(s, Some("Paiement"), &["IBAN"]);
     let lignes: Vec<Value> = t
@@ -659,6 +731,7 @@ fn synthese(s: &Map<String, Value>, t: &Totals, type_code: &str, is_credit_note:
         "tva": tva.map(|v| v.to_string()).unwrap_or_default(),
         "ttc": money(t.grand.as_ref()),
         "a_payer": money(t.payable.as_ref()),
+        "provenance": provenance,
     })
 }
 

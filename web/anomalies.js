@@ -196,6 +196,17 @@ function anomalyCenter(f) {
       const actions = Object.assign(document.createElement("div"), { className: "anomaly-toolbar" });
       const location = Object.assign(document.createElement("button"), { type: "button", className: "btn btn-sm", textContent: issue.path ? "Voir le champ dans le XML" : "Voir le contrôle" });
       location.addEventListener("click", () => openAnomalyLocation(f, issue));
+      const proofKey = /^Net à payer/.test(issue.title) ? "a_payer" : /^Total TTC/.test(issue.title) ? "ttc" :
+        /^Total TVA/.test(issue.title) ? "tva" : /^Total HT/.test(issue.title) ? "ht" : "";
+      if (issue.family === "calcul" && proofKey && f.result.synthese?.provenance?.[proofKey]) {
+        const provenance = Object.assign(document.createElement("button"), { type: "button", className: "btn btn-sm", textContent: "Voir la provenance des montants" });
+        provenance.addEventListener("click", () => {
+          setTab("data");
+          const card = byId("tab-data").querySelector('[data-provenance="' + proofKey + '"]');
+          if (card) { card.querySelector(".provenance-details").open = true; card.scrollIntoView({ behavior: "smooth", block: "center" }); }
+        });
+        actions.appendChild(provenance);
+      }
       const request = Object.assign(document.createElement("button"), { type: "button", className: "btn btn-sm", textContent: "Copier la demande de vérification" });
       request.addEventListener("click", () => copyIssues([issue], request));
       actions.append(location, request); card.appendChild(actions); list.appendChild(card);

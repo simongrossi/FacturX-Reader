@@ -2602,10 +2602,65 @@ mod tests {
         assert_eq!(s["tva"], "20.00");
         assert_eq!(s["ttc"], "120.00");
         assert_eq!(s["a_payer"], "120.00");
+        assert_eq!(s["provenance"]["ht"]["type"], "xml");
+        assert_eq!(s["provenance"]["ht"]["value"], "100.00");
+        assert!(s["provenance"]["ht"]["path"].as_str().unwrap().ends_with("/LineTotalAmount"));
+        assert_eq!(s["provenance"]["tva"]["type"], "calculated");
+        assert_eq!(s["provenance"]["tva"]["value"], "20.00");
+        assert_eq!(s["provenance"]["tva"]["inputs"][0]["value"], "20.00");
+        assert!(s["provenance"]["tva"]["inputs"][0]["path"].as_str().unwrap().ends_with("/CalculatedAmount"));
+        assert_eq!(s["provenance"]["ttc"]["value"], "120.00");
+        assert_eq!(s["provenance"]["ttc"]["comparison"]["expected"], "120.00");
+        assert_eq!(s["provenance"]["ttc"]["comparison"]["inputs"][1]["value"], "20.00");
+        assert_eq!(s["provenance"]["a_payer"]["value"], "120.00");
+        assert_eq!(s["provenance"]["a_payer"]["comparison"]["expected"], "120.00");
+        assert_eq!(s["provenance"]["a_payer"]["comparison"]["inputs"][1]["value"], "0");
+        assert!(s["provenance"]["date"]["path"].is_string());
+        assert!(s["provenance"]["echeance"]["path"].is_string());
         assert_eq!(s["avoir"], false);
         // 2026-09-10 est un jeudi.
         assert_eq!(s["week_end"], false);
         assert!(s["jours_echeance"].is_i64());
+    }
+
+    #[test]
+    fn provenance_ne_fabrique_pas_les_montants_absents() {
+        let r = parse_file("test-ubl.xml", UBL.as_bytes()).unwrap();
+        let s = &r["synthese"];
+        assert_eq!(s["provenance"]["ht"]["type"], "xml");
+        assert!(s["provenance"]["ht"]["path"].as_str().unwrap().ends_with("/TaxExclusiveAmount"));
+        assert!(s["provenance"].get("tva").is_none());
+        assert!(s["provenance"].get("ttc").is_none());
+        assert!(s["provenance"].get("a_payer").is_none());
+    }
+
+    #[test]
+    fn provenance_ht_garde_le_xml_et_le_calcul_distincts() {
+        let xml = UBL.replace(
+            "<cbc:TaxExclusiveAmount currencyID=\"EUR\">115.00",
+            "<cbc:LineExtensionAmount currencyID=\"EUR\">115.00</cbc:LineExtensionAmount><cbc:TaxExclusiveAmount currencyID=\"EUR\">114.00",
+        );
+        let r = parse_file("test-ubl.xml", xml.as_bytes()).unwrap();
+        let proof = &r["synthese"]["provenance"]["ht"];
+        assert_eq!(proof["value"], "114.00");
+        assert_eq!(proof["comparison"]["expected"], "115.00");
+        assert_eq!(proof["comparison"]["inputs"][0]["value"], "115.00");
+        assert_eq!(proof["comparison"]["inputs"][1]["value"], "0");
+        assert!(proof["path"].as_str().unwrap().ends_with("/TaxExclusiveAmount"));
+    }
+
+    #[test]
+    fn provenance_tva_somme_plusieurs_taux_sans_total_declare() {
+        let xml = CII.replace(
+            "<ram:LineTotalAmount currencyID=\"EUR\">100.00",
+            "<ram:ApplicableTradeTax><ram:CalculatedAmount currencyID=\"EUR\">5.00</ram:CalculatedAmount></ram:ApplicableTradeTax><ram:LineTotalAmount currencyID=\"EUR\">100.00",
+        );
+        let r = parse_file("test-cii.xml", xml.as_bytes()).unwrap();
+        let proof = &r["synthese"]["provenance"]["tva"];
+        assert_eq!(proof["type"], "calculated");
+        assert_eq!(proof["value"], "25.00");
+        assert_eq!(proof["inputs"].as_array().unwrap().len(), 2);
+        assert_eq!(proof["inputs"][1]["value"], "5.00");
     }
 
     #[test]

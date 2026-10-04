@@ -81,6 +81,46 @@ async function mockBackend(page, pdf = null, extra = {}) {
     } } };
   }, { pdf, extra });
 }
+test('provenance des montants et accès depuis une anomalie de calcul', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  const base = 'Invoice/LegalMonetaryTotal/';
+  await mockBackend(page, null, {
+    format: 'UBL', xml_pretty: '<Invoice><LegalMonetaryTotal><TaxExclusiveAmount>100.00</TaxExclusiveAmount></LegalMonetaryTotal></Invoice>',
+    rows: [{ title: 'Total HT', tag: 'TaxExclusiveAmount', value: '100.00', path: base + 'TaxExclusiveAmount' }],
+    summary: [
+      { title: 'Total HT', value: '100.00 EUR' }, { title: 'Total TTC', value: '120.00 EUR' },
+      { title: 'À payer', value: '120.00 EUR' },
+    ],
+    synthese: { numero: 'F-1', devise: 'EUR', ht: '100.00', tva: '20.00', ttc: '120.00', a_payer: '120.00', provenance: {
+      ht: { type: 'xml', value: '100.00', path: base + 'TaxExclusiveAmount' },
+      tva: { type: 'calculated', value: '20.00', formula: 'Somme des montants de TVA par taux', inputs: [{ value: '20.00', path: 'Invoice/TaxTotal/TaxSubtotal/TaxAmount' }] },
+      ttc: { type: 'xml', value: '120.00', path: base + 'TaxInclusiveAmount', comparison: {
+        formula: 'Total HT + total TVA', expected: '120.00', inputs: [
+          { label: 'Total HT', value: '100.00', path: base + 'TaxExclusiveAmount' },
+          { label: 'TVA', value: '20.00', path: 'Invoice/TaxTotal/TaxAmount' },
+        ],
+      } },
+      a_payer: { type: 'xml', value: '120.00', path: base + 'PayableAmount' },
+    } },
+    controles: [{ regle: 'Total TTC = HT + TVA', etat: 'ecart', famille: 'calcul', attendu: '120.00', constate: '119.00', path: base + 'TaxInclusiveAmount' }],
+  });
+  await page.goto(url);
+  await page.locator('#file-input').setInputFiles({ name: 'montants.xml', mimeType: 'text/xml', buffer: Buffer.from('<Invoice/>') });
+  await page.locator('.tab[data-tab="data"]').click();
+  await expect(page.locator('[data-provenance="tva"]')).toBeVisible();
+  await expect(page.locator('[data-provenance="tva"]')).toContainText('20.00 EUR');
+  await page.locator('.anomaly-card').getByRole('button', { name: 'Voir la provenance des montants' }).click();
+  await expect(page.locator('[data-provenance="ttc"] .provenance-details')).toHaveAttribute('open', '');
+  await expect(page.locator('[data-provenance="ttc"]')).toContainText(base + 'TaxInclusiveAmount');
+  await expect(page.locator('[data-provenance="ttc"]')).toContainText('Contrôle : Total HT + total TVA = 120.00');
+  await page.locator('[data-provenance="ht"] .provenance-details summary').click();
+  await expect(page.locator('[data-provenance="ht"]')).toContainText('Valeur exacte du XML : 100.00');
+  await page.locator('[data-provenance="ht"]').getByRole('button', { name: 'Voir dans le XML' }).click();
+  await expect(page.locator('.tab[data-tab="xml"]')).toHaveClass(/active/);
+  await expect(page.locator('#xml-table tr.flash')).toHaveAttribute('data-path', base + 'TaxExclusiveAmount');
+  expect(errors).toEqual([]);
+});
 test('session, accueil, onglets, récents et recherche transversale', async ({ page }) => {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
@@ -166,6 +206,7 @@ test('PDF multipage : zoom et position après changement de vue et rechargement'
   await expect(page.locator('.pdf-page')).toHaveCount(2);
   await page.locator('#pdf-zoom').selectOption('1.5');
   await page.waitForFunction(() => getFile(state.selected)?.rendered.pdf && state.zoom === 1.5 && !workspaceScrollTarget);
+  await page.waitForFunction(() => { const main = document.querySelector('.main'); return main.scrollHeight - main.clientHeight >= 650; });
   await page.evaluate(() => { document.querySelector('.main').scrollTop = 650; });
   await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('fx-workspace'))?.files[0]?.view?.scroll?.pdf)).toBe(650);
   await page.getByRole('button', { name: 'XML brut', exact: true }).click();

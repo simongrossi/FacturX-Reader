@@ -1,6 +1,6 @@
 # Roadmap
 
-Mise à jour : 4 octobre 2026, [version 0.7.1 publiée](https://github.com/simongrossi/FacturX-Reader/releases/tag/v0.7.1) et préparation de la 0.8.0 avec un échéancier indicatif.
+Mise à jour : 4 octobre 2026, [version 0.7.1 publiée](https://github.com/simongrossi/FacturX-Reader/releases/tag/v0.7.1) et préparation de la 0.8.0 avec échéancier et provenance des valeurs.
 Voir [CHANGELOG.md](CHANGELOG.md) pour le détail des versions, [README.md](README.md) pour
 l'utilisation, [VALIDATION.md](VALIDATION.md) pour le bilan de vérification P0 et
 [COMPARATIF.md](COMPARATIF.md) pour le bilan face aux autres outils.
@@ -10,7 +10,7 @@ l'utilisation, [VALIDATION.md](VALIDATION.md) pour le bilan de vérification P0 
 | Priorité | Thème | État |
 |---|---|---|
 | P0 | Valider l'existant | Presque terminé : essai macOS positif ; reste la vérification exhaustive, Linux et l’installation des paquets |
-| P1 | Confort et fiabilité du moteur | Aux trois quarts : reste la provenance des valeurs, « Ouvrir avec », les tests anonymisés |
+| P1 | Confort et fiabilité du moteur | Provenance des dates et totaux clés développée ; restent la provenance détaillée des lignes, « Ouvrir avec » et les tests anonymisés |
 | P2 | Exploiter des lots de factures | Presque terminé : revue du lot et échéancier développés ; restent la recherche dans le PDF et le dossier surveillé |
 | P3 | Conformité et distribution | Bien avancé : Schematron officiel (suite de tests officielle verte, résultat gardé entre sessions) et déclarations du conteneur ; reste PDF/A réel, règles nationales, signature des builds |
 | P4 | API, MCP et connecteurs | Pas commencé |
@@ -55,6 +55,13 @@ Versions publiées (pré-versions, builds non signés) :
 - [x] Avoirs déduits du solde global, sans les affecter à une date absente ; montants inconnus signalés.
 - [x] Filtres situation/devise, accès à la facture et export CSV des lignes filtrées et totaux par groupe.
 - [Calcul et limites](docs/SCHEDULE.md).
+
+### Provenance des valeurs (non publiée)
+
+- [x] Chemin et valeur XML des montants clés ; dates extraites avec lien vers leur forme source.
+- [x] TVA sommée par taux identifiée comme calculée, avec ses entrées.
+- [x] Formules, valeurs attendues et entrées des contrôles HT, TTC et net à payer ; accès depuis les anomalies de totaux.
+- [Portée et limites](docs/PROVENANCE.md).
 
 ## Prochaines étapes proposées
 
@@ -173,8 +180,8 @@ lot avec historique et suivi. Ce qui en ressort pour le plan :
   ouverts (0.2.0). Reste : comparer aussi le montant, et l'historique entre sessions (bibliothèque).
 - [ ] Calculs monétaires décimaux partout. Fait pour les contrôles (0.2.0) ; l'affichage du P.U.
   et de la TVA de ligne reconstitués reste en `f64`.
-- [ ] Provenance des valeurs : distinguer ce qui est extrait du XML de ce qui est reconstitué,
-  avec formule, valeur d'origine et chemin consultables.
+- [x] Provenance des dates et totaux clés : distinguer XML et TVA reconstituée, montrer la
+  valeur d'origine, le chemin et les formules de contrôle. Reste la provenance détaillée des lignes.
 - [x] Extraction PDF avec un vrai parseur, au-delà des expressions régulières : structures
   complexes, pièces jointes multiples, choix du XML pertinent (`lopdf`, repli de secours).
 - [x] Protection des pointages et du suivi : sauvegarde quotidienne, restauration, export/import,

@@ -232,3 +232,12 @@ manuellement sur les systèmes ciblés. Détails et limites : [docs/EXPORTS.md](
 - Capture de l’interface inspectée visuellement. Les moteurs Rust et les règles officielles ne sont pas modifiés. La vérification manuelle des nouvelles interactions sur macOS, Windows et Linux reste à faire.
 
 [Calcul et limites](docs/SCHEDULE.md).
+
+## Provenance des valeurs — chantier du 4 octobre 2026
+
+- Les tests Rust vérifient les chemins XML des montants CII/UBL, la TVA calculée à partir de sa ventilation, les valeurs attendues des contrôles TTC et net à payer, et l’absence de provenance pour un montant non disponible.
+- Le scénario navigateur ajouté vérifie l’ouverture de la provenance depuis une anomalie de TTC, la formule et ses entrées, la carte TVA créée lorsque le résumé n’en avait pas, et la navigation vers le champ XML. La suite compte désormais **24 scénarios**.
+- Les dates peuvent être normalisées à l’extraction ; la carte les nomme donc « valeur extraite » et l’occurrence XML permet de consulter la forme d’origine. Les contrôles de ligne restent hors de ce premier périmètre.
+- `npm run check:js` et `git diff --check` réussis. Les essais manuels de cette interaction sur les applications natives restent à faire.
+
+[Fonctionnement et limites](docs/PROVENANCE.md).
