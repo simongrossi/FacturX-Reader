@@ -1,6 +1,6 @@
 # Roadmap
 
-Mise à jour : 4 octobre 2026, version 0.7.1 en cours de publication et préparation de la 0.8.0 avec un échéancier indicatif.
+Mise à jour : 4 octobre 2026, [version 0.7.1 publiée](https://github.com/simongrossi/FacturX-Reader/releases/tag/v0.7.1) et préparation de la 0.8.0 avec un échéancier indicatif.
 Voir [CHANGELOG.md](CHANGELOG.md) pour le détail des versions, [README.md](README.md) pour
 l'utilisation, [VALIDATION.md](VALIDATION.md) pour le bilan de vérification P0 et
 [COMPARATIF.md](COMPARATIF.md) pour le bilan face aux autres outils.
@@ -25,8 +25,9 @@ Versions publiées (pré-versions, builds non signés) :
 | 0.5.0 | Bibliothèque locale (alerte IBAN, doublons, prix), règles métier EN 16931, impression, protection des pointages et du suivi, en-tête compact |
 | 0.6.0 | Schematron officiel EN 16931 évalué en Rust, déclarations du conteneur PDF, verdicts séparés, filtres métier |
 | 0.7.0 | Schéma XSD (CII par profil Factur-X, UBL 2.1), Schematron des profils Factur-X, règles françaises EXTENDED-CTC-FR et BR-FR, validation du XML d'origine, contrôles de structure PDF/A-3, Schematron plus rapide |
+| 0.7.1 | Comparaison reproductible aux moteurs de référence, exports Excel/PDF, centre d’anomalies et revue d’un lot |
 
-### Exports enrichis (intégrés, non publiés)
+### Exports enrichis (publiés dans la 0.7.1)
 
 - [x] Export XLSX des lignes affichées et du tableau filtré, avec totaux par devise.
 - [x] Rapport de contrôle PDF avec diagnostics, limites et suivi manuel.
@@ -34,14 +35,14 @@ Versions publiées (pré-versions, builds non signés) :
 - Tests : relecture des XLSX, types numériques et références, texte non interprété comme formule,
   précision supérieure à Excel, accents PDF, rapports longs, pagination et filtre vide.
 
-### Centre d’anomalies (non publié)
+### Centre d’anomalies (publié dans la 0.7.1)
 
 - [x] Anomalies regroupées, recherche et filtres, valeurs disponibles, aides à la correction.
 - [x] Accès à l’occurrence XML exacte ou au contrôle d’origine, demande de vérification à copier.
 - [x] Contrôles incomplets séparés, actualisation Schematron, aide intégrée aux rapports JSON/PDF.
 - [Fonctionnement et limites](docs/ANOMALIES.md).
 
-### Revue d’un lot (non publiée)
+### Revue d’un lot (publiée dans la 0.7.1)
 
 - [x] Progression de la lecture et des validations Schematron jusqu’au dernier document.
 - [x] Points à examiner regroupés pour toutes les factures, erreurs de lecture et contrôles incomplets compris.
@@ -57,9 +58,9 @@ Versions publiées (pré-versions, builds non signés) :
 
 ## Prochaines étapes proposées
 
-État au 4 octobre 2026 : la 0.7.0 est publiée en pré-version. L’utilisateur confirme le bon
+État au 4 octobre 2026 : la 0.7.1 est publiée en pré-version. L’utilisateur confirme le bon
 fonctionnement général sous macOS ; quelques détails de présentation restent à améliorer.
-La revue de code postérieure à la 0.7.0 est intégrée dans la préparation de la 0.7.1.
+La revue de code postérieure à la 0.7.0 fait partie de la 0.7.1.
 
 **Comparaison des validateurs terminée localement** (P3) : 955 XML, accord avec SaxonC-HE pour les profils
 Factur-X et les règles françaises, et avec libxml2 pour les huit schémas XSD. Le problème
@@ -71,22 +72,21 @@ Travaux fusionnés dans `main` : [préparation 0.7.1 (#1)](https://github.com/si
 [comparaison et correctifs (#2)](https://github.com/simongrossi/FacturX-Reader/pull/2)
 et [exports Excel/PDF (#3)](https://github.com/simongrossi/FacturX-Reader/pull/3), puis
 [centre d’anomalies (#4)](https://github.com/simongrossi/FacturX-Reader/pull/4) et
-[revue d’un lot (#5)](https://github.com/simongrossi/FacturX-Reader/pull/5).
-Ces PR sont intégrées ; la revue d’un lot est dans `main` depuis `7e33cfa`. Les anciennes branches sont
-archivées ou déjà intégrées ; voir [l’inventaire](docs/BRANCHES.md). La prochaine livraison
-reste à publier après le contrôle de `main`.
+[revue d’un lot (#5)](https://github.com/simongrossi/FacturX-Reader/pull/5) et
+[échéancier (#6)](https://github.com/simongrossi/FacturX-Reader/pull/6).
+Ces PR sont intégrées ; l’échéancier est dans `main` depuis `b129daf`, après le tag `v0.7.1`.
+Les anciennes branches sont archivées ou déjà intégrées ; voir [l’inventaire](docs/BRANCHES.md).
 
-1. **Publier une 0.7.1** avec la revue de code, après les vérifications de cette version.
-2. **Compléter la validation des plateformes** (P0) : essai macOS général fait ; restent les
+1. **Compléter la validation des plateformes** (P0) : essai macOS général fait ; restent les
    vérifications détaillées (menus, raccourcis, glisser-déposer, impression, persistance),
    Linux et l’installation documentée des paquets publiés.
-3. **Suite de la revue de code** : ne plus refuser un PDF entier pour une pièce jointe secondaire trop
+2. **Suite de la revue de code** : ne plus refuser un PDF entier pour une pièce jointe secondaire trop
    volumineuse ; poursuivre le découpage de `app.js` et de `facturx.rs`.
-4. **Signature des builds** (P3) : dépend d'un certificat Windows et d'un compte développeur
+3. **Signature des builds** (P3) : dépend d'un certificat Windows et d'un compte développeur
    Apple, à lancer en parallèle.
-5. **Affiner le périmètre des règles BR-FR** (B2C, opérations hors obligation, calendrier).
-6. **Fin de P1** : provenance des valeurs, « Ouvrir avec » et instance unique.
-7. **Bibliothèque `facturx-core`** (P4) : le moteur est assez complet pour être extrait ; à
+4. **Affiner le périmètre des règles BR-FR** (B2C, opérations hors obligation, calendrier).
+5. **Fin de P1** : provenance des valeurs, « Ouvrir avec » et instance unique.
+6. **Bibliothèque `facturx-core`** (P4) : le moteur est assez complet pour être extrait ; à
    décider d'abord, la licence sous laquelle le publier.
 
 Non prioritaires : une validation PDF/A-3 complète (métier de veraPDF), la conversion CII ↔ UBL
@@ -163,7 +163,7 @@ lot avec historique et suivi. Ce qui en ressort pour le plan :
 - [x] En-tête compact, recherche repliable, message fermable (0.5.0).
 - [x] Menu clic droit : copie de cellule, ligne, colonne ou tableau en TSV, CSV, JSON ou Markdown
   (0.3.0) ; actions sur les onglets et la liste des fichiers (0.4.0).
-- [x] Export Excel natif (.xlsx), lignes et tableau filtrés (non publié).
+- [x] Export Excel natif (.xlsx), lignes et tableau filtrés (0.7.1).
 - [ ] Associations de fichiers, « Ouvrir avec » et instance unique.
 - [ ] Dossiers dans les récents.
 
@@ -204,7 +204,7 @@ lot avec historique et suivi. Ce qui en ressort pour le plan :
 - [x] Statuts « À vérifier », « Vérifiée », « Anomalie », commentaires par facture et par ligne,
   pointage de la facture entière ; distinct d'un paiement confirmé (0.4.0).
 - [x] Rapport de contrôle exportable en JSON : règle, attendu, constaté, écart, chemin XML (0.4.0).
-- [x] Revue du lot : progression, anomalies transversales et rapport PDF consolidé de tous les documents ouverts (non publiée).
+- [x] Revue du lot : progression, anomalies transversales et rapport PDF consolidé de tous les documents ouverts (0.7.1).
 - [x] Échéancier indicatif des factures ouvertes (non publié).
 
 ### Prévu

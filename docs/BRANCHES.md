@@ -32,6 +32,7 @@ et supprimer la branche de travail. Les tags de version et d’archive conserven
 utiles sans multiplier les branches actives.
 
 L’intégration des branches ne publie pas automatiquement de version de l’application.
+La préversion [0.7.1](https://github.com/simongrossi/FacturX-Reader/releases/tag/v0.7.1) a été publiée depuis le tag `v0.7.1` (`a9b2641`).
 Les notes de changements non publiés et les prérequis de livraison restent dans
 [CHANGELOG.md](../CHANGELOG.md) et [ROADMAP.md](../ROADMAP.md).
 
@@ -51,5 +52,7 @@ références de la PR #5 étaient verts avant fusion. Aucun développement des a
 ne reste en attente d’intégration. [Exports](EXPORTS.md), [centre d’anomalies](ANOMALIES.md),
 [revue d’un lot](BATCH_REVIEW.md).
 
-L’échéancier est développé sur `codex/payment-schedule` à partir de `main` après la PR #5.
-Il n’entre pas dans le périmètre initial de la 0.7.1. [Calcul et limites](SCHEDULE.md).
+L’échéancier a été fusionné ensuite dans `main` par la
+[PR #6](https://github.com/simongrossi/FacturX-Reader/pull/6) (`b129daf`) ; la branche
+`codex/payment-schedule` a été supprimée. Ce développement est destiné à la 0.8.0 et n’est
+pas présent dans les installateurs 0.7.1. [Calcul et limites](SCHEDULE.md).

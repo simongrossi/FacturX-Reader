@@ -1,6 +1,6 @@
 # Revue d’un lot et rapport consolidé
 
-Chantier du 4 octobre 2026, après le [centre d’anomalies](ANOMALIES.md) et les [exports Excel/PDF](EXPORTS.md). Fonctionnalité non encore distribuée dans une version publiée.
+Chantier du 4 octobre 2026, après le [centre d’anomalies](ANOMALIES.md) et les [exports Excel/PDF](EXPORTS.md). Fonctionnalité distribuée dans la [préversion 0.7.1](https://github.com/simongrossi/FacturX-Reader/releases/tag/v0.7.1).
 
 ## Parcours
 

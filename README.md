@@ -54,7 +54,7 @@ tableaux lisibles en français, **recalcule les montants** et signale ce qui ne 
 | ✅ **Contrôles de cohérence** | Calculs en décimaux exacts : lignes, HT, TVA par taux, TTC, net à payer. Mentions essentielles, clés SIREN/SIRET, n° de TVA et IBAN, échéance, escompte. |
 | 📊 **Tableau multi-factures** | Toutes les factures ouvertes sur une page : totaux par devise, avoirs déduits, filtres d'anomalies, de période, de montant et de fournisseur, export CSV. |
 | 🗂️ **Revue d’un lot** | Progression de la lecture et des validations, anomalies de toutes les factures regroupées, rapport PDF consolidé avec erreurs de lecture et contrôles incomplets. |
-| 📅 **Échéancier** | Factures groupées par date d’échéance et devise, retards, avoirs déduits du solde indicatif, accès aux documents et export CSV. |
+| 📅 **Échéancier** | En développement pour la 0.8.0 : factures groupées par date d’échéance et devise, retards, avoirs déduits du solde indicatif, accès aux documents et export CSV. |
 | 🗄️ **Bibliothèque locale** | Toutes les factures déjà ouvertes, retrouvables entre les sessions. Signale un IBAN nouveau pour un fournisseur, un doublon dans l'historique, une variation de prix unitaire. |
 | 🪟 **PDF et données côte à côte** | Vérifiez une ligne sans changer d'onglet. |
 | 🖊️ **Pointage et suivi** | Pointage des lignes, statut À vérifier / Vérifiée / Anomalie, commentaires par facture et par ligne. |
@@ -207,6 +207,8 @@ Les valeurs inconnues sont indiquées comme telles ; les contrôles incomplets r
 Après avoir ouvert un dossier ou plusieurs documents, ouvrez **Tableau**. **Bilan du lot** suit la lecture et les validations Schematron. Ses points à examiner réunissent les anomalies de toutes les factures, les contrôles incomplets et les fichiers illisibles ; une carte mène à la facture et au contrôle. **Rapport du lot PDF** devient disponible une fois tous les documents analysés. Il inclut chaque document ouvert et les totaux par devise, avoirs déduits, même si le tableau est filtré. [Parcours, sens des chiffres et limites](docs/BATCH_REVIEW.md).
 
 ### Échéancier des factures
+
+Cette fonction est présente dans `main` pour la 0.8.0, mais absente des installateurs 0.7.1.
 
 Dans **Tableau**, l’échéancier regroupe les documents ouverts par date d’échéance et devise. Il distingue les échéances dépassées, celles du jour, à venir et absentes. Les avoirs sans échéance réduisent le solde global, sans être attribués à une date. Filtrez les groupes par situation ou devise, ouvrez une facture ou exportez les lignes visibles en CSV. Les montants sont indicatifs : l’application ne connaît pas les paiements effectués. [Calcul, export et limites](docs/SCHEDULE.md).
 

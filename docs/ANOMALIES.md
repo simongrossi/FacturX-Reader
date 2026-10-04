@@ -1,6 +1,6 @@
 # Centre d’anomalies et aide à la correction
 
-Chantier du 4 octobre 2026, après l’intégration des [exports Excel et PDF](EXPORTS.md) dans `main` (PR #3, merge `e35e7cc`). Fonctionnalités non encore distribuées dans une version publiée.
+Chantier du 4 octobre 2026, après l’intégration des [exports Excel et PDF](EXPORTS.md) dans `main` (PR #3, merge `e35e7cc`). Fonctionnalités distribuées dans la [préversion 0.7.1](https://github.com/simongrossi/FacturX-Reader/releases/tag/v0.7.1).
 
 ## Parcours utilisateur
 

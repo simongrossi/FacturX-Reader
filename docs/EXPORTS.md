@@ -1,6 +1,6 @@
 # Exports Excel et rapports PDF
 
-Chantier du 4 octobre 2026, PR #3 fusionnée dans `main` (`e35e7cc`), CI complète verte. Fonctionnalités non encore distribuées dans une version publiée.
+Chantier du 4 octobre 2026, PR #3 fusionnée dans `main` (`e35e7cc`), CI complète verte. Fonctionnalités distribuées dans la [préversion 0.7.1](https://github.com/simongrossi/FacturX-Reader/releases/tag/v0.7.1).
 
 ## Utilisation
 

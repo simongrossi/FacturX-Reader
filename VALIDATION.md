@@ -1,4 +1,4 @@
-# Validation — version 0.7.1 et travaux non publiés, 4 octobre 2026
+# Validation — 0.7.1 publiée et développements 0.8.0, 4 octobre 2026
 
 Bilan de ce qui a été vérifié pour cette version, et de ce qui ne l'a pas été.
 Les commandes sont décrites dans [README.md](README.md#tests).
@@ -10,12 +10,15 @@ Les PR #1 et #2 sont fusionnées dans `main` :
 [comparaison des validateurs et corrections XSD (#2)](https://github.com/simongrossi/FacturX-Reader/pull/2).
 Les tests navigateur, Rust, natifs Windows et de comparaison aux références de la PR #2 sont
 verts dans le [workflow Checks](https://github.com/simongrossi/FacturX-Reader/actions/runs/37161670374).
-Ces travaux sont intégrés au code principal, mais ne sont pas encore distribués dans une
-version publiée. Les exports Excel/PDF (PR #3), le centre d’anomalies (PR #4) et la revue d’un lot
-(PR #5) sont également intégrés. Tous les jobs de la
+Ces travaux, les exports Excel/PDF (PR #3), le centre d’anomalies (PR #4) et la revue d’un lot
+(PR #5) sont distribués dans la [préversion 0.7.1](https://github.com/simongrossi/FacturX-Reader/releases/tag/v0.7.1).
+Le tag `v0.7.1` pointe sur `a9b2641`. Son [workflow Release](https://github.com/simongrossi/FacturX-Reader/actions/runs/37203787025)
+a réussi sur macOS, Linux et Windows et a produit sept fichiers d’installation ou archives.
+Tous les jobs de la
 [PR #5](https://github.com/simongrossi/FacturX-Reader/actions/runs/37194887243) sont verts
 (navigateur, Rust/natif Windows et références), comme ceux du
 [contrôle de `main` après la PR #3](https://github.com/simongrossi/FacturX-Reader/actions/runs/37192860140).
+L’échéancier de la [PR #6](https://github.com/simongrossi/FacturX-Reader/pull/6) a été fusionné ensuite (`b129daf`) pour la 0.8.0 ; ses jobs navigateur, Rust/natif Windows et références sont verts.
 
 L’[inventaire des branches](docs/BRANCHES.md) explique leur intégration et les repères d’archive.
 Les résultats détaillés sont dans [tests/reference/REPORT.md](tests/reference/REPORT.md).
@@ -27,12 +30,12 @@ Les résultats détaillés sont dans [tests/reference/REPORT.md](tests/reference
 | `npm run check:js` | Syntaxe de tous les scripts de l'interface |
 | `npm run test:rust` | 63 tests unitaires réussis sous macOS le 4 octobre (3 tests longs ignorés) : bibliothèque (filtres avant pagination sur 1002 factures, réassociation par empreinte), imports (archive ambiguë, plafonds de décompression), exemples officiels français, règles BR-FR (fonctions, périmètre), conteneur PDF (déclarations, sept contrôles de structure), schéma XSD (XML d'origine validé, chargement des huit schémas, facture et avoir UBL, choix d'après le profil, exemple officiel valide, élément inconnu, attribut inconnu, montant non numérique, jamais « valide » sans évaluation), Schematron officiel (compilation de toutes les règles, suite de tests officielle de la Commission, exemples officiels, règles enfreintes, file de travail, résultat repris de la bibliothèque entre deux sessions, résultats identiques avec et sans optimisations), moteur UBL/CII, contrôles en décimaux exacts, règles EN 16931, conteneur PDF (déclarations lues, écarts), pointages et suivi (corruption, sauvegarde, restauration, fusion), bibliothèque SQLite |
 | Test Rust `samples.rs` | Factures réelles vérifiées sur le poste d’origine ; sous macOS le 4 octobre, test sans effet car `samples/` est absent |
-| `npm run test:ui` | 22 scénarios navigateur sous Chromium/macOS le 4 octobre, commandes Rust simulées, PDF.js réel ; les 21 scénarios précédents restent verts |
+| `npm run test:ui` | 22 scénarios navigateur pour la 0.7.1, puis 23 sur `main` après l’échéancier, sous Chromium/macOS le 4 octobre ; commandes Rust simulées, PDF.js réel |
 | `npm run test:native` | Vrai exécutable Windows, vraies commandes Rust, profil WebView2 et dossier de données jetables. Vert en local et sur la machine de GitHub |
 | Workflow `Checks` | Tests navigateur (Linux), Rust et test natif Windows, comparaison aux références (macOS) verts sur la PR #2 avant fusion et sur `main` après les exports (PR #3) |
 | Essai manuel macOS (4 octobre 2026) | Fonctionnement général confirmé par l’utilisateur ; détails de présentation à améliorer. Fonctions précises et mode d’installation non documentés |
 | `npm run test:reference` | 955 XML : 1 208 comparaisons Schematron concordent avec SaxonC-HE 12.9 ; 955 verdicts XSD concordent avec libxml2 2.9.13, dont 433 invalides. Exécution locale et job macOS de la PR #2 réussis |
-| Workflow `Release` | Installeurs Windows, macOS et Linux construits à chaque tag |
+| Workflow `Release` | Tag `v0.7.1` : jobs macOS, Linux et Windows verts ; sept fichiers publiés en préversion, non signés |
 
 ### Ce que couvre le test natif Windows
 
