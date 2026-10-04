@@ -26,6 +26,9 @@ Pour le développement 0.8.0 de la provenance TVA par taux, les tests locaux pas
 UBL incomplète, et l’accès depuis l’anomalie à la bonne occurrence et à son champ XML. Le
 contrôle de formatage Rust global reste non applicable sans reformater de nombreux fichiers
 préexistants ; `git diff --check` est propre.
+La [PR #9](https://github.com/simongrossi/FacturX-Reader/pull/9) est fusionnée (`cec5e33`) :
+ses jobs navigateur, références et Rust/natif Windows sont verts. Le contrôle de `main` après
+fusion est suivi séparément.
 
 L’[inventaire des branches](docs/BRANCHES.md) explique leur intégration et les repères d’archive.
 Les résultats détaillés sont dans [tests/reference/REPORT.md](tests/reference/REPORT.md).

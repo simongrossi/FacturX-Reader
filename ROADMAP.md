@@ -1,6 +1,6 @@
 # Roadmap
 
-Mise à jour : 4 octobre 2026, [version 0.7.1 publiée](https://github.com/simongrossi/FacturX-Reader/releases/tag/v0.7.1) et préparation de la 0.8.0 avec échéancier et provenance des valeurs.
+Mise à jour : 4 octobre 2026, [version 0.7.1 publiée](https://github.com/simongrossi/FacturX-Reader/releases/tag/v0.7.1) et préparation de la 0.8.0 avec échéancier et provenance des valeurs, y compris la TVA par taux.
 Voir [CHANGELOG.md](CHANGELOG.md) pour le détail des versions, [README.md](README.md) pour
 l'utilisation, [VALIDATION.md](VALIDATION.md) pour le bilan de vérification P0 et
 [COMPARATIF.md](COMPARATIF.md) pour le bilan face aux autres outils.

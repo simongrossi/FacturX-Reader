@@ -67,3 +67,8 @@ La provenance des lignes a été fusionnée ensuite par la
 [PR #8](https://github.com/simongrossi/FacturX-Reader/pull/8) (`a428505`) après validation
 des mêmes jobs. La branche `codex/line-provenance` a été supprimée. Le développement reste
 destiné à la 0.8.0. [Détail et limites](PROVENANCE.md).
+
+La provenance de la TVA par taux a été fusionnée par la
+[PR #9](https://github.com/simongrossi/FacturX-Reader/pull/9) (`cec5e33`) après validation
+des jobs navigateur, références et Rust/natif Windows. La branche
+`codex/vat-rate-provenance` a été supprimée. Elle complète la provenance prévue pour la 0.8.0.
