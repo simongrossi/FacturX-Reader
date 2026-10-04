@@ -117,6 +117,14 @@ struct Line {
     total: Option<Amt>,
     /// Frais - remises de la ligne.
     ac_net: i128,
+    adjustments: Vec<LineAdjustment>,
+    tax_rate: Option<Amt>,
+    tax_amount: Option<Amt>,
+}
+
+struct LineAdjustment {
+    charge: bool,
+    amount: Amt,
 }
 
 #[derive(Default)]
@@ -182,12 +190,16 @@ fn ubl_totals(root: N, paths: &Paths) -> Totals {
         let l = Some(line);
         let price = find(l, "Price");
         let mut ac_net = 0;
+        let mut adjustments = Vec::new();
         for ac in findall(l, "AllowanceCharge") {
             let ac = Some(ac);
             let indicator = find(ac, "ChargeIndicator");
-            let v = a(find(ac, "Amount")).map_or(0, |x| x.v.0);
+            let amount = a(find(ac, "Amount"));
+            let v = amount.as_ref().map_or(0, |x| x.v.0);
             // ChargeIndicator absent = majoration, comme dans le moteur d'affichage.
-            ac_net += if indicator.is_none() || is_true(indicator) { v } else { -v };
+            let charge = indicator.is_none() || is_true(indicator);
+            ac_net += if charge { v } else { -v };
+            if let Some(amount) = amount { adjustments.push(LineAdjustment { charge, amount }); }
         }
         let item = find(l, "Item");
         t.lines.push(Line {
@@ -200,6 +212,9 @@ fn ubl_totals(root: N, paths: &Paths) -> Totals {
             base_qty: a(find(price, "BaseQuantity")),
             total: a(find(l, "LineExtensionAmount")),
             ac_net,
+            adjustments,
+            tax_rate: a(find(find(find(l, "Item"), "ClassifiedTaxCategory"), "Percent")),
+            tax_amount: a(find(find(l, "TaxTotal"), "TaxAmount")),
         });
     }
     t
@@ -251,11 +266,15 @@ fn cii_totals(root: N, paths: &Paths) -> Totals {
         let st = find_alt(l, &["SpecifiedLineTradeSettlement", "IncludedLineTradeSettlement"]);
         let price = find_alt(agr, &["NetPriceProductTradePrice", "NetPrice"]);
         let mut ac_net = 0;
+        let mut adjustments = Vec::new();
         for ac in findall(st, "SpecifiedTradeAllowanceCharge") {
             let ac = Some(ac);
             let indicator = find(ac, "ChargeIndicator");
-            let v = a(find(ac, "ActualAmount")).map_or(0, |x| x.v.0);
-            ac_net += if is_true(find(indicator, "Indicator").or(indicator)) { v } else { -v };
+            let amount = a(find(ac, "ActualAmount"));
+            let v = amount.as_ref().map_or(0, |x| x.v.0);
+            let charge = is_true(find(indicator, "Indicator").or(indicator));
+            ac_net += if charge { v } else { -v };
+            if let Some(amount) = amount { adjustments.push(LineAdjustment { charge, amount }); }
         }
         let product = find_alt(l, &["SpecifiedTradeProduct", "DefinedTradeProduct"]);
         t.lines.push(Line {
@@ -269,6 +288,11 @@ fn cii_totals(root: N, paths: &Paths) -> Totals {
             total: a(find(tr, "LineExtensionAmount")
                 .or_else(|| find(find(st, "SpecifiedTradeSettlementLineMonetarySummation"), "LineTotalAmount"))),
             ac_net,
+            adjustments,
+            tax_rate: a(find(find(st, "ApplicableTradeTax"), "RateApplicablePercent")
+                .or_else(|| find(st, "RateApplicablePercent"))),
+            tax_amount: a(find(st, "CalculatedAmount")
+                .or_else(|| find(find(st, "ApplicableTradeTax"), "CalculatedAmount"))),
         });
     }
     t
@@ -305,43 +329,91 @@ fn val(a: &Option<Amt>) -> i128 {
 
 // ------------------------------------------------------------------ regles arithmetiques
 
+struct LineCalculation {
+    base_expected: Dec,
+    adjusted_expected: Dec,
+    reference: Dec,
+    tolerance: Dec,
+    matches: bool,
+}
+
+fn line_calculation(line: &Line) -> Option<LineCalculation> {
+    let (qty, price, total) = (line.qty.as_ref()?, line.price.as_ref()?, line.total.as_ref()?);
+    let base = line.base_qty.as_ref().map_or(Dec(SCALE), |b| b.v);
+    let expected = mul_cents(qty.v, price.v, base)?;
+    // Même tolérance et mêmes deux conventions que le contrôle de ligne.
+    let tolerance = Dec(qty.v.abs().0 / (2 * 10i128.pow(price.dp)));
+    let adjusted = Dec(expected.0 + line.ac_net);
+    let near = |candidate: Dec| (total.v.0 - candidate.0).abs() <= tolerance.0;
+    Some(LineCalculation {
+        base_expected: expected,
+        adjusted_expected: adjusted,
+        reference: if line.ac_net != 0 { adjusted } else { expected },
+        tolerance,
+        matches: near(expected) || near(adjusted),
+    })
+}
+
+fn line_provenance(line: &Line) -> Value {
+    let input = |label: &str, amount: Option<&Amt>| match amount {
+        Some(a) => provenance_input(label, Some(a)),
+        None => json!({ "label": label, "value": "", "note": "Absent du XML" }),
+    };
+    let mut inputs = vec![
+        input("Quantité", line.qty.as_ref()),
+        input("Prix unitaire déclaré", line.price.as_ref()),
+        line.base_qty.as_ref().map(|a| provenance_input("Quantité de base", Some(a)))
+            .unwrap_or_else(|| json!({ "label": "Quantité de base", "value": "1", "note": "Valeur implicite du contrôle" })),
+    ];
+    for adjustment in &line.adjustments {
+        inputs.push(provenance_input(if adjustment.charge { "Frais de ligne" } else { "Remise de ligne" }, Some(&adjustment.amount)));
+    }
+    inputs.push(input("Total de ligne déclaré", line.total.as_ref()));
+    if let Some(rate) = &line.tax_rate { inputs.push(provenance_input("Taux de TVA déclaré", Some(rate))); }
+    if let Some(tax) = &line.tax_amount { inputs.push(provenance_input("TVA de ligne déclarée", Some(tax))); }
+    let comparison = line_calculation(line).map(|c| json!({
+        "formula": "Quantité × prix unitaire / quantité de base (arrondi au centime)",
+        "base_expected": c.base_expected.to_string(),
+        "adjusted_expected": c.adjusted_expected.to_string(),
+        "adjustments_net": Dec(line.ac_net).to_string(),
+        "expected": c.reference.to_string(),
+        "tolerance": c.tolerance.to_string(),
+        "matches": c.matches,
+    }));
+    json!({ "path": line.path, "inputs": inputs, "comparison": comparison })
+}
+
 fn check_lines(out: &mut Vec<Value>, t: &Totals) {
     if t.lines.is_empty() {
         return;
     }
     let (mut ok, mut skipped) = (0usize, 0usize);
     let mut gaps = Vec::new();
-    for line in &t.lines {
+    for (line_index, line) in t.lines.iter().enumerate() {
         let (Some(qty), Some(price), Some(total)) = (&line.qty, &line.price, &line.total) else {
             skipped += 1;
             continue;
         };
-        let base = line.base_qty.as_ref().map_or(Dec(SCALE), |b| b.v);
-        let Some(expected) = mul_cents(qty.v, price.v, base) else {
+        let Some(calculation) = line_calculation(line) else {
             skipped += 1;
             continue;
         };
-        // Un prix unitaire arrondi explique un ecart d'au plus quantite x demi-unite
-        // de sa derniere decimale ; au-dela, c'est un ecart.
-        let tolerance = qty.v.abs().0 / (2 * 10i128.pow(price.dp));
-        // Deux conventions d'emetteurs : total de ligne avec ou sans frais/remises de ligne.
-        let with_ac = Dec(expected.0 + line.ac_net);
-        let near = |e: Dec| (total.v.0 - e.0).abs() <= tolerance;
-        if near(expected) || near(with_ac) {
+        if calculation.matches {
             ok += 1;
             continue;
         }
-        let reference = if line.ac_net != 0 { with_ac } else { expected };
         let label = if line.id.is_empty() { "Ligne".to_string() } else { format!("Ligne {}", line.id) };
-        gaps.push(check(
+        let mut gap = check(
             &format!("{label} : quantité × prix unitaire = total de ligne"),
             "ecart",
-            &reference.to_string(),
+            &calculation.reference.to_string(),
             &total.v.to_string(),
-            &Dec(total.v.0 - reference.0).to_string(),
+            &Dec(total.v.0 - calculation.reference.0).to_string(),
             &total.path,
             &format!("{} × {}{}", qty.v, price.v, if line.ac_net != 0 { " + frais/remises de ligne" } else { "" }),
-        ));
+        );
+        gap["line_index"] = line_index.into();
+        gaps.push(gap);
     }
     let regle = "Lignes : quantité × prix unitaire = total de ligne";
     let first_path = t.lines.first().map_or("", |l| l.path.as_str());
@@ -710,12 +782,14 @@ fn synthese(s: &Map<String, Value>, t: &Totals, type_code: &str, is_credit_note:
             })
         })
         .collect();
+    let provenance_lignes: Vec<Value> = t.lines.iter().map(line_provenance).collect();
     json!({
         "vendeur_tva": seller(&["N° de TVA"]),
         "vendeur_id_legal": seller(&["SIREN / registre", "Identifiant légal"]),
         "iban": iban.as_ref().map(|(v, _)| v.clone()).unwrap_or_default(),
         "iban_path": iban.map(|(_, p)| p).unwrap_or_default(),
         "lignes": lignes,
+        "provenance_lignes": provenance_lignes,
         "numero": head(&["N° de facture"]),
         "type": type_code,
         "avoir": is_credit_note,

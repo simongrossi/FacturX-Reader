@@ -121,6 +121,49 @@ test('provenance des montants et accès depuis une anomalie de calcul', async ({
   await expect(page.locator('#xml-table tr.flash')).toHaveAttribute('data-path', base + 'TaxExclusiveAmount');
   expect(errors).toEqual([]);
 });
+
+test('provenance des lignes dans la fiche et dans l’anomalie exacte', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  const path = 'Invoice/InvoiceLine[2]/LineExtensionAmount';
+  const input = (label, value, suffix) => ({ label, value, path: 'Invoice/InvoiceLine[2]/' + suffix });
+  const proof = { path: 'Invoice/InvoiceLine[2]', inputs: [
+    input('Quantité', '2', 'InvoicedQuantity'), input('Prix unitaire déclaré', '50.00', 'Price/PriceAmount'),
+    { label: 'Quantité de base', value: '1', note: 'Valeur implicite du contrôle' },
+    input('Frais de ligne', '15.00', 'AllowanceCharge/Amount'), input('Total de ligne déclaré', '116.00', 'LineExtensionAmount'),
+  ], comparison: { formula: 'Quantité × prix unitaire / quantité de base (arrondi au centime)',
+    base_expected: '100.00', adjusted_expected: '115.00', adjustments_net: '15.00',
+    expected: '115.00', tolerance: '0.01', matches: false } };
+  const line = value => ({ fields: [], cells: { id: { value: '1' }, total: { value } } });
+  await mockBackend(page, null, {
+    format: 'UBL', summary: [{ title: 'N° de facture', value: 'F-2' }],
+    synthese: { numero: 'F-2', devise: 'EUR', provenance_lignes: [{ inputs: [{ label: 'Quantité', value: '9' }] }, proof] },
+    lines_columns: [{ key: 'id', title: 'N°', align: 'left' }, { key: 'total', title: 'Total HT', align: 'right' }, { key: 'detail', title: 'Détail', align: 'left' }],
+    lines: [line('90.00 EUR'), line('116.00 EUR')],
+    rows: [{ title: 'Total de ligne', tag: 'LineExtensionAmount', value: '116.00', path }],
+    controles: [{ regle: 'Ligne 1 : quantité × prix unitaire = total de ligne', famille: 'calcul', etat: 'ecart',
+      attendu: '115.00', constate: '116.00', ecart: '1.00', path, line_index: 1, detail: '2 × 50.00 + frais/remises de ligne' }],
+  });
+  await page.goto(url);
+  await page.locator('#file-input').setInputFiles({ name: 'lignes.xml', mimeType: 'text/xml', buffer: Buffer.from('<Invoice/>') });
+  await page.locator('.tab[data-tab="data"]').click();
+  const issue = page.locator('.anomaly-card').filter({ hasText: 'Ligne 1 : quantité' });
+  await issue.locator('.line-provenance summary').click();
+  await expect(issue).toContainText('Total de ligne déclaré : 116.00');
+  await expect(issue).toContainText('Avec frais/remises : 115.00');
+  await expect(issue).toContainText('Tolérance du contrôle : ±0.01');
+  await page.locator('#lines-table-wrap th').filter({ hasText: 'Total HT' }).click();
+  await page.locator('#lines-table-wrap th').filter({ hasText: 'Total HT' }).click();
+  await expect(page.locator('#lines-tbody tr[data-idx]').first()).toHaveAttribute('data-idx', '1');
+  await page.locator('#lines-tbody tr[data-idx="1"] .detail-btn').click();
+  const detail = page.locator('.line-detail-row[data-detail-for="1"]');
+  await detail.locator('.line-provenance summary').click();
+  await expect(detail).toContainText('Quantité : 2');
+  await expect(detail).not.toContainText('Quantité : 9');
+  await detail.getByRole('button', { name: 'Voir dans le XML' }).last().click();
+  await expect(page.locator('#xml-table tr.flash')).toHaveAttribute('data-path', path);
+  expect(errors).toEqual([]);
+});
 test('session, accueil, onglets, récents et recherche transversale', async ({ page }) => {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));

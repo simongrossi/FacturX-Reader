@@ -512,6 +512,9 @@ button, input, select { font: inherit; color: inherit; }
 .provenance-details summary { cursor: pointer; color: var(--accent); }
 .provenance-details p { margin: 7px 0 0; overflow-wrap: anywhere; }
 .provenance-path .btn { margin-left: 4px; }
+.line-provenance { margin: 10px 0; padding: 8px 10px; border: 1px solid var(--border-soft); border-radius: 6px; color: var(--muted); font-size: 12px; }
+.line-provenance summary { cursor: pointer; color: var(--accent); font-weight: 600; }
+.line-provenance p { margin: 7px 0 0; overflow-wrap: anywhere; }
 
 /* ---------- sections de données ---------- */
 .section {

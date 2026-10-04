@@ -76,6 +76,7 @@ function invoiceAnomalies(f) {
       detail: entry.detail || "", family: entry.family || "", location: entry.path || "", path: resolved?.path || "",
       found: entry.found ?? values?.[2] ?? (leaf && !resolved.binary && !resolved.truncated ? resolved.value : null),
       expected: entry.expected ?? values?.[1] ?? null, gap: entry.gap || "", target: entry.target || "controls",
+      lineProof: Number.isInteger(entry.lineIndex) ? r.synthese?.provenance_lignes?.[entry.lineIndex] : null,
     };
     if (issue.found === "") issue.found = null;
     if (issue.expected === "") issue.expected = null;
@@ -83,7 +84,7 @@ function invoiceAnomalies(f) {
     issues.push(issue);
   }
   for (const c of [...duplicateChecks(f), ...(r.controles || [])]) {
-    if (["ecart", "alerte"].includes(c.etat)) add("coherence", { severity: c.etat, title: c.regle, detail: c.detail, family: c.famille, path: c.path, found: c.constate || undefined, expected: c.attendu || undefined, gap: c.ecart });
+    if (["ecart", "alerte"].includes(c.etat)) add("coherence", { severity: c.etat, title: c.regle, detail: c.detail, family: c.famille, path: c.path, found: c.constate || undefined, expected: c.attendu || undefined, gap: c.ecart, lineIndex: c.line_index });
     else if (c.etat === "non_verifiable") incomplete.push(c.regle + " : " + (c.detail || "données insuffisantes"));
   }
   for (const rule of r.regles?.liste || []) {
@@ -191,6 +192,7 @@ function anomalyCenter(f) {
       }
       if (issue.gap) values.append(Object.assign(document.createElement("dt"), { textContent: "Écart" }), Object.assign(document.createElement("dd"), { textContent: issue.gap }));
       card.appendChild(values);
+      if (issue.lineProof) card.appendChild(lineProvenancePanel(issue.lineProof, false));
       card.appendChild(Object.assign(document.createElement("p"), { className: "anomaly-action", textContent: "Action conseillée : " + issue.action }));
       if (issue.location) card.appendChild(Object.assign(document.createElement("p"), { className: "anomaly-location", textContent: "Emplacement : " + issue.location }));
       const actions = Object.assign(document.createElement("div"), { className: "anomaly-toolbar" });

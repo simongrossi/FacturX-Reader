@@ -11,6 +11,8 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
   avoirs déduits sans affectation fictive, filtres, accès aux documents et export CSV.
 - Provenance des dates et montants clés dans la fiche : champ XML, valeur source, somme de TVA
   ventilée et détail des calculs de HT, TTC et net à payer ; accès depuis les anomalies de totaux.
+- Provenance des lignes UBL/CII dans le détail et les anomalies : quantité, prix, quantité de base,
+  frais/remises, total déclaré, chemins XML, calculs acceptés et tolérance.
 
 ### Corrigé
 
