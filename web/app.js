@@ -1106,6 +1106,30 @@ function lineProvenancePanel(proof, open) {
   return panel;
 }
 
+function taxBreakdownPanel(proof, index, open = false) {
+  const panel = Object.assign(document.createElement("details"), { className: "line-provenance tax-provenance", open });
+  panel.dataset.taxIndex = String(index);
+  panel.appendChild(Object.assign(document.createElement("summary"), {
+    textContent: "TVA par taux · ventilation " + (index + 1) + (proof.rate ? " · " + proof.rate + " %" : ""),
+  }));
+  for (const input of proof.inputs || []) {
+    const label = input.label + " : " + (input.value || "Non disponible") + (input.note ? " (" + input.note + ")" : "");
+    panel.appendChild(input.path ? provenanceSourceLink(input.path, label) :
+      Object.assign(document.createElement("p"), { textContent: label }));
+  }
+  if (proof.comparison) {
+    const c = proof.comparison;
+    panel.appendChild(Object.assign(document.createElement("p"), { textContent: "Calcul : " + c.formula }));
+    panel.appendChild(Object.assign(document.createElement("p"), { textContent: "TVA attendue : " + c.expected +
+      " · TVA déclarée : " + c.found + " · Écart : " + c.difference + " · Tolérance du contrôle : ±" + c.tolerance }));
+  } else {
+    panel.appendChild(Object.assign(document.createElement("p"), {
+      textContent: "Calcul non vérifiable : base, taux ou TVA déclarée absents ou non numériques.",
+    }));
+  }
+  return panel;
+}
+
 function syncStickyOffsets() {
   const tabs = document.querySelector(".tabs");
   const head = byId("lines-head");
@@ -1506,6 +1530,14 @@ function renderData(f) {
       cards.appendChild(c);
     }
     pane.appendChild(cards);
+  }
+
+  const taxProofs = r.synthese?.provenance_tva_taux || [];
+  if (taxProofs.length) {
+    const section = Object.assign(document.createElement("section"), { id: "tax-breakdown", className: "section" });
+    section.appendChild(Object.assign(document.createElement("h3"), { textContent: "Ventilation de TVA" }));
+    for (const [index, proof] of taxProofs.entries()) section.appendChild(taxBreakdownPanel(proof, index));
+    pane.appendChild(section);
   }
 
   if (r.synthese) pane.appendChild(verdictStrip(f));

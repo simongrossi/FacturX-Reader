@@ -327,6 +327,10 @@ fn val(a: &Option<Amt>) -> i128 {
     a.as_ref().map_or(0, |x| x.v.0)
 }
 
+fn tax_breakdown_expected(b: &Breakdown) -> Option<Dec> {
+    mul_cents(b.base.as_ref()?.v, b.rate.as_ref()?.v, Dec(100 * SCALE))
+}
+
 // ------------------------------------------------------------------ regles arithmetiques
 
 struct LineCalculation {
@@ -447,11 +451,12 @@ fn check_totals(out: &mut Vec<Value>, t: &Totals) {
         compare(out, "Total HT = total des lignes − remises + frais", "Niveau document", expected, found, 0);
     }
     // TVA par taux = base × taux (BR-CO-17), au centime pres.
-    for b in &t.breakdown {
+    for (tax_index, b) in t.breakdown.iter().enumerate() {
         let (Some(base), Some(rate), Some(found)) = (&b.base, &b.rate, &b.tax) else { continue };
-        if let Some(expected) = mul_cents(base.v, rate.v, Dec(100 * SCALE)) {
+        if let Some(expected) = tax_breakdown_expected(b) {
             let regle = format!("TVA {} % = base × taux", rate.v);
             compare(out, &regle, &format!("{} × {} %", base.v, rate.v), expected, found, CENT);
+            if let Some(control) = out.last_mut() { control["tax_breakdown_index"] = tax_index.into(); }
         }
     }
     // Total TVA = somme des TVA par taux (BR-CO-14).
@@ -691,6 +696,33 @@ fn provenance_input(label: &str, amount: Option<&Amt>) -> Value {
     }
 }
 
+fn tax_breakdown_provenance(b: &Breakdown) -> Value {
+    let input = |label: &str, amount: Option<&Amt>| match amount {
+        Some(a) => provenance_input(label, Some(a)),
+        None => json!({ "label": label, "value": "", "note": "Absent ou non numérique dans le XML" }),
+    };
+    let comparison = match (&b.base, &b.rate, &b.tax) {
+        (Some(_), Some(_), Some(tax)) => tax_breakdown_expected(b).map(|expected| json!({
+            "formula": "Base imposable × taux / 100 (arrondi au centime)",
+            "expected": expected.to_string(),
+            "found": tax.v.to_string(),
+            "difference": Dec(tax.v.0 - expected.0).to_string(),
+            "tolerance": Dec(CENT).to_string(),
+            "matches": (tax.v.0 - expected.0).abs() <= CENT,
+        })),
+        _ => None,
+    };
+    json!({
+        "rate": b.rate.as_ref().map(|a| a.raw.as_str()).unwrap_or(""),
+        "inputs": [
+            input("Base imposable déclarée", b.base.as_ref()),
+            input("Taux déclaré (%)", b.rate.as_ref()),
+            input("TVA déclarée", b.tax.as_ref()),
+        ],
+        "comparison": comparison,
+    })
+}
+
 fn provenance_comparison(provenance: &mut Map<String, Value>, key: &str, formula: &str, expected: Dec, inputs: Vec<Value>) {
     if let Some(entry) = provenance.get_mut(key).and_then(Value::as_object_mut) {
         entry.insert("comparison".into(), json!({
@@ -783,6 +815,7 @@ fn synthese(s: &Map<String, Value>, t: &Totals, type_code: &str, is_credit_note:
         })
         .collect();
     let provenance_lignes: Vec<Value> = t.lines.iter().map(line_provenance).collect();
+    let provenance_tva_taux: Vec<Value> = t.breakdown.iter().map(tax_breakdown_provenance).collect();
     json!({
         "vendeur_tva": seller(&["N° de TVA"]),
         "vendeur_id_legal": seller(&["SIREN / registre", "Identifiant légal"]),
@@ -790,6 +823,7 @@ fn synthese(s: &Map<String, Value>, t: &Totals, type_code: &str, is_credit_note:
         "iban_path": iban.map(|(_, p)| p).unwrap_or_default(),
         "lignes": lignes,
         "provenance_lignes": provenance_lignes,
+        "provenance_tva_taux": provenance_tva_taux,
         "numero": head(&["N° de facture"]),
         "type": type_code,
         "avoir": is_credit_note,

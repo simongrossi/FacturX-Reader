@@ -13,6 +13,8 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
   ventilée et détail des calculs de HT, TTC et net à payer ; accès depuis les anomalies de totaux.
 - Provenance des lignes UBL/CII dans le détail et les anomalies : quantité, prix, quantité de base,
   frais/remises, total déclaré, chemins XML, calculs acceptés et tolérance.
+- Ventilation de TVA par taux UBL/CII dans la fiche et l’anomalie exacte : base, taux, TVA déclarée,
+  chemins XML, calcul attendu, écart et tolérance ; occurrences de même taux distinguées.
 
 ### Corrigé
 

@@ -20,6 +20,13 @@ Tous les jobs de la
 [contrôle de `main` après la PR #3](https://github.com/simongrossi/FacturX-Reader/actions/runs/37192860140).
 L’échéancier de la [PR #6](https://github.com/simongrossi/FacturX-Reader/pull/6) a été fusionné ensuite (`b129daf`) pour la 0.8.0 ; ses jobs navigateur, Rust/natif Windows et références sont verts.
 
+Pour le développement 0.8.0 de la provenance TVA par taux, les tests locaux passent :
+`npm run check:js`, 26 scénarios Playwright, 69 tests Rust réussis (3 ignorés) et le test
+`samples.rs`. Les nouveaux cas couvrent deux ventilations CII au même taux, une ventilation
+UBL incomplète, et l’accès depuis l’anomalie à la bonne occurrence et à son champ XML. Le
+contrôle de formatage Rust global reste non applicable sans reformater de nombreux fichiers
+préexistants ; `git diff --check` est propre.
+
 L’[inventaire des branches](docs/BRANCHES.md) explique leur intégration et les repères d’archive.
 Les résultats détaillés sont dans [tests/reference/REPORT.md](tests/reference/REPORT.md).
 
