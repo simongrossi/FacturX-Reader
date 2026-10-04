@@ -44,8 +44,9 @@ La CI complète de `main` sur `e35e7cc` est également verte
 Le changement de licence de `main` (`456b054`) et la documentation complémentaire ont été
 conservés avant fusion. La branche `codex/excel-control-pdf` a été supprimée.
 
-Le centre d’anomalies a ensuite été fusionné dans `main` par la PR #4 (`a97ba1d`) ; sa branche
-`codex/anomaly-center` a été supprimée. Le chantier de revue d’un lot part de cette base dans
-`codex/batch-review-report`. Aucun développement des anciennes branches ne reste en attente
-d’intégration. [Exports](EXPORTS.md), [centre d’anomalies](ANOMALIES.md),
+Le centre d’anomalies a ensuite été fusionné dans `main` par la PR #4 (`a97ba1d`), puis la
+revue d’un lot par la PR #5 (`7e33cfa`). Les branches `codex/anomaly-center` et
+`codex/batch-review-report` ont été supprimées. Les contrôles navigateur, Rust/natif Windows et
+références de la PR #5 étaient verts avant fusion. Aucun développement des anciennes branches
+ne reste en attente d’intégration. [Exports](EXPORTS.md), [centre d’anomalies](ANOMALIES.md),
 [revue d’un lot](BATCH_REVIEW.md).

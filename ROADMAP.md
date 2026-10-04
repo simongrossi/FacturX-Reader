@@ -63,8 +63,9 @@ EXTENDED fix-FR04 de France_RFE et à remplacer le correctif `uppsala` épinglé
 Travaux fusionnés dans `main` : [préparation 0.7.1 (#1)](https://github.com/simongrossi/FacturX-Reader/pull/1),
 [comparaison et correctifs (#2)](https://github.com/simongrossi/FacturX-Reader/pull/2)
 et [exports Excel/PDF (#3)](https://github.com/simongrossi/FacturX-Reader/pull/3), puis
-[centre d’anomalies (#4)](https://github.com/simongrossi/FacturX-Reader/pull/4).
-Ces PR sont intégrées ; le centre d’anomalies est dans `main` depuis `a97ba1d`. Les anciennes branches sont
+[centre d’anomalies (#4)](https://github.com/simongrossi/FacturX-Reader/pull/4) et
+[revue d’un lot (#5)](https://github.com/simongrossi/FacturX-Reader/pull/5).
+Ces PR sont intégrées ; la revue d’un lot est dans `main` depuis `7e33cfa`. Les anciennes branches sont
 archivées ou déjà intégrées ; voir [l’inventaire](docs/BRANCHES.md). La prochaine livraison
 reste à publier après le contrôle de `main`.
 
@@ -72,8 +73,7 @@ reste à publier après le contrôle de `main`.
 2. **Compléter la validation des plateformes** (P0) : essai macOS général fait ; restent les
    vérifications détaillées (menus, raccourcis, glisser-déposer, impression, persistance),
    Linux et l’installation documentée des paquets publiés.
-3. **Suite de la revue de code** : centre d’anomalies développé (valeurs disponibles et
-   vérification à faire) ; ne plus refuser un PDF entier pour une pièce jointe secondaire trop
+3. **Suite de la revue de code** : ne plus refuser un PDF entier pour une pièce jointe secondaire trop
    volumineuse ; poursuivre le découpage de `app.js` et de `facturx.rs`.
 4. **Signature des builds** (P3) : dépend d'un certificat Windows et d'un compte développeur
    Apple, à lancer en parallèle.

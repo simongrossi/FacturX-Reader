@@ -11,9 +11,11 @@ Les PR #1 et #2 sont fusionnées dans `main` :
 Les tests navigateur, Rust, natifs Windows et de comparaison aux références de la PR #2 sont
 verts dans le [workflow Checks](https://github.com/simongrossi/FacturX-Reader/actions/runs/37161670374).
 Ces travaux sont intégrés au code principal, mais ne sont pas encore distribués dans une
-version publiée. Les exports Excel/PDF (PR #3) et le centre d’anomalies (PR #4) sont également intégrés ; tous les jobs
-du [contrôle de `main` sur `e35e7cc`](https://github.com/simongrossi/FacturX-Reader/actions/runs/37192860140)
-sont verts (navigateur, Rust/natif Windows et références).
+version publiée. Les exports Excel/PDF (PR #3), le centre d’anomalies (PR #4) et la revue d’un lot
+(PR #5) sont également intégrés. Tous les jobs de la
+[PR #5](https://github.com/simongrossi/FacturX-Reader/actions/runs/37194887243) sont verts
+(navigateur, Rust/natif Windows et références), comme ceux du
+[contrôle de `main` après la PR #3](https://github.com/simongrossi/FacturX-Reader/actions/runs/37192860140).
 
 L’[inventaire des branches](docs/BRANCHES.md) explique leur intégration et les repères d’archive.
 Les résultats détaillés sont dans [tests/reference/REPORT.md](tests/reference/REPORT.md).
