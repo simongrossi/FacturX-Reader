@@ -40,6 +40,18 @@ est fusionnée (`d0b7623`) : ses jobs navigateur, références et Rust/natif Win
 L’[inventaire des branches](docs/BRANCHES.md) explique leur intégration et les repères d’archive.
 Les résultats détaillés sont dans [tests/reference/REPORT.md](tests/reference/REPORT.md).
 
+Le [corpus comptable synthétique](tests/corpus/accounting/README.md) ajouté pour la 0.8.0 fixe
+les champs indispensables aux futures écritures proposées : nature de la pièce, devise, HT,
+TVA, TTC, net à payer, lignes et provenance des montants. Ses cinq XML couvrent CII et UBL,
+un profil sans lignes, un avoir, une remise, des frais, un acompte, plusieurs taux, un arrondi
+et une devise étrangère. Un test vérifie la même facture en XML, ZIP et PDF ; un autre vérifie
+qu'un net à payer incohérent reste visible comme écart. Le refactoring de `facturx.rs` sépare
+la lecture des conteneurs et l'extraction UBL/CII sans changer le contrat JSON public.
+Ces tests ne valident pas encore la génération d'écritures ni un export comptable.
+Sur la branche de ce chantier, la vérification locale du 4 octobre a réussi : 75 tests Rust
+unitaires, 3 tests du corpus et `samples.rs` (3 tests longs ignorés), 30 scénarios navigateur,
+`npm run check:js` et la comparaison de 955 documents avec les références (aucun écart).
+
 ## Vérifications réalisées
 
 | Vérification | Résultat / portée |

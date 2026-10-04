@@ -1,0 +1,7 @@
+[
+  {"file":"cii-minimum.xml","format":"CII","number":"REF-MINIMUM-1","credit":false,"currency":"EUR","ht":"100.00","vat":"19.00","ttc":"119.00","payable":"119.00","lines":0,"tax_rates":[]},
+  {"file":"cii-usd.xml","format":"CII","number":"TEST-USD-001","credit":false,"currency":"USD","ht":"100.00","vat":"20.00","ttc":"120.00","payable":"120.00","lines":1,"tax_rates":["20"]},
+  {"file":"ubl-credit.xml","format":"UBL","number":"TEST-AVOIR-001","credit":true,"currency":"EUR","ht":"50.00","vat":"10.00","ttc":"60.00","payable":"60.00","lines":1,"tax_rates":["20"]},
+  {"file":"ubl-multi-tax.xml","format":"UBL","number":"TEST-ACHAT-001","credit":false,"currency":"EUR","ht":"155.00","vat":"26.50","ttc":"181.50","payable":"161.50","lines":2,"tax_rates":["20","10"]},
+  {"file":"ubl-rounding.xml","format":"UBL","number":"TEST-ARRONDI-001","credit":false,"currency":"EUR","ht":"0.10","vat":"0.01","ttc":"0.11","payable":"0.12","lines":1,"tax_rates":["5.5"]}
+]
