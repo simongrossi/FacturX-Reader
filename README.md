@@ -235,8 +235,9 @@ Dans le tableau des lignes, **Détail** affiche aussi la quantité, le prix déc
 
 **Limites à l'import** : 200 Mo par fichier ; 32 Mo pour le XML une fois décompressé, qu'il vienne
 d'un ZIP ou d'un PDF ; 2000 entrées par archive. Au-delà, le fichier est refusé avec un message,
-plutôt que décompressé sans borne. Un PDF dont une pièce jointe dépasse ce plafond est refusé en
-entier.
+plutôt que décompressé sans borne. Dans un PDF, une pièce jointe secondaire trop volumineuse est
+ignorée si un XML de facture valide et dans la limite est trouvé. Si aucun XML de facture ne peut
+être extrait dans cette limite, l'import échoue.
 
 Types de facture, unités (UN/ECE), modes de paiement, catégories de TVA et profils sont
 traduits en français. Un champ non reconnu est affiché avec son étiquette brute et son chemin.
