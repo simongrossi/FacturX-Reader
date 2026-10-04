@@ -5,6 +5,10 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 
 ## [Non publié]
 
+Aucun changement pour le moment.
+
+## [0.7.1] - 2026-10-04
+
 ### Ajouté
 
 - Revue d’un lot : progression de la lecture et du Schematron, points à examiner consolidés,
@@ -24,18 +28,6 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 - Comparaison reproductible des validateurs à SaxonC-HE et libxml2 : 955 XML, huit schémas
   XSD, profils Factur-X, EXTENDED-CTC-FR et BR-FR, erreurs comparées par règle et occurrence.
   Sources épinglées et vérifiées par empreinte ; job dédié dans la CI.
-
-### Corrigé
-
-- Validation XSD UBL : les valeurs non numériques des montants, quantités et pourcentages
-  dérivés de types complexes pouvaient être déclarées valides. Correctif `uppsala` amont
-  épinglé au commit `5d115adf0a1a830d71ec514fe184b5affeee6077`, testé contre libxml2.
-- La tolérance pour les décimaux XSD valides tels que `12.` ne masque plus un double signe
-  invalide (`++12.`, `--12.`).
-
-## [0.7.1] - 2026-10-04
-
-### Ajouté
 
 - **Synthèse des vérifications** en tête de l'onglet Données : nombre de familles de contrôles à
   examiner et de contrôles incomplets, avec accès direct au bloc concerné.
@@ -57,6 +49,12 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 - Les verdicts sont calculés par un module commun à la fiche, au tableau et au rapport.
 
 ### Corrigé
+
+- Validation XSD UBL : les valeurs non numériques des montants, quantités et pourcentages
+  dérivés de types complexes pouvaient être déclarées valides. Correctif `uppsala` amont
+  épinglé au commit `5d115adf0a1a830d71ec514fe184b5affeee6077`, testé contre libxml2.
+- La tolérance pour les décimaux XSD valides tels que `12.` ne masque plus un double signe
+  invalide (`++12.`, `--12.`).
 
 - **Tests d’interface** : le scénario de reprise du PDF attend la sauvegarde différée de la
   position avant de la lire, y compris sous macOS.
