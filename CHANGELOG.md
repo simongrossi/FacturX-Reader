@@ -7,6 +7,12 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 
 ### Ajouté
 
+- Centre d’anomalies : regroupement des contrôles, filtres et recherche, valeurs disponibles,
+  actions conseillées, navigation vers l’occurrence XML et demande de vérification à copier.
+  Contrôles incomplets distingués des anomalies ; aides incluses dans les rapports JSON/PDF.
+- Règles EN 16931 natives : valeurs attendue et constatée explicites pour la présence et les
+  égalités de montants, conservées sous forme de chaînes décimales exactes.
+
 - Export Excel natif (.xlsx) des lignes filtrées et du tableau multi-factures, avec cellules
   numériques, en-têtes figés, filtres et totaux par devise (avoirs déduits).
 - Rapport de contrôle PDF paginé, police embarquée : synthèse, verdicts et limites,

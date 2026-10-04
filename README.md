@@ -50,6 +50,7 @@ tableaux lisibles en français, **recalcule les montants** et signale ce qui ne 
 | 🧱 **Schéma XSD** | La structure du XML contrôlée contre le schéma officiel : celui du profil Factur-X annoncé pour le CII, UBL 2.1 pour l'UBL. Sur votre poste. |
 | 📎 **Conteneur PDF** | PDF/A-3 annoncé, pièce jointe XML déclarée, profil annoncé comparé à celui du XML ; polices incorporées, chiffrement, profil de sortie, métadonnées Factur-X contrôlés dans le fichier. |
 | 📐 **Règles EN 16931** | Une soixantaine de règles métier de la norme évaluées sur chaque facture : mentions obligatoires, calculs, décimales, catégories de TVA. |
+| 🧭 **Centre d’anomalies** | Écarts et alertes regroupés par source, valeurs trouvée/attendue disponibles, actions conseillées, accès au XML et demande de vérification à copier. |
 | ✅ **Contrôles de cohérence** | Calculs en décimaux exacts : lignes, HT, TVA par taux, TTC, net à payer. Mentions essentielles, clés SIREN/SIRET, n° de TVA et IBAN, échéance, escompte. |
 | 📊 **Tableau multi-factures** | Toutes les factures ouvertes sur une page : totaux par devise, avoirs déduits, filtres d'anomalies, de période, de montant et de fournisseur, export CSV. |
 | 🗄️ **Bibliothèque locale** | Toutes les factures déjà ouvertes, retrouvables entre les sessions. Signale un IBAN nouveau pour un fournisseur, un doublon dans l'historique, une variation de prix unitaire. |
@@ -190,6 +191,14 @@ Dans le panneau **Fichiers** : **🗑** vide la liste, **✕** (au survol) retir
 Dans **Données**, utilisez **Exporter Excel** pour les lignes affichées (recherche, tri et filtre de pointage appliqués), ou **Rapport PDF** dans les contrôles. Dans le **Tableau des factures**, **Exporter Excel** reprend les factures filtrées et ajoute une feuille de totaux par devise, avec les avoirs déduits. Ces actions sont aussi dans le menu **Fichier**.
 
 Les montants Excel sont numériques ; les numéros et références restent du texte. Les valeurs dépassant 15 chiffres significatifs restent textuelles pour éviter un arrondi par Excel. Le rapport PDF contient la synthèse, les verdicts et limites des contrôles, les diagnostics et le suivi manuel. Les résultats encore en cours sont ceux de l’instant de l’export : réexportez après leur achèvement. Tous les fichiers sont générés localement, sans réseau.
+
+Détails du chantier, architecture et limites : [Exports Excel/PDF](docs/EXPORTS.md).
+
+### Centre d’anomalies
+
+Dans **Données**, le centre rassemble les écarts et alertes des différents contrôles. Filtrez par gravité et source, recherchez une règle ou une valeur, consultez l’action conseillée, puis utilisez **Voir le champ dans le XML** ou **Voir le contrôle**. **Copier la demande** prépare un texte à relire et transmettre au fournisseur. Aucun message n’est envoyé et le XML reste inchangé.
+
+Les valeurs inconnues sont indiquées comme telles ; les contrôles incomplets restent distincts des anomalies. L’aide est incluse dans les rapports JSON et PDF. [Fonctionnement, tests et limites](docs/ANOMALIES.md).
 
 ### Formats pris en charge
 

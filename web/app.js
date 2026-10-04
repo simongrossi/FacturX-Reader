@@ -348,6 +348,7 @@ function refreshSchematronViews(entry) {
   if (state.selected === entry.id) {
     const oldVerdicts = byId("verdicts");
     if (oldVerdicts) oldVerdicts.replaceWith(verdictStrip(entry));
+    refreshAnomalyCenter(entry);
     const oldSch = byId("schematron-rules");
     const newSch = oldSch && schematronSection(entry);
     if (newSch) oldSch.replaceWith(newSch);
@@ -1212,7 +1213,7 @@ function printView() {
   hideContextMenu();
   hidePopover();
   // Blocs repliés ouverts et thème clair le temps de l'impression.
-  const closed = [...document.querySelectorAll("#controls:not([open]), #rules:not([open]), #schematron-rules:not([open]), #xsd-errors:not([open])")];
+  const closed = [...document.querySelectorAll("#controls:not([open]), #rules:not([open]), #schematron-rules:not([open]), #xsd-errors:not([open]), #anomaly-center:not([open]), .anomaly-incomplete:not([open])")];
   closed.forEach((d) => { d.open = true; });
   const root = document.documentElement;
   const theme = root.getAttribute("data-theme");
@@ -1436,6 +1437,7 @@ function renderData(f) {
   }
 
   if (r.synthese) pane.appendChild(verdictStrip(f));
+  pane.appendChild(anomalyCenter(f));
   const controls = controlsSection(f);
   if (controls) pane.appendChild(controls);
   const rules = rulesSection(f);

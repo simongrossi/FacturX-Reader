@@ -34,3 +34,15 @@ utiles sans multiplier les branches actives.
 L’intégration des branches ne publie pas automatiquement de version de l’application.
 Les notes de changements non publiés et les prérequis de livraison restent dans
 [CHANGELOG.md](../CHANGELOG.md) et [ROADMAP.md](../ROADMAP.md).
+
+## Chantier exports et suite
+
+La PR #3 (exports Excel/PDF) est fusionnée dans `main` par `e35e7cc`. Les trois jobs
+`browser`, `rust` et `reference` étaient verts sur son commit de développement `8fef64f`.
+La CI complète de `main` sur `e35e7cc` est également verte
+([Checks](https://github.com/simongrossi/FacturX-Reader/actions/runs/37192860140)).
+Le changement de licence de `main` (`456b054`) et la documentation complémentaire ont été
+conservés avant fusion. La branche `codex/excel-control-pdf` a été supprimée.
+
+Le centre d’anomalies est développé à partir de cette base dans `codex/anomaly-center`.
+Il ne remplace aucun travail antérieur. [Exports](EXPORTS.md), [centre d’anomalies](ANOMALIES.md).
