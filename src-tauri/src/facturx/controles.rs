@@ -25,14 +25,14 @@ pub(super) const CENT: i128 = SCALE / 100;
 
 /// Decimal a virgule fixe. Aucun flottant : les sommes sont exactes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub(super) struct Dec(pub(super) i128);
+pub(crate) struct Dec(pub(super) i128);
 
 impl Dec {
     const ZERO: Dec = Dec(0);
 
     /// Valeur et nombre de decimales ecrites. `None` si vide, non numerique
     /// ou plus precis que 8 decimales.
-    pub(super) fn parse(s: &str) -> Option<(Dec, u32)> {
+    pub(crate) fn parse(s: &str) -> Option<(Dec, u32)> {
         let s = s.trim();
         let (neg, body) = match s.strip_prefix('-') {
             Some(rest) => (true, rest),
@@ -54,6 +54,14 @@ impl Dec {
 
     fn abs(self) -> Dec {
         Dec(self.0.abs())
+    }
+
+    /// Variation en dixièmes de pour cent, arrondie à la décimale affichée.
+    pub(crate) fn percent_change_tenths(self, previous: Dec) -> Option<i128> {
+        if previous.0 == 0 { return None; }
+        let numerator = self.0.checked_sub(previous.0)?.checked_mul(1000)?;
+        let (numerator, denominator) = if previous.0 < 0 { (-numerator, -previous.0) } else { (numerator, previous.0) };
+        Some(round_div(numerator, denominator))
     }
 }
 

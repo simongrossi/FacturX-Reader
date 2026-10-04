@@ -62,7 +62,7 @@ function exportBatchExcel(btn) {
   return exportAction(btn, async () => {
     const rows = batchVisibleRows();
     const totals = [["Devise", "Documents", "Avoirs déduits", "HT", "TVA", "TTC", "À payer"]];
-    for (const [currency, t] of batchTotals(rows)) totals.push([currency, t.n, t.avoirs, ...BATCH_MONEY.map(k => (t[k] / 100).toFixed(2))]);
+    for (const [currency, t] of batchTotals(rows)) totals.push([currency, t.n, t.avoirs, ...BATCH_MONEY.map(k => decimalCentsText(t[k]))]);
     return api.saveBinary("factures.xlsx", exportBase64(await excelBuffer([
       { name: "Factures", rows: batchExportRows(), numeric: [...BATCH_COLS.flatMap((c, i) => c.num ? [i] : []), BATCH_COLS.length] },
       { name: "Totaux par devise", rows: totals, numeric: [1, 2, 3, 4, 5, 6] },

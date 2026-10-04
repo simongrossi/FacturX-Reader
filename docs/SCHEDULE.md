@@ -10,7 +10,7 @@ Le CSV, encodé en UTF-8 avec BOM et séparateur `;`, contient les documents vis
 
 ## Calcul et limites
 
-- Pour une facture, le montant signé est **À payer**. Pour un avoir, sa valeur **TTC** est soustraite. Les montants manquants restent « indisponibles » et ne sont pas comptés comme zéro dans les soldes. Les sommes sont faites en centimes, comme dans le tableau.
+- Pour une facture, le montant signé est **À payer**. Pour un avoir, sa valeur **TTC** est soustraite. Les montants manquants restent « indisponibles » et ne sont pas comptés comme zéro dans les soldes. Les sommes sont faites en centimes entiers à partir des chaînes décimales du XML, avec arrondi au centime le plus proche (demi-centime à l'écart de zéro), comme dans le tableau ; le navigateur ne convertit plus ces montants en nombres flottants.
 - Un avoir sans échéance réduit le **solde global** de sa devise mais n’est attribué à aucune date. Un avoir daté figure dans son groupe daté. Les devises ne sont jamais converties ni additionnées entre elles.
 - Les dates d’échéance valides sont comparées au jour local au moment de l’affichage. Une date absente ou impossible est rangée dans **Sans échéance**. Les fichiers illisibles et sans synthèse sont comptés séparément, sans montant inventé.
 - La situation « échéance dépassée » ne constate **aucun paiement**. L’application ne connaît ni le règlement effectif, ni l’affectation d’un avoir à une facture précise, ni les paiements partiels. Le solde est indicatif et doit être rapproché de la comptabilité avant une décision de paiement.

@@ -13,6 +13,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{json, Value};
 use tauri::State;
 use tauri_plugin_dialog::DialogExt;
+use crate::facturx::Dec;
 
 const SCHEMA: &str = "
 CREATE TABLE IF NOT EXISTS invoices (
@@ -44,8 +45,8 @@ const SEARCH_LIMIT: usize = 1000;
 pub struct SearchFilters {
     date_min: String,
     date_max: String,
-    montant_min: Option<f64>,
-    montant_max: Option<f64>,
+    montant_min: Option<Value>,
+    montant_max: Option<Value>,
     fournisseur: String,
     offset: usize,
 }
@@ -81,11 +82,27 @@ fn open(path: &Path) -> Result<Connection, String> {
         rusqlite::functions::FunctionFlags::SQLITE_UTF8 | rusqlite::functions::FunctionFlags::SQLITE_DETERMINISTIC,
         |ctx| Ok(ctx.get::<String>(0)?.to_lowercase().contains(&ctx.get::<String>(1)?)))
         .map_err(fail)?;
+    conn.create_scalar_function("fx_decimal_cmp", 2,
+        rusqlite::functions::FunctionFlags::SQLITE_UTF8 | rusqlite::functions::FunctionFlags::SQLITE_DETERMINISTIC,
+        |ctx| {
+            let left = ctx.get::<Option<String>>(0)?.and_then(|s| Dec::parse(&s).map(|v| v.0));
+            let right = ctx.get::<Option<String>>(1)?.and_then(|s| Dec::parse(&s).map(|v| v.0));
+            Ok(match (left, right) { (Some(a), Some(b)) => Some(if a < b { -1i64 } else if a > b { 1 } else { 0 }), _ => None })
+        }).map_err(fail)?;
     Ok(conn)
 }
 
 fn s(v: &Value, key: &str) -> String {
     v.get(key).and_then(Value::as_str).unwrap_or("").trim().to_string()
+}
+
+fn filter_decimal(value: &Option<Value>) -> Option<String> {
+    let text = match value.as_ref()? {
+        Value::String(s) => s.trim().replace(',', "."),
+        Value::Number(n) => n.to_string(),
+        _ => return None,
+    };
+    Dec::parse(&text).map(|_| text)
 }
 
 fn alnum(text: &str) -> String {
@@ -230,7 +247,7 @@ impl Library {
                 let mut seen = Vec::new();
                 for line in &lines {
                     let cle = line_key(line);
-                    let Ok(price) = s(line, "pu").parse::<f64>() else { continue };
+                    let Some((price, _)) = Dec::parse(&s(line, "pu")) else { continue };
                     if cle.is_empty() || date.is_empty() || seen.contains(&cle) {
                         continue;
                     }
@@ -238,12 +255,16 @@ impl Library {
                     let previous: Option<(String, String, String)> =
                         q.query_row(params![key, cle, hash, date], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).optional()?;
                     let Some((old_text, old_date, old_numero)) = previous else { continue };
-                    let Ok(old) = old_text.parse::<f64>() else { continue };
-                    if (price - old).abs() < 1e-9 || notes.len() >= PRICE_NOTES {
+                    let Some((old, _)) = Dec::parse(&old_text) else { continue };
+                    if price == old || notes.len() >= PRICE_NOTES {
                         continue;
                     }
                     let label = if s(line, "ref").is_empty() { s(line, "nom") } else { s(line, "ref") };
-                    let change = if old != 0.0 { format!(" ({:+.1} %)", (price - old) / old * 100.0) } else { String::new() };
+                    let change = price.percent_change_tenths(old).filter(|tenths| *tenths != 0).map(|tenths| {
+                        let sign = if tenths >= 0 { "+" } else { "-" };
+                        let abs = tenths.abs();
+                        format!(" ({sign}{}.{:01} %)", abs / 10, abs % 10)
+                    }).unwrap_or_default();
                     notes.push(note(
                         &format!("Prix unitaire modifié : {label}"),
                         "info",
@@ -320,17 +341,19 @@ impl Library {
     fn search_filtered(&self, query: &str, filters: &SearchFilters) -> Result<Value, String> {
         let like = like_pattern(query);
         let seller = filters.fournisseur.trim().to_lowercase();
+        let amount_min = filter_decimal(&filters.montant_min);
+        let amount_max = filter_decimal(&filters.montant_max);
         let condition = "WHERE (?1 = '%%'
                     OR filename LIKE ?1 ESCAPE '\\' OR numero LIKE ?1 ESCAPE '\\' OR vendeur LIKE ?1 ESCAPE '\\'
                     OR acheteur LIKE ?1 ESCAPE '\\' OR date LIKE ?1 ESCAPE '\\' OR ttc LIKE ?1 ESCAPE '\\' OR ht LIKE ?1 ESCAPE '\\'
                     OR hash IN (SELECT hash FROM lines WHERE ref LIKE ?1 ESCAPE '\\' OR nom LIKE ?1 ESCAPE '\\'))
                  AND (?2 = '' OR date >= ?2) AND (?3 = '' OR (date <> '' AND date <= ?3))
-                 AND (?4 IS NULL OR (ttc <> '' AND CAST(ttc AS REAL) >= ?4))
-                 AND (?5 IS NULL OR (ttc <> '' AND CAST(ttc AS REAL) <= ?5))
+                 AND (?4 IS NULL OR fx_decimal_cmp(ttc, ?4) >= 0)
+                 AND (?5 IS NULL OR fx_decimal_cmp(ttc, ?5) <= 0)
                  AND fx_contains(vendeur, ?6)";
         self.with(|conn| {
             let matching: i64 = conn.query_row(&format!("SELECT COUNT(*) FROM invoices i {condition}"),
-                params![like, filters.date_min, filters.date_max, filters.montant_min, filters.montant_max, seller], |r| r.get(0))?;
+                params![like, filters.date_min, filters.date_max, amount_min, amount_max, seller], |r| r.get(0))?;
             let offset = filters.offset.min(matching.saturating_sub(1).max(0) as usize / SEARCH_LIMIT * SEARCH_LIMIT);
             let mut q = conn.prepare(&format!(
                 "SELECT hash, filename, path, format, numero, avoir, date, echeance, vendeur, acheteur, devise, ht, tva, ttc, a_payer,
@@ -339,7 +362,7 @@ impl Library {
                  ORDER BY date DESC, last_seen DESC, hash LIMIT ?7 OFFSET ?8"
             ))?;
             let rows: Vec<Value> = q
-                .query_map(params![like, filters.date_min, filters.date_max, filters.montant_min, filters.montant_max, seller, SEARCH_LIMIT as i64, offset as i64], |r| {
+                .query_map(params![like, filters.date_min, filters.date_max, amount_min, amount_max, seller, SEARCH_LIMIT as i64, offset as i64], |r| {
                     Ok(json!({
                         "hash": r.get::<_, String>(0)?, "fichier": r.get::<_, String>(1)?, "chemin": r.get::<_, String>(2)?,
                         "format": r.get::<_, String>(3)?, "numero": r.get::<_, String>(4)?, "avoir": r.get::<_, bool>(5)?,
@@ -532,7 +555,7 @@ mod tests {
         assert_eq!(second["factures"].as_array().unwrap().len(), 2);
         for filters in [
             SearchFilters { date_max: "2020-12-31".into(), ..Default::default() },
-            SearchFilters { montant_max: Some(120.0), ..Default::default() },
+            SearchFilters { montant_max: Some(json!(120.0)), ..Default::default() },
             SearchFilters { fournisseur: "Durand".into(), ..Default::default() },
         ] {
             let found = lib.search_filtered("", &filters).unwrap();
@@ -645,6 +668,28 @@ mod tests {
         assert_eq!(history[3]["courante"], true);
         // Article sans reference : identifie par sa designation.
         assert_eq!(lib.price_history("h4", "", "Livraison").unwrap().as_array().unwrap().len(), 5);
+        drop(lib);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn exact_amount_filters_and_price_change_above_float_precision() {
+        let dir = temp("exact-decimals");
+        let lib = Library::new(dir.join("bibliotheque.sqlite"));
+        let mut first = invoice("exact-1", "F-1", "2026-01-01", "", "9007199254740992.00");
+        first["synthese"]["ttc"] = json!("9007199254740992.01");
+        lib.record(&first, None).unwrap();
+        let mut second = invoice("exact-2", "F-2", "2026-02-01", "", "9007199254740992.01");
+        second["synthese"]["ttc"] = json!("9007199254740992.02");
+        let notes = lib.record(&second, None).unwrap();
+        assert_eq!(rules(&notes), ["Prix unitaire modifié : PAP-A4"]);
+        assert!(notes[0]["detail"].as_str().unwrap().contains("9007199254740992.00 → 9007199254740992.01"));
+        let filters = SearchFilters { montant_min: Some(json!("9007199254740992.02")), ..Default::default() };
+        let found = lib.search_filtered("", &filters).unwrap();
+        assert_eq!(found["correspondances"], 1);
+        assert_eq!(found["factures"][0]["hash"], "exact-2");
+        let filters = SearchFilters { montant_max: Some(json!("9007199254740992.01")), ..Default::default() };
+        assert_eq!(lib.search_filtered("", &filters).unwrap()["factures"][0]["hash"], "exact-1");
         drop(lib);
         std::fs::remove_dir_all(dir).unwrap();
     }

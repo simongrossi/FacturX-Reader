@@ -13,6 +13,33 @@ test.beforeAll(async () => {
   url = `http://127.0.0.1:${server.address().port}`;
 });
 test.afterAll(() => server.close());
+test('montants exacts du tableau : arrondis et valeurs au-delà de la précision flottante', async ({ page }) => {
+  await mockBackend(page);
+  await page.goto(url);
+  const values = await page.evaluate(() => {
+    const row = (amount, credit = false) => ({ lu: true, devise: 'EUR', avoir: credit,
+      ht: amount, tva: '0', ttc: amount, a_payer: amount });
+    const totals = batchTotals([row('9007199254740992.01'), row('0.01'), row('0.005'), row('0.01', true)]).get('EUR');
+    const lines = ['9007199254740992.02', '9007199254740992.01'].map(value => ({ cells: { total: { value } } }));
+    const lineSort = applyLineFilters({ result: { lines }, pointed: new Set(), sort: { key: 'total', dir: 1 } })
+      .map(item => item.line.cells.total.value);
+    return {
+      compare: decimalCompare('9007199254740992.01', '9007199254740992.02'),
+      positiveHalfCent: String(decimalCents('0.005')),
+      negativeHalfCent: String(decimalCents('-0.005')),
+      total: decimalCentsText(totals.ttc),
+      display: decimalFormat('9007199254740992.01'),
+      schedule: decimalCentsText(scheduleCents('9007199254740992.01')),
+      priceChange: decimalChangePercent('52.50', '50.00'),
+      lineSort,
+      oversized: decimalCents('9'.repeat(1000)) == null,
+    };
+  });
+  expect(values).toEqual({ compare: -1, positiveHalfCent: '1', negativeHalfCent: '-1',
+    total: '9007199254740992.02', display: '9 007 199 254 740 992,01',
+    schedule: '9007199254740992.01', priceChange: '+5,0 %',
+    lineSort: ['9007199254740992.01', '9007199254740992.02'], oversized: true });
+});
 async function mockBackend(page, pdf = null, extra = {}) {
   await page.addInitScript(({ pdf, extra }) => {
     window.__TAURI__ = { core: { invoke: async (command, args) => {

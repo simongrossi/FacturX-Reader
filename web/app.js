@@ -848,9 +848,7 @@ function linesCols(r) {
 function _num(v) {
   if (v == null) return null;
   const m = String(v).replace(/\s/g, "").match(/-?\d+(?:[.,]\d+)?/);
-  if (!m) return null;
-  const n = parseFloat(m[0].replace(",", "."));
-  return isNaN(n) ? null : n;
+  return m ? decimalUnits(m[0]) : null;
 }
 
 function applyLineFilters(f) {
@@ -878,7 +876,7 @@ function applyLineFilters(f) {
       const bv = (b.line.cells[s.key] || {}).value ?? "";
       const an = _num(av), bn = _num(bv);
       let cmp;
-      if (an != null && bn != null) cmp = an - bn;
+      if (an != null && bn != null) cmp = an < bn ? -1 : an > bn ? 1 : 0;
       else cmp = String(av).localeCompare(String(bv), "fr", { numeric: true });
       return cmp * dir;
     });

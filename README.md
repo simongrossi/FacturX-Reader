@@ -216,6 +216,8 @@ Cette fonction est présente dans `main` pour la 0.8.0, mais absente des install
 
 Dans **Tableau**, l’échéancier regroupe les documents ouverts par date d’échéance et devise. Il distingue les échéances dépassées, celles du jour, à venir et absentes. Les avoirs sans échéance réduisent le solde global, sans être attribués à une date. Filtrez les groupes par situation ou devise, ouvrez une facture ou exportez les lignes visibles en CSV. Les montants sont indicatifs : l’application ne connaît pas les paiements effectués. [Calcul, export et limites](docs/SCHEDULE.md).
 
+Les totaux du tableau et de l'échéancier, les filtres monétaires et les comparaisons de prix de la bibliothèque utilisent des décimaux exacts (jusqu'à 18 chiffres entiers et huit décimales). Chaque montant est arrondi au centime avant d'entrer dans un total ; les devises restent séparées. Les valeurs trop précises pour une cellule numérique Excel sont exportées comme texte.
+
 ### Provenance des valeurs
 
 Dans **Données**, ouvrez **Voir la provenance** sur une date ou un montant clé pour retrouver son champ XML. Les montants contrôlés montrent aussi la formule et les valeurs utilisées pour le recalcul. Depuis une anomalie de total, **Voir la provenance des montants** ouvre la carte concernée. Cette fonction est en développement pour la 0.8.0, absente des installateurs 0.7.1. [Portée et limites](docs/PROVENANCE.md).

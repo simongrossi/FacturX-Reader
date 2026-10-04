@@ -1,6 +1,6 @@
 # Roadmap
 
-Mise à jour : 4 octobre 2026, [version 0.7.1 publiée](https://github.com/simongrossi/FacturX-Reader/releases/tag/v0.7.1) et préparation de la 0.8.0 avec échéancier, provenance des valeurs, dossier surveillé et calculs d’affichage des lignes en décimaux exacts.
+Mise à jour : 4 octobre 2026, [version 0.7.1 publiée](https://github.com/simongrossi/FacturX-Reader/releases/tag/v0.7.1) et préparation de la 0.8.0 avec échéancier, provenance des valeurs, dossier surveillé et calculs monétaires du tableau et de la bibliothèque en décimaux exacts.
 Voir [CHANGELOG.md](CHANGELOG.md) pour le détail des versions, [README.md](README.md) pour
 l'utilisation, [VALIDATION.md](VALIDATION.md) pour le bilan de vérification P0 et
 [COMPARATIF.md](COMPARATIF.md) pour le bilan face aux autres outils.
@@ -10,7 +10,7 @@ l'utilisation, [VALIDATION.md](VALIDATION.md) pour le bilan de vérification P0 
 | Priorité | Thème | État |
 |---|---|---|
 | P0 | Valider l'existant | Presque terminé : essai macOS positif ; reste la vérification exhaustive, Linux et l’installation des paquets |
-| P1 | Confort et fiabilité du moteur | Provenance et affichage des montants de ligne en décimaux exacts développés ; restent les tests anonymisés et certains calculs de bibliothèque/tableau. « Ouvrir avec » est différé |
+| P1 | Confort et fiabilité du moteur | Provenance, affichage des lignes et calculs monétaires du tableau et de la bibliothèque en décimaux exacts développés ; restent les tests anonymisés. « Ouvrir avec » est différé |
 | P2 | Exploiter des lots de factures | Revue du lot, échéancier et dossier surveillé développés ; reste la recherche dans le PDF |
 | P3 | Conformité et distribution | Bien avancé : Schematron officiel (suite de tests officielle verte, résultat gardé entre sessions) et déclarations du conteneur ; reste PDF/A réel, règles nationales, signature des builds |
 | P4 | API, MCP et connecteurs | Pas commencé |
@@ -89,9 +89,9 @@ Les anciennes branches sont archivées ou déjà intégrées ; voir [l’inventa
    vérifications détaillées (menus, raccourcis, glisser-déposer, impression, persistance),
    Linux et l’installation documentée des paquets publiés.
 2. **Suite de la revue de code** : poursuivre le découpage de `app.js` et de `facturx.rs`.
-3. **Calculs et provenance** (P1) : détail de la TVA par taux et affichage des lignes en
-   décimaux exacts terminés ; élargir les tests anonymisés, puis examiner les calculs du
-   tableau et de la bibliothèque qui utilisent encore des nombres flottants.
+3. **Calculs et provenance** (P1) : détail de la TVA par taux, affichage des lignes et
+   calculs monétaires du tableau et de la bibliothèque en décimaux exacts terminés ;
+   élargir les tests sur des factures anonymisées.
 4. **Affiner le périmètre des règles BR-FR** (B2C, opérations hors obligation, calendrier).
 5. **Intégration au système différée** : signature des builds, « Ouvrir avec » et instance unique
    seront réévalués lors d’un chantier de distribution ; les builds actuels restent non signés.
@@ -180,9 +180,9 @@ lot avec historique et suivi. Ce qui en ressort pour le plan :
 
 - [x] Doublons exacts (empreinte XML) et probables (vendeur + numéro) parmi les documents
   ouverts (0.2.0). Reste : comparer aussi le montant, et l'historique entre sessions (bibliothèque).
-- [ ] Calculs monétaires décimaux partout. Fait pour les contrôles (0.2.0) et l’affichage du
-  P.U., des frais/remises et de la TVA de ligne reconstitués (0.8.0). Restent certains calculs
-  de tableau et de bibliothèque.
+- [x] Calculs monétaires décimaux pour les contrôles (0.2.0), l’affichage du P.U., des
+  frais/remises et de la TVA de ligne reconstitués, les totaux et filtres du tableau et de la
+  bibliothèque, l'historique des prix et l'échéancier (0.8.0).
 - [x] Provenance des dates, totaux, lignes et ventilations de TVA par taux : distinguer XML et
   TVA reconstituée, montrer la valeur d'origine, le chemin et les formules de contrôle.
 - [x] Extraction PDF avec un vrai parseur, au-delà des expressions régulières : structures

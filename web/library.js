@@ -73,8 +73,8 @@ async function renderLibrary() {
   let result;
   try { result = await api.librarySearch(library.query, {
     dateMin: library.dateMin, dateMax: library.dateMax, fournisseur: library.fournisseur,
-    montantMin: library.montantMin === "" ? null : Number(library.montantMin),
-    montantMax: library.montantMax === "" ? null : Number(library.montantMax), offset: library.offset,
+    montantMin: library.montantMin === "" ? null : library.montantMin,
+    montantMax: library.montantMax === "" ? null : library.montantMax, offset: library.offset,
   }); }
   catch (error) {
     if (token !== library.token) return;
@@ -139,7 +139,7 @@ async function renderLibrary() {
         : col.key === "vue_le" ? String(row.vue_le || "").slice(0, 10) : row[col.key] ?? "";
       td.dataset.value = v;
       if (col.num) td.classList.add("num");
-      if (col.num && !col.plain) td.textContent = v === "" ? "—" : batchMoney.format(parseFloat(v));
+      if (col.num && !col.plain) td.textContent = v === "" ? "—" : decimalFormat(v);
       else td.textContent = v === "" ? "—" : v;
     }
     const action = tr.insertCell();
@@ -194,17 +194,16 @@ async function showPriceHistory(f, idx, box, button) {
     for (const row of rows) {
       const tr = tbody.insertRow();
       if (row.courante) tr.className = "price-current";
-      const price = parseFloat(row.pu);
-      const change = previous && !isNaN(price) ? ((price - previous) / previous) * 100 : null;
+      const change = previous == null ? null : decimalChangePercent(row.pu, previous);
       const cells = [row.date, row.numero + (row.courante ? " (cette facture)" : ""), row.qte, row.pu + (row.devise ? " " + row.devise : ""),
-        change == null || Math.abs(change) < 0.05 ? "—" : (change > 0 ? "+" : "") + change.toFixed(1).replace(".", ",") + " %"];
+        change ?? "—"];
       cells.forEach((text, i) => {
         const td = tr.insertCell();
         td.textContent = text || "—";
         if (i >= 2) td.classList.add("num");
-        if (i === 4 && change != null && Math.abs(change) >= 0.05) td.classList.add(change > 0 ? "price-up" : "price-down");
+        if (i === 4 && change != null) td.classList.add(change.startsWith("+") ? "price-up" : "price-down");
       });
-      if (!isNaN(price) && price !== 0) previous = price;
+      if (decimalUnits(row.pu) != null && decimalUnits(row.pu) !== 0n) previous = row.pu;
     }
     wrap.appendChild(table);
   } catch (error) {

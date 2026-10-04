@@ -17,11 +17,15 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
   chemins XML, calcul attendu, écart et tolérance ; occurrences de même taux distinguées.
 - Dossier surveillé choisi dans les paramètres : nouvelles factures détectées dans les sous-dossiers,
   progression, pause, annulation entre fichiers et reprise des nouveautés après redémarrage.
+- Totaux, filtres de montants, tri et affichage du tableau et de la bibliothèque en décimaux exacts ;
+  même calcul pour les soldes de l'échéancier et les exports du lot.
 
 ### Corrigé
 
 - Un PDF peut être lu si une pièce jointe secondaire dépasse 32 Mo après décompression,
   dès lors qu'un XML de facture valide reste sous ce plafond ; un XML trop volumineux est refusé.
+- L'historique de la bibliothèque détecte les écarts de prix même au-delà de la précision des
+  flottants ; ses filtres de montants ne passent plus par `REAL` dans SQLite.
 - Le menu contextuel du tableau reste utilisable dans une petite fenêtre : un défilement
   programmatique ne le ferme plus pendant le clic sur une action.
 - L’affichage des prix unitaires, frais/remises et TVA de ligne reconstitués en UBL/CII utilise
