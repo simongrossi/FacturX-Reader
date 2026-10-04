@@ -92,6 +92,7 @@ const api = {
     filename: pdfObj.filename || "facture.pdf",
     base64: pdfObj.base64,
   }),
+  saveBinary: (filename, base64) => invoke("save_binary", { filename, base64 }),
   saveText: (filename, content) => invoke("save_text", { filename, content }),
   saveReport: (filename, report) => invoke("save_control_report", { filename, report }),
   print: () => invoke("print_window"),
@@ -1119,6 +1120,9 @@ function controlsSection(f) {
   });
   report.addEventListener("click", (e) => { e.preventDefault(); exportControlReport(f, report); });
   head.appendChild(report);
+  const pdfReport = Object.assign(document.createElement("button"), { id: "btn-control-pdf", type: "button", className: "btn btn-sm", textContent: "Rapport PDF" });
+  pdfReport.addEventListener("click", (e) => { e.preventDefault(); exportControlPdf(f, pdfReport); });
+  head.appendChild(pdfReport);
   sec.appendChild(head);
 
   const wrap = document.createElement("div");
@@ -1494,6 +1498,9 @@ function renderData(f) {
     copyBtn.addEventListener("click", () => copyText(linesTsv(f), copyBtn));
     tools.appendChild(filterBtn);
     tools.appendChild(exportBtn);
+    const excel = Object.assign(document.createElement("button"), { id: "btn-lines-excel", type: "button", className: "btn btn-sm", textContent: "Exporter Excel" });
+    excel.addEventListener("click", () => exportLinesExcel(f, excel));
+    tools.appendChild(excel);
     tools.appendChild(copyBtn);
     tools.appendChild(clearBtn);
     head.appendChild(tools);

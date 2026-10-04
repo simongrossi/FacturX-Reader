@@ -23,6 +23,9 @@ const MENUBAR = [
     null,
     { label: "Enregistrer le PDF…", run: () => byId("btn-download-pdf").click(),
       on: () => !!menubarDoc() && !byId("btn-download-pdf").disabled },
+    { label: "Exporter les lignes en Excel…", run: () => exportLinesExcel(menubarDoc(), document.createElement("button")), on: () => !!menubarDoc()?.result.lines?.length },
+    { label: "Exporter le rapport de contrôle (PDF)…", run: () => exportControlPdf(menubarDoc(), document.createElement("button")), on: () => !!menubarDoc() },
+    { label: "Exporter le tableau des factures en Excel…", run: () => byId("batch-excel").click(), on: () => state.files.length > 0 },
     { label: "Exporter les lignes en CSV…", run: () => exportLinesCsv(menubarDoc(), document.createElement("button")),
       on: () => !!menubarDoc()?.result.lines?.length },
     { label: "Exporter le rapport de contrôle (JSON)…", run: () => exportControlReport(menubarDoc(), document.createElement("button")),
@@ -114,6 +117,9 @@ function wireMenubar() {
 
 /* Licences des composants embarqués : leurs textes font partie de l'application installée. */
 const THIRD_PARTY_LICENSES = [
+  { title: "ExcelJS (MIT)", file: "exports/LICENSE-ExcelJS.txt" },
+  { title: "jsPDF (MIT)", file: "exports/LICENSE-jsPDF.txt" },
+  { title: "Noto Sans (SIL Open Font License)", file: "exports/LICENSE-NotoSans.txt" },
   { title: "Règles de validation EN 16931 (© Union européenne), licence EUPL 1.2", file: "schematron/NOTICE-EINVOICING.txt" },
   { title: "Texte de la licence EUPL 1.2", file: "schematron/LICENSE-EUPL-1.2.txt" },
   { title: "Règles françaises EXTENDED-CTC-FR et BR-FR (FNFE-MPE, dépôt France_RFE), licence Apache 2.0", file: "schematron/NOTICE-FRANCE.txt" },

@@ -244,6 +244,7 @@ function showBatch() {
 }
 
 function wireBatch() {
+  byId("batch-excel").addEventListener("click", (e) => exportBatchExcel(e.currentTarget));
   byId("batch-search").addEventListener("input", (e) => { batch.query = e.target.value; renderBatch(); });
   byId("batch-filter").addEventListener("change", (e) => { batch.filter = e.target.value; renderBatch(); });
   const dateFrom = byId("batch-date-from");

@@ -20,6 +20,7 @@ async function mockBackend(page, pdf = null, extra = {}) {
       if (command === 'app_info') return { version: 'test', pointages: 'test' };
       if (command === 'get_pointage') return { lines: [] };
       if (command === 'parse_path' && args.path.includes('missing')) throw new Error('Fichier introuvable');
+      if (command === 'save_binary') { window.__binary = args; return true; }
       if (command === 'save_text') { window.__saved = args; return true; }
       if (command === 'validate_schematron') {
         window.__schematronCalls = [...(window.__schematronCalls || []), { format: args.format, priority: args.priority, library: args.library, xml: args.xml }];
@@ -937,4 +938,74 @@ test('retrouver un fichier : annulation et erreur préservent la bibliothèque, 
   await locate.click();
   await expect(page.locator('#fv-name')).toHaveText('retrouve.xml');
   await expect(page.locator('#workspace-message')).toContainText('empreinte XML vérifiée');
+});
+
+test('exports Excel typés et rapport PDF paginé avec accents et commentaires', async ({ page }, testInfo) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await mockBackend(page, null, {
+    synthese: { numero: '0000123', vendeur: 'Société Éléonore', acheteur: 'Client', date: '2026-10-04', devise: 'EUR', ht: '100.00', tva: '20.00', ttc: '120.00', a_payer: '120.00' },
+    lines_columns: [{ key: 'name', title: 'Désignation', align: 'left' }, { key: 'amount', title: 'Montant', align: 'right' }],
+    lines: [{ fields: [], cells: { name: { value: '=HYPERLINK("malicious")' }, amount: { value: '12.50 EUR' } } }, { fields: [], cells: { name: { value: 'Référence 0000123' }, amount: { value: '1234567890123456.78 EUR' } } }],
+    controles: Array.from({ length: 65 }, (_, i) => ({ regle: 'Contrôle numéro ' + i, etat: 'ecart', attendu: '120.00', constate: '119.99', detail: 'Écart à vérifier auprès du fournisseur.' })),
+  });
+  await page.goto(url);
+  await page.locator('#file-input').setInputFiles({ name: 'échéance.xml', mimeType: 'text/xml', buffer: Buffer.from('<Invoice/>') });
+  await page.getByRole('button', { name: 'Données', exact: true }).click();
+  await page.locator('#btn-lines-excel').click();
+  await expect.poll(() => page.evaluate(() => window.__binary?.filename)).toBe('échéance-lignes.xlsx');
+  const ExcelJS = require('exceljs');
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(Buffer.from(await page.evaluate(() => window.__binary.base64), 'base64'));
+  const lines = workbook.getWorksheet('Lignes');
+  expect(lines.getCell('B2').value).toBe('=HYPERLINK("malicious")');
+  expect(lines.getCell('C2').value).toBe(12.5);
+  expect(lines.getCell('C3').value).toBe('1234567890123456,78');
+  expect(lines.getCell('D2').value).toBe('EUR');
+  expect(lines.views[0].ySplit).toBe(1);
+  await page.evaluate(() => { const f = getFile(state.selected); reviewCache.set(reviewKey(f), { status: 'Anomalie', comment: 'Échéance à corriger — été', lines: { 0: 'Quantité à confirmer' } }); });
+  await page.locator('#btn-control-pdf').click();
+  await expect.poll(() => page.evaluate(() => window.__binary?.filename)).toBe('échéance-controles.pdf');
+  const pdf = Buffer.from(await page.evaluate(() => window.__binary.base64), 'base64');
+  expect(pdf.subarray(0, 5).toString()).toBe('%PDF-');
+  const pdfPath = testInfo.outputPath('rapport-controles.pdf');
+  fs.writeFileSync(pdfPath, pdf);
+  const extracted = await page.evaluate(async () => {
+    const bytes = Uint8Array.from(atob(window.__binary.base64), c => c.charCodeAt(0));
+    const doc = await pdfjsLib.getDocument({ data: bytes }).promise;
+    const texts = [];
+    for (let i = 1; i <= doc.numPages; i++) texts.push((await (await doc.getPage(i)).getTextContent()).items.map(item => item.str).join(' '));
+    return { pages: doc.numPages, texts };
+  });
+  expect(extracted.pages).toBeGreaterThan(2);
+  const text = extracted.texts.join(' ');
+  expect(text).toContain('Société Éléonore');
+  expect(text).toContain('Échéance à corriger');
+  expect(text).toContain('Quantité à confirmer');
+  expect(text).toContain('Contrôle numéro 64');
+  expect(text).toContain('Non évalué');
+  extracted.texts.forEach((text, i) => expect(text).toContain(`${i + 1} / ${extracted.pages}`));
+  await page.evaluate(() => showBatch());
+  await page.locator('#batch-excel').click();
+  await expect.poll(() => page.evaluate(() => window.__binary?.filename)).toBe('factures.xlsx');
+  const batchBook = new ExcelJS.Workbook();
+  await batchBook.xlsx.load(Buffer.from(await page.evaluate(() => window.__binary.base64), 'base64'));
+  expect(batchBook.getWorksheet('Factures').getCell('C2').value).toBe('0000123');
+  expect(batchBook.getWorksheet('Factures').getCell('I2').value).toBe(120);
+  expect(batchBook.getWorksheet('Totaux par devise').getCell('F2').value).toBe(120);
+  await page.locator('#batch-search').fill('introuvable');
+  await page.locator('#batch-excel').click();
+  await expect.poll(() => page.locator('#batch-excel').isDisabled()).toBe(false);
+  await batchBook.xlsx.load(Buffer.from(await page.evaluate(() => window.__binary.base64), 'base64'));
+  expect(batchBook.getWorksheet('Factures').rowCount).toBe(1);
+  // Une annulation n’affiche pas de succès ; une erreur rend le bouton à nouveau utilisable.
+  await page.evaluate(() => { api.saveBinary = async () => false; document.querySelector('#batch-excel').textContent = 'Exporter Excel'; });
+  await page.locator('#batch-excel').click();
+  await expect(page.locator('#batch-excel')).toBeEnabled();
+  await expect(page.locator('#batch-excel')).toHaveText('Exporter Excel');
+  await page.evaluate(() => { api.saveBinary = async () => { throw new Error('Disque plein'); }; });
+  await page.locator('#batch-excel').click();
+  await expect(page.locator('#batch-excel')).toBeEnabled();
+  await expect(page.getByText('Export impossible : Disque plein')).toBeVisible();
+  expect(errors).toEqual([]);
 });

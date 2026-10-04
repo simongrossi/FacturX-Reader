@@ -44,7 +44,7 @@ vérifié » ne sont connus que par l'étude. Corrections bienvenues.
 | Pointage, statuts, commentaires | ✅ | — | — | — | — |
 | Renommage et classement des fichiers | — | — | ✅ d'après les champs de la facture | — | — |
 | Ligne de commande | Ouverture de fichiers seulement | — | — | ✅ modes console et caché, codes de retour | Non documenté |
-| Rapport | JSON | — | Non documenté | ✅ rapport de validation | — |
+| Rapport | JSON et PDF | — | Non documenté | ✅ rapport de validation | — |
 | Création ou modification de factures | — | — | Modules payants (non vérifié) | — | ✅ |
 
 Dans la deuxième famille, deux fonctions à retenir : GrandTotal (macOS, formules à 9,90 € et
@@ -72,7 +72,7 @@ Les autres visionneuses affichent une facture ; celle-ci sert à la vérifier.
 |---|---|
 | Validation « partielle (parsing syntaxique) », pas de Schematron | Schematron officiel EN 16931, profils Factur-X, EXTENDED-CTC-FR et BR-FR ; schéma XSD ; contrôle partiel du conteneur PDF |
 | Pas de traitement par lots | Ouverture d'un dossier, 500 documents, tableau multi-factures, bibliothèque |
-| Pas de rapport d'erreur | Rapport de contrôle JSON, export CSV |
+| Pas de rapport d'erreur | Rapport de contrôle JSON/PDF, exports CSV/XLSX |
 | « Open Source (Libre) » | PolyForm Noncommercial : source consultable, usage commercial soumis à accord |
 | Windows, macOS, Linux | Seul Windows est vérifié (voir [VALIDATION.md](VALIDATION.md)) |
 | Démarrage en moins d'une seconde, 35 à 50 Mo de mémoire, 15 Mo | Démarrage et mémoire jamais mesurés. L'exécutable Windows 0.7.0 pèse 19 Mo, son installeur 5 Mo |
@@ -99,7 +99,7 @@ Les autres visionneuses affichent une facture ; celle-ci sert à la vérifier.
 | Signature des builds, mise à jour automatique | Tous les éditeurs établis | P3 | Condition pour être installé en entreprise |
 | Renommage et classement d'après les données | Treesoft | P2 | Demande courante, effort faible |
 | Dossier surveillé | GrandTotal, Paperless-ngx | P2 | Utile après le renommage |
-| Rapport lisible (PDF ou HTML), rapport consolidé | 7-PDF | P2 | Le JSON ne se transmet pas à un fournisseur |
+| Rapport lisible (PDF ou HTML), rapport consolidé | 7-PDF | P2 | Rapport PDF par facture réalisé (non publié) ; consolidation à développer |
 | Interface en anglais | Quba, Treesoft | P3 | Nécessaire hors de France ; l'allemand viendrait avec XRechnung |
 | Ligne de commande et `facturx-core` | Mustang, 7-PDF, `factur-x` | P4 | Un mode sans fenêtre (`--rapport dossier/`, code de retour) couvrirait l'usage en script |
 | Validation PDF/A-3 complète | 7-PDF, Mustang | P3, non prioritaire | Inchangé : métier de veraPDF |
@@ -114,7 +114,7 @@ Les autres visionneuses affichent une facture ; celle-ci sert à la vérifier.
 | Règles allemandes XRechnung | Une XRechnung est lue et validée EN 16931, pas contre ses règles nationales | Moyen : le moteur Schematron existe | À décider avec l'ouverture hors de France |
 | Âge des règles embarquées | Le jeu de règles appliqué est nommé, mais rien n'avertit qu'il est ancien. Sans réseau, seule une nouvelle version de l'application les met à jour | Faible | Afficher version et date des règles, avertir au-delà d'un an |
 | Chiffres mesurés | Poids annoncé faux de 4 Mo, démarrage et mémoire jamais mesurés | Faible | Mesurer et publier : c'est l'argument face à Electron |
-| Export vers la comptabilité | Les progiciels créent les écritures ; l'application s'arrête au CSV | — | Hors périmètre, comme la création de factures |
+| Export vers la comptabilité | Les progiciels créent les écritures ; l'application fournit des exports CSV/XLSX | — | Hors périmètre, comme la création de factures |
 
 ### Une décision avant le reste : la licence
 
