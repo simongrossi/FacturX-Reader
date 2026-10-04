@@ -56,3 +56,9 @@ L’échéancier a été fusionné ensuite dans `main` par la
 [PR #6](https://github.com/simongrossi/FacturX-Reader/pull/6) (`b129daf`) ; la branche
 `codex/payment-schedule` a été supprimée. Ce développement est destiné à la 0.8.0 et n’est
 pas présent dans les installateurs 0.7.1. [Calcul et limites](SCHEDULE.md).
+
+La provenance des valeurs a été fusionnée dans `main` par la
+[PR #7](https://github.com/simongrossi/FacturX-Reader/pull/7) (`d603926`) après validation
+des jobs navigateur, références et Rust/natif Windows. La branche `codex/value-provenance`
+a été supprimée. Ce chantier rejoint la 0.8.0 en préparation et n’est pas dans la 0.7.1.
+[Fonctionnement et limites](PROVENANCE.md).

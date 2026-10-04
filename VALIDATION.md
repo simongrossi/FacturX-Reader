@@ -235,7 +235,8 @@ manuellement sur les systèmes ciblés. Détails et limites : [docs/EXPORTS.md](
 
 ## Provenance des valeurs — chantier du 4 octobre 2026
 
-- Les tests Rust vérifient les chemins XML des montants CII/UBL, la TVA calculée à partir de sa ventilation, les valeurs attendues des contrôles TTC et net à payer, et l’absence de provenance pour un montant non disponible.
+- [PR #7 fusionnée dans `main`](https://github.com/simongrossi/FacturX-Reader/pull/7) ; jobs navigateur, références et Rust/natif Windows verts sur la branche.
+- Les tests Rust vérifient les chemins XML des montants CII/UBL, la TVA calculée sur plusieurs taux, la séparation entre HT déclaré et HT attendu, les valeurs attendues des contrôles TTC et net à payer, et l’absence de provenance pour un montant non disponible.
 - Le scénario navigateur ajouté vérifie l’ouverture de la provenance depuis une anomalie de TTC, la formule et ses entrées, la carte TVA créée lorsque le résumé n’en avait pas, et la navigation vers le champ XML. La suite compte désormais **24 scénarios**.
 - Les dates peuvent être normalisées à l’extraction ; la carte les nomme donc « valeur extraite » et l’occurrence XML permet de consulter la forme d’origine. Les contrôles de ligne restent hors de ce premier périmètre.
 - `npm run check:js` et `git diff --check` réussis. Les essais manuels de cette interaction sur les applications natives restent à faire.
