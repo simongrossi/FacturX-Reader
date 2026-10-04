@@ -1,6 +1,6 @@
 # Roadmap
 
-Mise à jour : 4 octobre 2026, préparation de la version 0.7.1, exports enrichis, centre d’anomalies et revue d’un lot (non publiés).
+Mise à jour : 4 octobre 2026, version 0.7.1 en cours de publication et préparation de la 0.8.0 avec un échéancier indicatif.
 Voir [CHANGELOG.md](CHANGELOG.md) pour le détail des versions, [README.md](README.md) pour
 l'utilisation, [VALIDATION.md](VALIDATION.md) pour le bilan de vérification P0 et
 [COMPARATIF.md](COMPARATIF.md) pour le bilan face aux autres outils.
@@ -11,7 +11,7 @@ l'utilisation, [VALIDATION.md](VALIDATION.md) pour le bilan de vérification P0 
 |---|---|---|
 | P0 | Valider l'existant | Presque terminé : essai macOS positif ; reste la vérification exhaustive, Linux et l’installation des paquets |
 | P1 | Confort et fiabilité du moteur | Aux trois quarts : reste la provenance des valeurs, « Ouvrir avec », les tests anonymisés |
-| P2 | Exploiter des lots de factures | Presque terminé : reste la recherche dans le PDF, le dossier surveillé, l'échéancier |
+| P2 | Exploiter des lots de factures | Presque terminé : revue du lot et échéancier développés ; restent la recherche dans le PDF et le dossier surveillé |
 | P3 | Conformité et distribution | Bien avancé : Schematron officiel (suite de tests officielle verte, résultat gardé entre sessions) et déclarations du conteneur ; reste PDF/A réel, règles nationales, signature des builds |
 | P4 | API, MCP et connecteurs | Pas commencé |
 
@@ -47,6 +47,13 @@ Versions publiées (pré-versions, builds non signés) :
 - [x] Points à examiner regroupés pour toutes les factures, erreurs de lecture et contrôles incomplets compris.
 - [x] Rapport PDF consolidé de toute la session, indépendamment des filtres, avec avoirs déduits par devise.
 - [Fonctionnement et limites](docs/BATCH_REVIEW.md).
+
+### Échéancier indicatif (non publié)
+
+- [x] Regroupement des factures par échéance et devise, avec situation recalculée au jour de l’affichage.
+- [x] Avoirs déduits du solde global, sans les affecter à une date absente ; montants inconnus signalés.
+- [x] Filtres situation/devise, accès à la facture et export CSV des lignes filtrées et totaux par groupe.
+- [Calcul et limites](docs/SCHEDULE.md).
 
 ## Prochaines étapes proposées
 
@@ -198,6 +205,7 @@ lot avec historique et suivi. Ce qui en ressort pour le plan :
   pointage de la facture entière ; distinct d'un paiement confirmé (0.4.0).
 - [x] Rapport de contrôle exportable en JSON : règle, attendu, constaté, écart, chemin XML (0.4.0).
 - [x] Revue du lot : progression, anomalies transversales et rapport PDF consolidé de tous les documents ouverts (non publiée).
+- [x] Échéancier indicatif des factures ouvertes (non publié).
 
 ### Prévu
 
@@ -211,11 +219,11 @@ lot avec historique et suivi. Ce qui en ressort pour le plan :
 - [x] Verdicts communs à la fiche, au tableau et au rapport JSON ; synthèse de ce qui demande
   une action en tête de la fiche ; colonnes et filtres Schematron, XSD, règles françaises.
 - [x] Imports bornés après décompression ; choix explicite dans une archive ambiguë.
-- [ ] Rapport de contrôle lisible (PDF ou HTML) et rapport consolidé sur plusieurs factures.
+- [x] Rapport de contrôle PDF et rapport consolidé sur plusieurs factures.
 - [x] Impression de la vue affichée (données, contrôles, tableau, XML, PDF).
 - [ ] Renommage et classement des fichiers depuis les métadonnées (`Fournisseur_Date_N°.pdf`),
   avec confirmation avant toute écriture.
-- [ ] Échéancier de décaissements à partir des échéances du tableau.
+- [x] Échéancier indicatif à partir des échéances du tableau, sans déduire le paiement effectif.
 - [ ] Dossier surveillé, progression et annulation des imports, analyse lourde hors du fil principal.
 
 ### Bibliothèque locale et ce qui en dépend

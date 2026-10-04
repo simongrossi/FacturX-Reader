@@ -5,7 +5,15 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 
 ## [Non publié]
 
-Aucun changement pour le moment.
+### Ajouté
+
+- Échéancier indicatif des factures ouvertes : regroupement par échéance et devise, retards,
+  avoirs déduits sans affectation fictive, filtres, accès aux documents et export CSV.
+
+### Corrigé
+
+- Le menu contextuel du tableau reste utilisable dans une petite fenêtre : un défilement
+  programmatique ne le ferme plus pendant le clic sur une action.
 
 ## [0.7.1] - 2026-10-04
 

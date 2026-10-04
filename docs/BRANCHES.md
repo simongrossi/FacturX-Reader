@@ -50,3 +50,6 @@ revue d’un lot par la PR #5 (`7e33cfa`). Les branches `codex/anomaly-center` e
 références de la PR #5 étaient verts avant fusion. Aucun développement des anciennes branches
 ne reste en attente d’intégration. [Exports](EXPORTS.md), [centre d’anomalies](ANOMALIES.md),
 [revue d’un lot](BATCH_REVIEW.md).
+
+L’échéancier est développé sur `codex/payment-schedule` à partir de `main` après la PR #5.
+Il n’entre pas dans le périmètre initial de la 0.7.1. [Calcul et limites](SCHEDULE.md).
