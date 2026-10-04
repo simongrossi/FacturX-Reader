@@ -3,17 +3,21 @@
 Required Notice: Copyright (c) 2026 Christophe Mehault (idée originale et version initiale)
 Required Notice: Copyright (c) 2026 Simon Grossi (réécriture Rust / Tauri)
 
-Ce logiciel est distribué sous licence **PolyForm Noncommercial 1.0.0** : voir
+Licensor Line of Business: Factur-X Reader, lecture, contrôle et validation de factures électroniques (https://github.com/simongrossi/FacturX-Reader)
+
+Ce logiciel est distribué sous licence **PolyForm Shield 1.0.0** : voir
 [LICENSE.md](LICENSE.md). Seul le texte anglais de la licence fait foi ; le résumé ci-dessous
 n'a pas de valeur juridique.
 
 ## En résumé
 
-- Le code source est consultable. Chacun peut l'utiliser, le modifier et le redistribuer pour
-  un usage **non commercial** (personnel, recherche, enseignement, associations, organismes
-  publics).
-- Tout **usage commercial** par un tiers est interdit sans accord écrit des titulaires des
-  droits.
+- **Utilisation libre pour tous** : particuliers, associations, administrations et
+  entreprises, y compris dans le cadre de leur activité.
+- Le code source est consultable. Chacun peut le modifier et proposer des contributions (voir
+  [CONTRIBUTING.md](CONTRIBUTING.md)).
+- Il est **interdit de s'en servir pour fournir un produit concurrent** de Factur-X Reader :
+  reprendre le code pour diffuser sa propre application de lecture ou de contrôle de factures
+  électroniques, même gratuite, même renommée ou portée sur une autre plateforme.
 - Toute copie ou version modifiée doit conserver la licence et les lignes `Required Notice:`
   ci-dessus.
 
@@ -21,13 +25,19 @@ n'a pas de valeur juridique.
 
 La licence encadre ce que les **tiers** peuvent faire. Les titulaires des droits, Christophe
 Mehault et Simon Grossi, ne sont pas limités par elle : ils restent libres d'utiliser le
-logiciel à toutes fins, y compris commerciales, et d'accorder d'autres licences.
+logiciel à toutes fins et d'accorder d'autres licences.
 
-Pour un usage commercial : simon.grossi@gmail.com
+Pour un usage que la licence ne permet pas : simon.grossi@gmail.com
+
+## Versions antérieures
+
+Les versions jusqu'à la 0.7.0 comprise ont été publiées sous PolyForm Noncommercial 1.0.0. Les
+copies de ces versions restent utilisables aux conditions de cette licence. PolyForm Shield
+s'applique à partir de la version suivante.
 
 ## Composants tiers embarqués
 
-La licence PolyForm Noncommercial ne couvre que le code de Factur-X Reader.
+La licence PolyForm Shield ne couvre que le code de Factur-X Reader.
 
 ### Règles de validation EN 16931
 
@@ -40,7 +50,7 @@ La licence PolyForm Noncommercial ne couvre que le code de Factur-X Reader.
 - Licence : **EUPL 1.2**, texte complet dans
   [src-tauri/schematron/LICENSE-EUPL-1.2.txt](src-tauri/schematron/LICENSE-EUPL-1.2.txt) et dans
   l'application installée (menu **Aide → Licences des composants tiers**).
-- Ces fichiers restent sous EUPL 1.2 : la restriction d'usage non commercial de Factur-X Reader ne
+- Ces fichiers restent sous EUPL 1.2 : la clause de non-concurrence de Factur-X Reader ne
   s'y applique pas, et chacun peut les réutiliser aux conditions de l'EUPL.
 
 ### Règles et schémas XSD Factur-X, schémas du Cross Industry Invoice

@@ -11,7 +11,7 @@ Application de bureau légère pour Factur-X, UBL et CII (EN 16931) — Windows,
 [![Version](https://img.shields.io/github/v/release/simongrossi/FacturX-Reader?include_prereleases&label=version&color=0b6bcb)](https://github.com/simongrossi/FacturX-Reader/releases)
 [![Tests](https://img.shields.io/github/actions/workflow/status/simongrossi/FacturX-Reader/checks.yml?branch=main&label=tests)](https://github.com/simongrossi/FacturX-Reader/actions/workflows/checks.yml)
 [![Téléchargements](https://img.shields.io/github/downloads/simongrossi/FacturX-Reader/total?label=t%C3%A9l%C3%A9chargements&color=0f8a5f)](https://github.com/simongrossi/FacturX-Reader/releases)
-[![Licence](https://img.shields.io/badge/licence-PolyForm%20Noncommercial-b4610a)](LICENSE.md)
+[![Licence](https://img.shields.io/badge/licence-PolyForm%20Shield-b4610a)](LICENSE.md)
 ![Plateformes](https://img.shields.io/badge/plateformes-Windows%20%7C%20macOS%20%7C%20Linux-5b6878)
 ![Tauri 2](https://img.shields.io/badge/Tauri-2-24c8db?logo=tauri&logoColor=white)
 ![Rust](https://img.shields.io/badge/Rust-moteur-dea584?logo=rust&logoColor=white)
@@ -103,7 +103,7 @@ une case est cochée des deux côtés, le niveau de détail peut différer.
 | Conversion (CII ↔ UBL, ZUGFeRD 1 → 2) | — | — | ✅ | — |
 | Création de factures | — | — | ✅ | — |
 | Interface en français | ✅ | ✅ | — | Selon l'outil |
-| Licence | PolyForm Noncommercial | Apache 2.0 | Apache 2.0 | Selon l'outil |
+| Licence | PolyForm Shield | Apache 2.0 | Apache 2.0 | Selon l'outil |
 
 <sub>Établi le 3 octobre 2026 d'après la documentation publique de chaque projet ; une case vide
 signifie « non documenté à cette date », pas forcément « impossible ». Corrections bienvenues.
@@ -784,9 +784,11 @@ cargo run --example dump -- ../samples/facture.pdf > facture.json
   pointage des lignes).
 - **Simon Grossi** — reprise du projet et réécriture en application de bureau Rust / Tauri.
 
-Licence **[PolyForm Noncommercial 1.0.0](LICENSE.md)** : code source consultable, usage non
-commercial autorisé, usage commercial par un tiers soumis à l'accord écrit des auteurs. Les
-auteurs restent libres de tout usage. Détails dans [NOTICE.md](NOTICE.md).
+Licence **[PolyForm Shield 1.0.0](LICENSE.md)** : chacun peut utiliser l'application, y compris
+en entreprise, lire son code, le modifier et y contribuer. Il est interdit de s'en servir pour
+fournir un produit concurrent, même gratuit, et de retirer les mentions d'auteurs. Les versions
+jusqu'à la 0.7.0 ont été publiées sous PolyForm Noncommercial. Détails dans
+[NOTICE.md](NOTICE.md) ; pour contribuer, voir [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Suite
 

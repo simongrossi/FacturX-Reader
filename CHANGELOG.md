@@ -39,6 +39,10 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 
 ### Modifié
 
+- **Licence** : PolyForm Shield 1.0.0 remplace PolyForm Noncommercial. L'application devient
+  utilisable par tous, y compris en entreprise ; il reste interdit de s'en servir pour fournir
+  un produit concurrent. Les versions jusqu'à la 0.7.0 restent sous l'ancienne licence.
+  `CONTRIBUTING.md` fixe les droits sur les contributions.
 - **Rapport JSON** : il contient désormais le résultat du Schematron, le détail des règles
   françaises, le conteneur et les doublons.
 - Les verdicts sont calculés par un module commun à la fiche, au tableau et au rapport.

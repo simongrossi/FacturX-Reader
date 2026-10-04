@@ -23,7 +23,7 @@ Les résultats détaillés sont dans [tests/reference/REPORT.md](tests/reference
 | `npm run check:js` | Syntaxe de tous les scripts de l'interface |
 | `npm run test:rust` | 63 tests unitaires réussis sous macOS le 4 octobre (3 tests longs ignorés) : bibliothèque (filtres avant pagination sur 1002 factures, réassociation par empreinte), imports (archive ambiguë, plafonds de décompression), exemples officiels français, règles BR-FR (fonctions, périmètre), conteneur PDF (déclarations, sept contrôles de structure), schéma XSD (XML d'origine validé, chargement des huit schémas, facture et avoir UBL, choix d'après le profil, exemple officiel valide, élément inconnu, attribut inconnu, montant non numérique, jamais « valide » sans évaluation), Schematron officiel (compilation de toutes les règles, suite de tests officielle de la Commission, exemples officiels, règles enfreintes, file de travail, résultat repris de la bibliothèque entre deux sessions, résultats identiques avec et sans optimisations), moteur UBL/CII, contrôles en décimaux exacts, règles EN 16931, conteneur PDF (déclarations lues, écarts), pointages et suivi (corruption, sauvegarde, restauration, fusion), bibliothèque SQLite |
 | Test Rust `samples.rs` | Factures réelles vérifiées sur le poste d’origine ; sous macOS le 4 octobre, test sans effet car `samples/` est absent |
-| `npm run test:ui` | 18 scénarios navigateur (Edge le 3 octobre ; Chromium sous macOS le 4 octobre et par la CI), commandes Rust simulées, PDF.js réel |
+| `npm run test:ui` | 19 scénarios navigateur (Edge le 3 octobre ; Chromium sous macOS le 4 octobre et par la CI), commandes Rust simulées, PDF.js réel |
 | `npm run test:native` | Vrai exécutable Windows, vraies commandes Rust, profil WebView2 et dossier de données jetables. Vert en local et sur la machine de GitHub |
 | Workflow `Checks` | Tests navigateur (Linux), Rust et test natif Windows, comparaison aux références (macOS) verts sur la PR #2 avant fusion ; contrôle de `main` relancé |
 | Essai manuel macOS (4 octobre 2026) | Fonctionnement général confirmé par l’utilisateur ; détails de présentation à améliorer. Fonctions précises et mode d’installation non documentés |
@@ -173,3 +173,19 @@ remontent des écarts de ligne, le prix unitaire et les frais déclarés ne redo
   calculs, pas la conformité d'un fichier à la norme.
 - Les clés de contrôle SIREN/SIRET, TVA et IBAN vérifient la forme d'un identifiant, pas son
   existence ni son titulaire. Aucun appel réseau n'est effectué.
+
+## Exports Excel et PDF — chantier du 4 octobre 2026
+
+[PR #3](https://github.com/simongrossi/FacturX-Reader/pull/3) : les trois jobs
+`browser`, `rust` (dont le test natif Windows existant) et `reference` ont réussi sur
+`8fef64f`, [exécution Checks](https://github.com/simongrossi/FacturX-Reader/actions/runs/37191537060).
+Le test navigateur des exports utilise de vrais générateurs ExcelJS/jsPDF et PDF.js ;
+seule la boîte native d’enregistrement est simulée. Il relit le XLSX et vérifie les types,
+la précision, les zéros initiaux, les filtres et un résultat vide ; il extrait toutes les
+pages du PDF et vérifie les accents, les commentaires, le dernier contrôle et la pagination.
+Annulation et erreur d’écriture sont simulées. Les neuf pages d’un rapport synthétique
+ont été rendues avec Poppler et inspectées visuellement sous macOS.
+
+Le test natif Windows existant ne pilote pas encore les nouvelles boîtes XLSX/PDF.
+L’ouverture des fichiers produits dans Excel, LibreOffice et Aperçu reste à vérifier
+manuellement sur les systèmes ciblés. Détails et limites : [docs/EXPORTS.md](docs/EXPORTS.md).
