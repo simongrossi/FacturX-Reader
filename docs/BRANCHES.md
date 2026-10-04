@@ -84,3 +84,9 @@ La lecture des PDF avec une pièce jointe secondaire trop volumineuse a été co
 références et Rust/natif Windows étaient verts avant fusion. La branche
 `codex/pdf-secondary-attachments` a été supprimée ; le XML de facture reste limité à 32 Mo
 après décompression. Ce correctif est destiné à la 0.8.0, pas aux installateurs 0.7.1.
+
+Les calculs monétaires exacts du tableau, de l'échéancier et de la bibliothèque ont été fusionnés
+par la [PR #12](https://github.com/simongrossi/FacturX-Reader/pull/12) (`e3f18c6`). Les jobs
+navigateur, références et Rust/natif Windows étaient verts avant fusion. La branche
+`codex/exact-money-table-library` a été supprimée ; ce chantier est destiné à la 0.8.0 et
+n'est pas dans les installateurs 0.7.1.
