@@ -97,3 +97,10 @@ jobs navigateur, référence et Rust/natif Windows. La branche `codex/pdf-search
 supprimée. La recherche utilise le texte intégré au PDF, sans OCR. Les règles BR-FR sont évaluées
 à titre technique selon les indices du XML ; la taille de l'émetteur et les exceptions légales
 restent à confirmer. [Critères et limites](BR_FR_SCOPE.md).
+
+Le corpus de régression comptable et le découpage du moteur de lecture ont été fusionnés par la
+[PR #14](https://github.com/simongrossi/FacturX-Reader/pull/14) (`c5d083c`). Les jobs navigateur,
+références et Rust/natif Windows étaient verts avant fusion. La branche
+`codex/accounting-regression-corpus` a été supprimée. Les cinq factures synthétiques versionnées
+préparent la fiabilisation des futures écritures proposées ; elles ne génèrent pas encore
+d'exports comptables. [Cas et limites du corpus](../tests/corpus/accounting/README.md).
