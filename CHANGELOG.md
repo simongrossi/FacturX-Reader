@@ -7,6 +7,9 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 
 ### Ajouté
 
+- Revue d’un lot : progression de la lecture et du Schematron, points à examiner consolidés,
+  navigation vers chaque facture et rapport PDF de tous les documents ouverts, indépendant
+  des filtres du tableau, avec totaux par devise, avoirs déduits et erreurs de lecture.
 - Centre d’anomalies : regroupement des contrôles, filtres et recherche, valeurs disponibles,
   actions conseillées, navigation vers l’occurrence XML et demande de vérification à copier.
   Contrôles incomplets distingués des anomalies ; aides incluses dans les rapports JSON/PDF.

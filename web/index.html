@@ -141,6 +141,7 @@
         </select>
         <span id="batch-count" class="lines-count"></span>
         <button id="batch-excel" class="btn btn-sm" type="button" title="Enregistrer le tableau affiché au format XLSX">Exporter Excel</button>
+        <button id="batch-report" class="btn btn-sm" type="button" title="Créer un rapport PDF pour tous les documents ouverts une fois les validations terminées">Rapport du lot PDF</button>
         <button id="batch-export" class="btn btn-sm" type="button" title="Enregistrer le tableau affiché dans un fichier CSV (Excel)">Exporter CSV</button>
         <button id="batch-copy" class="btn btn-sm" type="button" title="Copier le tableau affiché, à coller dans un tableur">Copier</button>
         <div class="business-filters" id="batch-business-filters">
@@ -163,6 +164,31 @@
           <button id="batch-reset-filters" type="button" class="btn btn-sm" title="Réinitialiser les filtres de période, montant et fournisseur">Effacer filtres</button>
         </div>
       </div>
+      <section id="batch-audit" class="section batch-audit" aria-label="Contrôle du lot">
+        <div class="section-head">Contrôle du lot entier</div>
+        <div class="batch-audit-body">
+          <label for="batch-progress" id="batch-progress-label"></label>
+          <progress id="batch-progress" max="1" value="0"></progress>
+          <p id="batch-audit-summary" class="verdict-note" aria-live="polite"></p>
+          <p class="verdict-note">Ce bilan et le rapport PDF couvrent tous les documents ouverts, indépendamment des filtres du tableau.</p>
+          <details id="batch-anomalies">
+            <summary>Points à examiner dans le lot</summary>
+            <div class="anomaly-toolbar">
+              <input id="batch-anomaly-search" type="search" placeholder="Rechercher une facture, une règle, une valeur…" aria-label="Rechercher dans les anomalies du lot">
+              <select id="batch-anomaly-kind" aria-label="Type de point à examiner dans le lot">
+                <option value="all">Tous les points</option>
+                <option value="ecart">Écarts</option>
+                <option value="alerte">Alertes</option>
+                <option value="incomplete">Contrôles incomplets</option>
+                <option value="error">Factures non lues</option>
+              </select>
+            </div>
+            <p id="batch-anomaly-count" class="verdict-note" aria-live="polite"></p>
+            <div id="batch-anomaly-list"></div>
+            <button id="batch-anomaly-more" class="btn btn-sm" type="button" hidden>Afficher davantage</button>
+          </details>
+        </div>
+      </section>
       <div class="section"><div class="table-wrap"><table id="batch-table"></table></div></div>
       <p class="verdict-note" id="batch-note">Calculs, règles EN 16931, Schematron, schéma XSD et règles françaises sont distingués dans le tableau. La conformité PDF/A-3 complète et les autres règles nationales ne sont pas contrôlées. Aucun verdict ne vaut certification.</p>
     </div>
@@ -404,6 +430,7 @@
 <script src="workspace.js"></script>
 <script src="review.js"></script>
 <script src="batch.js"></script>
+<script src="batch-report.js"></script>
 <script src="library.js"></script>
 <script src="menu.js"></script>
 <script src="menubar.js"></script>

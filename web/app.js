@@ -154,14 +154,18 @@ async function addSources(sources) {
       entry.status = "error";
       entry.error = String((e && e.message) || e);
     }
+    if (state.batch && !state.selected) refreshBatchProgress();
     if (i % 10 === 9 || i === sources.length - 1) {
       renderList();
+      if (state.batch && !state.selected) renderBatch();
       await new Promise(resolve => requestAnimationFrame(resolve));
     }
   }
   const lastOk = [...entries].reverse().find((x) => x.status === "ok");
-  if (lastOk) selectFile(lastOk.id);
-  else if (!state.selected && state.files.length) selectFile(state.files[0].id);
+  if (!state.batch) {
+    if (lastOk) selectFile(lastOk.id);
+    else if (state.files.length) selectFile(state.files[0].id);
+  }
 }
 
 /* Fichiers choisis ou déposés dans la fenêtre (objets File). */
@@ -353,6 +357,7 @@ function refreshSchematronViews(entry) {
     const newSch = oldSch && schematronSection(entry);
     if (newSch) oldSch.replaceWith(newSch);
   }
+  if (state.batch && !state.selected) refreshBatchProgress();
   clearTimeout(schematronRefreshTimer);
   schematronRefreshTimer = setTimeout(() => {
     if (state.batch && !state.selected) renderBatch();

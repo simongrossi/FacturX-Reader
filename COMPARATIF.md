@@ -99,7 +99,7 @@ Les autres visionneuses affichent une facture ; celle-ci sert à la vérifier.
 | Signature des builds, mise à jour automatique | Tous les éditeurs établis | P3 | Condition pour être installé en entreprise |
 | Renommage et classement d'après les données | Treesoft | P2 | Demande courante, effort faible |
 | Dossier surveillé | GrandTotal, Paperless-ngx | P2 | Utile après le renommage |
-| Rapport lisible (PDF ou HTML), rapport consolidé | 7-PDF | P2 | Rapport PDF par facture réalisé (non publié) ; consolidation à développer |
+| Rapport lisible (PDF ou HTML), rapport consolidé | 7-PDF | P2 | Rapports PDF par facture et par lot réalisés (non publiés), avec anomalies et limites des contrôles |
 | Interface en anglais | Quba, Treesoft | P3 | Nécessaire hors de France ; l'allemand viendrait avec XRechnung |
 | Ligne de commande et `facturx-core` | Mustang, 7-PDF, `factur-x` | P4 | Un mode sans fenêtre (`--rapport dossier/`, code de retour) couvrirait l'usage en script |
 | Validation PDF/A-3 complète | 7-PDF, Mustang | P3, non prioritaire | Inchangé : métier de veraPDF |

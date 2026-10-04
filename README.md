@@ -53,6 +53,7 @@ tableaux lisibles en français, **recalcule les montants** et signale ce qui ne 
 | 🧭 **Centre d’anomalies** | Écarts et alertes regroupés par source, valeurs trouvée/attendue disponibles, actions conseillées, accès au XML et demande de vérification à copier. |
 | ✅ **Contrôles de cohérence** | Calculs en décimaux exacts : lignes, HT, TVA par taux, TTC, net à payer. Mentions essentielles, clés SIREN/SIRET, n° de TVA et IBAN, échéance, escompte. |
 | 📊 **Tableau multi-factures** | Toutes les factures ouvertes sur une page : totaux par devise, avoirs déduits, filtres d'anomalies, de période, de montant et de fournisseur, export CSV. |
+| 🗂️ **Revue d’un lot** | Progression de la lecture et des validations, anomalies de toutes les factures regroupées, rapport PDF consolidé avec erreurs de lecture et contrôles incomplets. |
 | 🗄️ **Bibliothèque locale** | Toutes les factures déjà ouvertes, retrouvables entre les sessions. Signale un IBAN nouveau pour un fournisseur, un doublon dans l'historique, une variation de prix unitaire. |
 | 🪟 **PDF et données côte à côte** | Vérifiez une ligne sans changer d'onglet. |
 | 🖊️ **Pointage et suivi** | Pointage des lignes, statut À vérifier / Vérifiée / Anomalie, commentaires par facture et par ligne. |
@@ -199,6 +200,10 @@ Détails du chantier, architecture et limites : [Exports Excel/PDF](docs/EXPORTS
 Dans **Données**, le centre rassemble les écarts et alertes des différents contrôles. Filtrez par gravité et source, recherchez une règle ou une valeur, consultez l’action conseillée, puis utilisez **Voir le champ dans le XML** ou **Voir le contrôle**. **Copier la demande** prépare un texte à relire et transmettre au fournisseur. Aucun message n’est envoyé et le XML reste inchangé.
 
 Les valeurs inconnues sont indiquées comme telles ; les contrôles incomplets restent distincts des anomalies. L’aide est incluse dans les rapports JSON et PDF. [Fonctionnement, tests et limites](docs/ANOMALIES.md).
+
+### Revue d’un lot
+
+Après avoir ouvert un dossier ou plusieurs documents, ouvrez **Tableau**. **Bilan du lot** suit la lecture et les validations Schematron. Ses points à examiner réunissent les anomalies de toutes les factures, les contrôles incomplets et les fichiers illisibles ; une carte mène à la facture et au contrôle. **Rapport du lot PDF** devient disponible une fois tous les documents analysés. Il inclut chaque document ouvert et les totaux par devise, avoirs déduits, même si le tableau est filtré. [Parcours, sens des chiffres et limites](docs/BATCH_REVIEW.md).
 
 ### Formats pris en charge
 

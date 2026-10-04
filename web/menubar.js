@@ -26,6 +26,7 @@ const MENUBAR = [
     { label: "Exporter les lignes en Excel…", run: () => exportLinesExcel(menubarDoc(), document.createElement("button")), on: () => !!menubarDoc()?.result.lines?.length },
     { label: "Exporter le rapport de contrôle (PDF)…", run: () => exportControlPdf(menubarDoc(), document.createElement("button")), on: () => !!menubarDoc() },
     { label: "Exporter le tableau des factures en Excel…", run: () => byId("batch-excel").click(), on: () => state.files.length > 0 },
+    { label: "Exporter le bilan du lot en PDF…", run: () => { showBatch(); byId("batch-report").click(); }, on: () => state.files.length > 0 && batchAuditSnapshot().complete },
     { label: "Exporter les lignes en CSV…", run: () => exportLinesCsv(menubarDoc(), document.createElement("button")),
       on: () => !!menubarDoc()?.result.lines?.length },
     { label: "Exporter le rapport de contrôle (JSON)…", run: () => exportControlReport(menubarDoc(), document.createElement("button")),

@@ -57,7 +57,7 @@ const BATCH_FILTERS = {
 const batchMoney = new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 8 });
 
 function batchRows() {
-  const files = state.files.filter((f) => f.status !== "loading");
+  const files = state.files;
   return files.map((f) => {
     const r = f.result, s = (r && r.synthese) || null;
     const counts = { ecart: 0, alerte: 0, non_verifiable: 0, conforme: 0, info: 0 };
@@ -81,12 +81,12 @@ function batchRows() {
     // Verdicts séparés : un calcul cohérent ne dit rien de la conformité à la norme.
     const v = invoiceVerdicts(f, duplicates.length);
     row.verdicts = v;
-    row.calculs = f.status === "error" ? "Non lue" : !s ? "Structure non reconnue" : v.calculs.court;
+    row.calculs = f.status === "loading" ? "Lecture en cours…" : f.status === "error" ? "Non lue" : !s ? "Structure non reconnue" : v.calculs.court;
     row.regles_txt = s ? v.regles.court : "";
     for (const key of ["schematron", "xsd", "france", "conteneur"]) row[key + "_txt"] = v[key]?.court || "—";
     const others = v.alertes - duplicates.length;
     row.alertes_txt = [others ? others + " alerte" + (others > 1 ? "s" : "") : "", doublon ? "doublon" : ""].filter(Boolean).join(", ");
-    row.etatKey = v.calculs.etat;
+    row.etatKey = f.status === "loading" ? "info" : v.calculs.etat;
     row.detail = f.status === "error" ? f.error
       : ((r && r.controles) || []).filter((c) => c.etat === "ecart" || c.etat === "alerte")
         .map((c) => c.regle + (c.ecart ? " (" + c.ecart + ")" : ""))
@@ -156,7 +156,7 @@ function batchExportRows() {
 
 function renderBatch() {
   const rows = batchVisibleRows();
-  const total = state.files.filter((f) => f.status !== "loading").length;
+  const total = state.files.length;
   byId("batch-count").textContent = rows.length === total ? total + " documents" : rows.length + " / " + total + " documents";
 
   const table = byId("batch-table");
@@ -230,6 +230,7 @@ function renderBatch() {
     tr.insertCell().textContent = devise;
     for (let i = 0; i < 4; i++) tr.insertCell();
   }
+  renderBatchOverview();
 }
 
 function showBatch() {
@@ -244,6 +245,7 @@ function showBatch() {
 }
 
 function wireBatch() {
+  wireBatchOverview();
   byId("batch-excel").addEventListener("click", (e) => exportBatchExcel(e.currentTarget));
   byId("batch-search").addEventListener("input", (e) => { batch.query = e.target.value; renderBatch(); });
   byId("batch-filter").addEventListener("change", (e) => { batch.filter = e.target.value; renderBatch(); });

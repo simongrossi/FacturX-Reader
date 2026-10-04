@@ -346,7 +346,6 @@ test('tableau multi-factures : totaux, filtres, export et menu contextuel', asyn
   await rows.first().locator('td').nth(1).click({ button: 'right' });
   const menu = page.locator('.ctx-menu');
   await expect(menu).toBeVisible();
-  await page.screenshot({ path: 'test-results/context-menu.png' });
   await menu.getByRole('menuitem', { name: 'Copier la cellule', exact: true }).click();
   await expect(menu).toHaveCount(0);
   await expect(page.locator('.toast')).toHaveText('Cellule copiée');
@@ -1117,4 +1116,94 @@ test('centre d’anomalies : évaluation incomplète, actualisation et conservat
   // Les chemins non supportés ou ambigus ne naviguent pas vers un champ arbitraire.
   expect(await page.evaluate(() => resolveAnomalyPath(getFile(state.selected), '//*'))).toBeNull();
   expect(await page.evaluate(() => resolveAnomalyPath(getFile(state.selected), '/missing:Invoice'))).toBeNull();
+});
+
+test('lot complet : progression, anomalies transversales et PDF consolidé indépendant des filtres', async ({ page }, testInfo) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await mockBackend(page);
+  await page.goto(url);
+  await page.evaluate(() => {
+    const invoice = (number, currency, amount, credit = false, broken = false) => ({
+      format: 'UBL', root: 'Invoice', doc_hash: 'hash-' + number,
+      xml_pretty: '<Invoice><ID>' + number + '</ID></Invoice>',
+      rows: [{ path: 'Invoice/ID', title: 'N°', tag: 'ID', value: number }],
+      header: [], summary: [], sections: [], warnings: [], lines: [],
+      synthese: { numero: number, vendeur: 'Fournisseur ' + number, date: '2026-10-04',
+        devise: currency, avoir: credit, ht: credit ? '25.00' : currency === 'CHF' ? '5.00' : '100.00',
+        tva: credit ? '5.00' : currency === 'CHF' ? '0.00' : '20.00', ttc: amount, a_payer: amount },
+      controles: broken ? Array.from({ length: 60 }, (_, i) => ({ famille: 'calcul', etat: 'ecart', regle: 'Total à vérifier ' + i,
+        attendu: '120.00', constate: '120.01', ecart: '0.01', path: 'Invoice/ID', detail: 'Écart de TVA.' }))
+        : [{ famille: 'calcul', etat: 'conforme', regle: 'Total TTC', attendu: amount, constate: amount }],
+      regles: { evaluees: 1, non_conformes: 0, liste: [] },
+      xsd: { evalue: true, ok: true, total: 0, erreurs: [], schema: 'UBL 2.1' },
+    });
+    window.__firstInvoice = invoice('A-1', 'EUR', '120.00', false, true);
+    window.__validators = [];
+    SchematronValidator.validate = () => new Promise(resolve => window.__validators.push(resolve));
+    window.__loadJob = addSources([
+      { name: 'facture-A.xml', load: () => new Promise(resolve => { window.__resolveFirst = resolve; }) },
+      { name: 'avoir-B.xml', load: () => Promise.resolve(invoice('B-1', 'EUR', '30.00', true)) },
+      { name: 'facture-C.xml', load: () => Promise.resolve(invoice('C-1', 'CHF', '5.00')) },
+      { name: 'illisible.xml', load: () => Promise.reject(new Error('XML endommagé')) },
+    ]);
+    showBatch();
+  });
+  await expect(page.locator('#batch-progress-label')).toHaveText('0 / 4 documents analysés');
+  await expect(page.locator('#batch-report')).toBeDisabled();
+  await expect(page.locator('#batch-table')).toContainText('Lecture en cours');
+  await page.evaluate(() => window.__resolveFirst(window.__firstInvoice));
+  await page.evaluate(() => window.__loadJob);
+  await expect(page.locator('#batch-view')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.__validators.length)).toBe(3);
+  await expect(page.locator('#batch-progress-label')).toHaveText('1 / 4 documents analysés');
+  await expect(page.locator('#batch-audit-summary')).toContainText('3 en validation Schematron');
+  await expect(page.locator('#batch-report')).toBeDisabled();
+  expect(await page.evaluate(() => { try { batchReportSnapshot(); return 'success'; } catch (e) { return e.message; } }))
+    .toContain('Attendez la fin');
+  await page.evaluate(() => window.__validators.shift()({ evalue: true, ok: true, non_conformes: 0, non_evaluables: [], erreurs: [] }));
+  await expect(page.locator('#batch-progress-label')).toHaveText('2 / 4 documents analysés');
+  await page.evaluate(() => window.__validators.splice(0).forEach(resolve => resolve({ evalue: true, ok: true, non_conformes: 0, non_evaluables: [], erreurs: [] })));
+  await expect(page.locator('#batch-progress-label')).toHaveText('4 / 4 documents analysés');
+  await expect(page.locator('#batch-report')).toBeEnabled();
+  await expect(page.locator('#batch-audit-summary')).toContainText('2 documents à examiner');
+  await page.locator('#batch-anomalies summary').click();
+  await expect(page.locator('#batch-anomaly-count')).toContainText('61 / 61 points');
+  await expect(page.locator('#batch-anomaly-list .batch-issue')).toHaveCount(50);
+  await page.locator('#batch-anomaly-more').click();
+  await expect(page.locator('#batch-anomaly-list .batch-issue')).toHaveCount(61);
+  await page.locator('#batch-anomaly-kind').selectOption('error');
+  await expect(page.locator('#batch-anomaly-list .batch-issue')).toHaveCount(1);
+  await expect(page.locator('#batch-anomaly-list')).toContainText('XML endommagé');
+  await page.locator('#batch-anomaly-kind').selectOption('all');
+  await page.locator('#batch-search').fill('aucune correspondance');
+  await expect(page.locator('#batch-table tbody')).toContainText('Aucun document');
+  await expect(page.locator('#batch-anomaly-count')).toContainText('61 / 61 points');
+  await page.screenshot({ path: testInfo.outputPath('bilan-lot.png') });
+  await page.locator('#batch-report').click();
+  await expect.poll(() => page.evaluate(() => window.__binary?.filename)).toBe('bilan-factures.pdf');
+  const pdf = Buffer.from(await page.evaluate(() => window.__binary.base64), 'base64');
+  expect(pdf.subarray(0, 5).toString()).toBe('%PDF-');
+  fs.writeFileSync(testInfo.outputPath('bilan-lot.pdf'), pdf);
+  const extracted = await page.evaluate(async () => {
+    const bytes = Uint8Array.from(atob(window.__binary.base64), c => c.charCodeAt(0));
+    const doc = await pdfjsLib.getDocument({ data: bytes }).promise;
+    const pages = [];
+    for (let i = 1; i <= doc.numPages; i++) pages.push((await (await doc.getPage(i)).getTextContent()).items.map(item => item.str).join(' '));
+    return pages;
+  });
+  expect(extracted.length).toBeGreaterThan(2);
+  const text = extracted.join(' ');
+  for (const value of ['Bilan de 4 documents', 'EUR : 2 documents', 'TTC 90.00', 'CHF : 1 document',
+    'facture-A.xml', 'avoir-B.xml', 'facture-C.xml', 'illisible.xml', 'XML endommagé', 'Total à vérifier 59'])
+    expect(text).toContain(value);
+  extracted.forEach((content, i) => expect(content).toContain(`${i + 1} / ${extracted.length}`));
+  await page.locator('#batch-anomaly-kind').selectOption('ecart');
+  await page.locator('#batch-anomaly-search').fill('Total à vérifier 59');
+  await expect(page.locator('#batch-anomaly-list .batch-issue')).toHaveCount(1);
+  await page.locator('#batch-anomaly-list .batch-issue button').click();
+  await expect(page.locator('#file-view')).toBeVisible();
+  await expect(page.locator('#fv-name')).toHaveText('facture-A.xml');
+  await expect(page.locator('#tab-xml')).toHaveClass(/active/);
+  expect(errors).toEqual([]);
 });
