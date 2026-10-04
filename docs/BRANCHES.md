@@ -78,3 +78,9 @@ Le dossier surveillé et l’affichage décimal des lignes ont été fusionnés 
 des jobs navigateur, références et Rust/natif Windows. La branche
 `codex/folder-watch-decimal-display` a été supprimée. Ces deux fonctions sont en développement
 pour la 0.8.0. [Fonctionnement et limites du dossier surveillé](WATCH_FOLDER.md).
+
+La lecture des PDF avec une pièce jointe secondaire trop volumineuse a été corrigée par la
+[PR #11](https://github.com/simongrossi/FacturX-Reader/pull/11) (`1c7049d`). Les jobs navigateur,
+références et Rust/natif Windows étaient verts avant fusion. La branche
+`codex/pdf-secondary-attachments` a été supprimée ; le XML de facture reste limité à 32 Mo
+après décompression. Ce correctif est destiné à la 0.8.0, pas aux installateurs 0.7.1.
