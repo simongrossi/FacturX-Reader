@@ -1173,3 +1173,25 @@ tr.flash { animation: flash 1.8s ease-out; }
 .batch-issue .btn { margin-top: 4px; }
 #batch-anomaly-more { margin-top: 10px; }
 @media print { #batch-audit progress, #batch-audit .anomaly-toolbar, #batch-anomaly-more, .batch-issue .btn { display: none; } .batch-issue { break-inside: avoid; } }
+
+/* Échéancier indicatif : les détails restent repliés pour garder le tableau accessible. */
+.batch-schedule-body { padding: 12px 14px; }
+.schedule-summary { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 12px; align-items: center; }
+.schedule-summary > p { width: 100%; margin: 0; }
+.schedule-total { padding: 7px 10px; border: 1px solid var(--border-soft); border-radius: 7px; background: var(--panel-2); font-size: 12.5px; }
+#schedule-details > summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+.schedule-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0; font-size: 13px; }
+.schedule-tools select { padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel); color: var(--text); }
+#schedule-groups { display: grid; gap: 9px; }
+.schedule-group { border: 1px solid var(--border-soft); border-radius: 8px; overflow: hidden; }
+.schedule-group-head { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; padding: 9px 11px; background: var(--panel-2); font-size: 13px; }
+.schedule-group-head > span:last-child { margin-left: auto; }
+.schedule-status { color: var(--muted); }
+.schedule-overdue { color: var(--err); }
+.schedule-items { padding: 3px 11px; }
+.schedule-item { display: grid; grid-template-columns: minmax(120px, 2fr) minmax(100px, 1fr) 70px minmax(110px, auto); align-items: center; gap: 8px; padding: 6px 0; border-top: 1px solid var(--border-soft); font-size: 13px; }
+.schedule-item:first-child { border-top: 0; }
+.schedule-item > strong { text-align: right; }
+.schedule-item .btn { justify-self: start; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 720px) { .schedule-item { grid-template-columns: 1fr auto; } .schedule-item > span:nth-child(2) { grid-column: 1 / -1; } }
+@media print { .schedule-tools, .schedule-item .btn { display: none; } .schedule-group { break-inside: avoid; } }

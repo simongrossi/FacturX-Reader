@@ -1207,3 +1207,70 @@ test('lot complet : progression, anomalies transversales et PDF consolidé indé
   await expect(page.locator('#tab-xml')).toHaveClass(/active/);
   expect(errors).toEqual([]);
 });
+
+test('échéancier : dates, devises, avoir non affecté, export filtré et accès facture', async ({ page }, testInfo) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await mockBackend(page);
+  await page.goto(url);
+  await page.evaluate(async () => {
+    const day = offset => { const d = new Date(); d.setDate(d.getDate() + offset);
+      return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-'); };
+    window.__scheduleDates = { past: day(-1), today: day(0), future: day(1) };
+    const item = (number, currency, amount, due, credit = false, seller = 'Vendeur') => ({
+      format: 'XML', root: 'Invoice', rows: [], header: [], summary: [], sections: [], warnings: [], lines: [], controles: [],
+      synthese: { numero: number, vendeur: seller, devise: currency, echeance: due, date: day(-10),
+        avoir: credit, a_payer: credit ? '' : amount, ttc: amount },
+    });
+    const docs = [
+      ['retard.xml', item('R-1', 'EUR', '100.00', day(-1), false, '=2+2')],
+      ['jour.xml', item('J-1', 'EUR', '50.00', day(0))],
+      ['avenir.xml', item('A-1', 'EUR', '75.00', day(1))],
+      ['avoir.xml', item('C-1', 'EUR', '30.00', '', true)],
+      ['chf.xml', item('S-1', 'CHF', '20.00', day(1))],
+      ['inconnu.xml', item('U-1', 'EUR', '', '2026-02-30')],
+    ];
+    await addSources([...docs.map(([name, result]) => ({ name, load: () => Promise.resolve(result) })),
+      { name: 'illisible.xml', load: () => Promise.reject(new Error('XML invalide')) }]);
+    showBatch();
+  });
+  await expect(page.locator('#schedule-summary')).toContainText('6 documents avec synthèse');
+  await expect(page.locator('#schedule-summary')).toContainText('1 échéance dépassée');
+  await expect(page.locator('#schedule-summary')).toContainText('2 sans échéance');
+  await expect(page.locator('#schedule-summary')).toContainText('EUR · solde indicatif 195,00');
+  await expect(page.locator('#schedule-summary')).toContainText('CHF · solde indicatif 20,00');
+  await expect(page.locator('#schedule-summary')).toContainText('1 montant indisponible');
+  await expect(page.locator('#batch-schedule')).toContainText('ne prouve pas');
+  await page.locator('#schedule-details summary').click();
+  await expect(page.locator('.schedule-group')).toHaveCount(5);
+  await expect(page.locator('.schedule-group').last()).toContainText('Sans échéance');
+  await expect(page.locator('.schedule-group').last()).toContainText('−30,00');
+  await expect(page.locator('.schedule-group').last()).toContainText('Montant indisponible');
+  await page.locator('#batch-search').fill('aucune correspondance');
+  await expect(page.locator('.batch-empty')).toBeVisible();
+  await expect(page.locator('.schedule-group')).toHaveCount(5);
+  await page.locator('#schedule-status').selectOption('overdue');
+  await page.locator('#schedule-currency').selectOption('EUR');
+  await expect(page.locator('.schedule-group')).toHaveCount(1);
+  await expect(page.locator('#schedule-count')).toContainText('1 / 6 documents');
+  await page.locator('#schedule-export').click();
+  await expect.poll(() => page.evaluate(() => window.__saved?.filename)).toBe('echeancier.csv');
+  const filteredCsv = await page.evaluate(() => window.__saved.content);
+  expect(filteredCsv).toContain('retard.xml');
+  expect(filteredCsv).not.toContain('avenir.xml');
+  expect(filteredCsv).toContain("'=2+2");
+  expect(filteredCsv).toContain('Total échéance');
+  await page.locator('#schedule-status').selectOption('all');
+  await page.locator('#schedule-currency').selectOption('all');
+  await page.locator('#schedule-export').click();
+  await expect.poll(() => page.evaluate(() => window.__saved.content.includes('avoir.xml'))).toBe(true);
+  const csv = await page.evaluate(() => window.__saved.content);
+  expect(csv).toContain('avoir.xml');
+  expect(csv).toContain('-30,00');
+  expect(csv).toContain('inconnu.xml');
+  await page.screenshot({ path: testInfo.outputPath('echeancier.png') });
+  await page.locator('.schedule-item button').filter({ hasText: 'avoir.xml' }).click();
+  await expect(page.locator('#fv-name')).toHaveText('avoir.xml');
+  expect(await page.evaluate(() => scheduleDate('2026-02-30'))).toBe('');
+  expect(errors).toEqual([]);
+});

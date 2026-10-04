@@ -7,6 +7,8 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 
 ### Ajouté
 
+- Échéancier indicatif des factures ouvertes : regroupement par échéance et devise, retards,
+  avoirs déduits sans affectation fictive, filtres, accès aux documents et export CSV.
 - Revue d’un lot : progression de la lecture et du Schematron, points à examiner consolidés,
   navigation vers chaque facture et rapport PDF de tous les documents ouverts, indépendant
   des filtres du tableau, avec totaux par devise, avoirs déduits et erreurs de lecture.

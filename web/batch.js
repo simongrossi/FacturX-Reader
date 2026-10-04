@@ -231,6 +231,7 @@ function renderBatch() {
     for (let i = 0; i < 4; i++) tr.insertCell();
   }
   renderBatchOverview();
+  renderSchedule();
 }
 
 function showBatch() {
@@ -246,6 +247,7 @@ function showBatch() {
 
 function wireBatch() {
   wireBatchOverview();
+  wireSchedule();
   byId("batch-excel").addEventListener("click", (e) => exportBatchExcel(e.currentTarget));
   byId("batch-search").addEventListener("input", (e) => { batch.query = e.target.value; renderBatch(); });
   byId("batch-filter").addEventListener("change", (e) => { batch.filter = e.target.value; renderBatch(); });

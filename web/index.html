@@ -189,6 +189,25 @@
           </details>
         </div>
       </section>
+      <section id="batch-schedule" class="section" aria-label="Échéancier des factures">
+        <div class="section-head">Échéancier des factures</div>
+        <div class="batch-schedule-body">
+          <p class="verdict-note">Montants indicatifs tirés des factures ouvertes. Les avoirs sans échéance réduisent le solde global, sans être attribués à une date. Une échéance dépassée ne prouve pas qu’une facture est impayée.</p>
+          <div id="schedule-summary" class="schedule-summary" aria-live="polite"></div>
+          <details id="schedule-details">
+            <summary>Voir les échéances et les factures</summary>
+            <div class="schedule-tools">
+              <label for="schedule-status">Situation</label>
+              <select id="schedule-status"><option value="all">Toutes</option><option value="overdue">Dépassées</option><option value="today">Aujourd’hui</option><option value="upcoming">À venir</option><option value="undated">Sans échéance</option></select>
+              <label for="schedule-currency">Devise</label>
+              <select id="schedule-currency"><option value="all">Toutes les devises</option></select>
+              <button id="schedule-export" class="btn btn-sm" type="button">Exporter CSV</button>
+            </div>
+            <p id="schedule-count" class="verdict-note"></p>
+            <div id="schedule-groups"></div>
+          </details>
+        </div>
+      </section>
       <div class="section"><div class="table-wrap"><table id="batch-table"></table></div></div>
       <p class="verdict-note" id="batch-note">Calculs, règles EN 16931, Schematron, schéma XSD et règles françaises sont distingués dans le tableau. La conformité PDF/A-3 complète et les autres règles nationales ne sont pas contrôlées. Aucun verdict ne vaut certification.</p>
     </div>
@@ -431,6 +450,7 @@
 <script src="review.js"></script>
 <script src="batch.js"></script>
 <script src="batch-report.js"></script>
+<script src="schedule.js"></script>
 <script src="library.js"></script>
 <script src="menu.js"></script>
 <script src="menubar.js"></script>

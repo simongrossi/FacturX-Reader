@@ -16,7 +16,7 @@
     "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
     "test:native": "node tests/native-smoke.cjs",
     "screenshots": "cargo build --manifest-path src-tauri/Cargo.toml --example dump && node tests/screenshots.cjs",
-    "check:js": "node scripts/check-export-vendors.cjs && node --check web/anomalies.js && node --check web/exports.js && node --check web/app.js && node --check web/controls.js && node --check web/imports.js && node --check web/workspace.js && node --check web/search-worker.js && node --check web/batch.js && node --check web/batch-report.js && node --check web/menu.js && node --check web/menubar.js && node --check web/review.js && node --check web/library.js && node --check web/schematron/schematron.js",
+    "check:js": "node scripts/check-export-vendors.cjs && node --check web/anomalies.js && node --check web/exports.js && node --check web/app.js && node --check web/controls.js && node --check web/imports.js && node --check web/workspace.js && node --check web/search-worker.js && node --check web/batch.js && node --check web/batch-report.js && node --check web/schedule.js && node --check web/menu.js && node --check web/menubar.js && node --check web/review.js && node --check web/library.js && node --check web/schematron/schematron.js",
     "test:reference": "python3 tests/reference/compare.py"
   },
   "devDependencies": {
