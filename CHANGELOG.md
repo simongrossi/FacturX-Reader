@@ -19,6 +19,19 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
   progression, pause, annulation entre fichiers et reprise des nouveautés après redémarrage.
 - Totaux, filtres de montants, tri et affichage du tableau et de la bibliothèque en décimaux exacts ;
   même calcul pour les soldes de l'échéancier et les exports du lot.
+- Recherche dans le texte du PDF depuis l'onglet **PDF** : occurrences surlignées et navigation
+  entre les résultats. Le texte intégré au fichier est utilisé, sans OCR.
+- Corpus de régression comptable : cinq factures XML synthétiques CII et UBL avec valeurs
+  attendues (HT, TVA, TTC, net à payer, lignes, provenance), relues aussi en ZIP et en PDF.
+
+### Modifié
+
+- Périmètre des règles BR-FR précisé et affiché avec sa raison : appliqué, hors champ ou
+  indéterminé selon le profil, les pays des parties, la date d'émission, l'identifiant de
+  l'acheteur et les catégories de TVA. Indication technique, sans conclusion sur l'obligation
+  légale ; le verdict Schematron principal n'en dépend pas.
+- Moteur de lecture découpé : `facturx.rs` délègue à `facturx/cii.rs`, `facturx/ubl.rs` et
+  `facturx/containers.rs`, sans changement de comportement.
 
 ### Corrigé
 

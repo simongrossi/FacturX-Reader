@@ -693,7 +693,10 @@ web/                       interface (aucune étape de compilation)
   menubar.js               barre de menus
   pdfjs/                   PDF.js embarqué
 src-tauri/
-  src/facturx.rs           moteur : PDF Factur-X, ZIP, UBL, CII
+  src/facturx.rs           moteur : point d'entrée et fonctions communes
+  src/facturx/cii.rs       lecture des factures CII
+  src/facturx/ubl.rs       lecture des factures UBL
+  src/facturx/containers.rs conteneurs PDF Factur-X et ZIP
   src/facturx/controles.rs contrôles de cohérence (décimaux exacts)
   src/facturx/imports.rs   plafonds de décompression, entrées d'une archive
   src/facturx/en16931.rs   règles métier EN 16931
@@ -707,6 +710,7 @@ src-tauri/
   src/lib.rs               commandes exposées au front
   examples/dump.rs         export JSON d'une facture
   tests/samples.rs         test sur les factures de samples/
+  tests/accounting_corpus.rs corpus comptable synthétique (tests/corpus/accounting/)
   tauri.conf.json          fenêtre, CSP, bundles
 samples/                   factures réelles pour les tests locaux (non versionné)
 .github/workflows/         build des installeurs Windows / macOS / Linux
