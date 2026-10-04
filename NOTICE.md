@@ -111,3 +111,12 @@ Ces outils ne sont pas embarqués dans l'application. Les sources téléchargée
 Les fixtures BASIC, EXTENDED et D22B sont dérivées de l'exemple de la Commission européenne
 `CII_example3.xml` (© Union européenne, EUPL 1.2). Le correctif du validateur `uppsala`
 reste sous BSD-2-Clause et est repris au commit amont indiqué dans `Cargo.toml`.
+
+### Exports Excel et PDF
+
+- ExcelJS 4.4.0 et jsPDF 4.2.1 : distributions navigateur officielles sans modification, sous MIT.
+  Sources : https://github.com/exceljs/exceljs et https://github.com/parallax/jsPDF.
+- Noto Sans Regular : police du dépôt https://github.com/notofonts/noto-fonts, sous SIL OFL 1.1.
+- Fichiers et textes de licences embarqués dans `web/exports/`, accessibles par le menu Aide.
+- Les dépendances npm servent au développement et aux tests ; l’application utilise les fichiers
+  embarqués et ne télécharge ni bibliothèque ni police à l’exécution.

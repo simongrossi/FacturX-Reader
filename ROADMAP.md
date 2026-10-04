@@ -10,7 +10,7 @@ l'utilisation, [VALIDATION.md](VALIDATION.md) pour le bilan de vérification P0 
 | Priorité | Thème | État |
 |---|---|---|
 | P0 | Valider l'existant | Presque terminé : essai macOS positif ; reste la vérification exhaustive, Linux et l’installation des paquets |
-| P1 | Confort et fiabilité du moteur | Aux trois quarts : reste la provenance des valeurs, « Ouvrir avec », l'export Excel, les tests anonymisés |
+| P1 | Confort et fiabilité du moteur | Aux trois quarts : reste la provenance des valeurs, « Ouvrir avec », les tests anonymisés |
 | P2 | Exploiter des lots de factures | Presque terminé : reste la recherche dans le PDF, le dossier surveillé, l'échéancier |
 | P3 | Conformité et distribution | Bien avancé : Schematron officiel (suite de tests officielle verte, résultat gardé entre sessions) et déclarations du conteneur ; reste PDF/A réel, règles nationales, signature des builds |
 | P4 | API, MCP et connecteurs | Pas commencé |
@@ -25,6 +25,14 @@ Versions publiées (pré-versions, builds non signés) :
 | 0.5.0 | Bibliothèque locale (alerte IBAN, doublons, prix), règles métier EN 16931, impression, protection des pointages et du suivi, en-tête compact |
 | 0.6.0 | Schematron officiel EN 16931 évalué en Rust, déclarations du conteneur PDF, verdicts séparés, filtres métier |
 | 0.7.0 | Schéma XSD (CII par profil Factur-X, UBL 2.1), Schematron des profils Factur-X, règles françaises EXTENDED-CTC-FR et BR-FR, validation du XML d'origine, contrôles de structure PDF/A-3, Schematron plus rapide |
+
+### Exports enrichis (non publiés)
+
+- [x] Export XLSX des lignes affichées et du tableau filtré, avec totaux par devise.
+- [x] Rapport de contrôle PDF avec diagnostics, limites et suivi manuel.
+- Tests : relecture des XLSX, types numériques et références, texte non interprété comme formule,
+  précision supérieure à Excel, accents PDF, rapports longs, pagination et filtre vide.
+
 
 ## Prochaines étapes proposées
 
@@ -54,7 +62,7 @@ reste à publier après le contrôle de `main`.
 4. **Signature des builds** (P3) : dépend d'un certificat Windows et d'un compte développeur
    Apple, à lancer en parallèle.
 5. **Affiner le périmètre des règles BR-FR** (B2C, opérations hors obligation, calendrier).
-6. **Fin de P1** : provenance des valeurs, « Ouvrir avec » et instance unique, export Excel natif.
+6. **Fin de P1** : provenance des valeurs, « Ouvrir avec » et instance unique.
 7. **Bibliothèque `facturx-core`** (P4) : le moteur est assez complet pour être extrait ; à
    décider d'abord, la licence sous laquelle le publier.
 
@@ -132,7 +140,7 @@ lot avec historique et suivi. Ce qui en ressort pour le plan :
 - [x] En-tête compact, recherche repliable, message fermable (0.5.0).
 - [x] Menu clic droit : copie de cellule, ligne, colonne ou tableau en TSV, CSV, JSON ou Markdown
   (0.3.0) ; actions sur les onglets et la liste des fichiers (0.4.0).
-- [ ] Export Excel natif (.xlsx).
+- [x] Export Excel natif (.xlsx), lignes et tableau filtrés (non publié).
 - [ ] Associations de fichiers, « Ouvrir avec » et instance unique.
 - [ ] Dossiers dans les récents.
 

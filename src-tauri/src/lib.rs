@@ -197,6 +197,19 @@ async fn save_text(app: tauri::AppHandle, filename: String, content: String) -> 
     Ok(true)
 }
 
+/// Export binaire généré localement : seuls XLSX et PDF sont proposés.
+#[tauri::command]
+async fn save_binary(app: tauri::AppHandle, filename: String, base64: String) -> Result<bool, String> {
+    let extension = Path::new(&filename).extension().and_then(|v| v.to_str()).unwrap_or("");
+    if !["xlsx", "pdf"].contains(&extension) { return Err("Format d’export non autorisé.".into()); }
+    if base64.len() > 140 * 1024 * 1024 { return Err("Export trop volumineux (max 100 Mo).".into()); }
+    let bytes = base64::engine::general_purpose::STANDARD.decode(base64.as_bytes()).map_err(|e| format!("Export invalide : {e}"))?;
+    if bytes.len() > 100 * 1024 * 1024 { return Err("Export trop volumineux (max 100 Mo).".into()); }
+    let Some(dest) = app.dialog().file().set_file_name(&filename).add_filter(extension.to_uppercase(), &[extension]).blocking_save_file() else { return Ok(false); };
+    std::fs::write(dest.into_path().map_err(|e| e.to_string())?, bytes).map_err(|e| format!("Écriture impossible : {e}"))?;
+    Ok(true)
+}
+
 /// Rapport JSON enregistré par la boîte native « Enregistrer sous ».
 #[tauri::command]
 async fn save_control_report(app: tauri::AppHandle, filename: String, report: Value) -> Result<bool, String> {
@@ -258,6 +271,7 @@ pub fn run() {
             parse_path,
             save_pdf,
             save_text,
+            save_binary,
             save_control_report,
             print_window,
             schematron::validate_schematron,

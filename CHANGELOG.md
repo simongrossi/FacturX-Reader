@@ -7,6 +7,11 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 
 ### Ajouté
 
+- Export Excel natif (.xlsx) des lignes filtrées et du tableau multi-factures, avec cellules
+  numériques, en-têtes figés, filtres et totaux par devise (avoirs déduits).
+- Rapport de contrôle PDF paginé, police embarquée : synthèse, verdicts et limites,
+  diagnostics, statut et commentaires. Génération entièrement locale.
+
 - Comparaison reproductible des validateurs à SaxonC-HE et libxml2 : 955 XML, huit schémas
   XSD, profils Factur-X, EXTENDED-CTC-FR et BR-FR, erreurs comparées par règle et occurrence.
   Sources épinglées et vérifiées par empreinte ; job dédié dans la CI.

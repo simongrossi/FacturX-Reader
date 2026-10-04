@@ -140,6 +140,7 @@
           <option value="s:Anomalie">Suivi : anomalie</option>
         </select>
         <span id="batch-count" class="lines-count"></span>
+        <button id="batch-excel" class="btn btn-sm" type="button" title="Enregistrer le tableau affiché au format XLSX">Exporter Excel</button>
         <button id="batch-export" class="btn btn-sm" type="button" title="Enregistrer le tableau affiché dans un fichier CSV (Excel)">Exporter CSV</button>
         <button id="batch-copy" class="btn btn-sm" type="button" title="Copier le tableau affiché, à coller dans un tableur">Copier</button>
         <div class="business-filters" id="batch-business-filters">
@@ -393,6 +394,9 @@
   </div>
 </dialog>
 
+<script src="exports/exceljs.min.js"></script>
+<script src="exports/jspdf.umd.min.js"></script>
+<script src="exports.js"></script>
 <script src="imports.js"></script>
 <script src="controls.js"></script>
 <script src="app.js"></script>

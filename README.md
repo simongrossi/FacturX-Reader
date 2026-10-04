@@ -56,7 +56,7 @@ tableaux lisibles en français, **recalcule les montants** et signale ce qui ne 
 | 🪟 **PDF et données côte à côte** | Vérifiez une ligne sans changer d'onglet. |
 | 🖊️ **Pointage et suivi** | Pointage des lignes, statut À vérifier / Vérifiée / Anomalie, commentaires par facture et par ligne. |
 | 🔎 **Recherche** | Texte ou regex, dans le document ou dans tous les documents ouverts, avec surlignage. |
-| 📤 **Exports** | Lignes et tableau en CSV, rapport de contrôle en JSON, copie en CSV, JSON ou Markdown par clic droit. |
+| 📤 **Exports** | Lignes et tableau en CSV ou Excel (.xlsx), rapport de contrôle en JSON ou PDF, copie en CSV, JSON ou Markdown par clic droit. |
 | 🖨️ **Impression** | La vue affichée (données, contrôles, tableau, PDF) sans l'habillage de l'application. |
 | 🗂️ **Confort** | Onglets par document, reprise de session, documents récents, barre de menus, thèmes clair et sombre. |
 
@@ -184,6 +184,12 @@ dossiers cachés ignorés). Un PDF sans XML de facture apparaît dans la liste a
 
 Dans le panneau **Fichiers** : **🗑** vide la liste, **✕** (au survol) retire un fichier,
 **‹ / ›** replie le panneau.
+
+### Exports Excel et rapport PDF
+
+Dans **Données**, utilisez **Exporter Excel** pour les lignes affichées (recherche, tri et filtre de pointage appliqués), ou **Rapport PDF** dans les contrôles. Dans le **Tableau des factures**, **Exporter Excel** reprend les factures filtrées et ajoute une feuille de totaux par devise, avec les avoirs déduits. Ces actions sont aussi dans le menu **Fichier**.
+
+Les montants Excel sont numériques ; les numéros et références restent du texte. Les valeurs dépassant 15 chiffres significatifs restent textuelles pour éviter un arrondi par Excel. Le rapport PDF contient la synthèse, les verdicts et limites des contrôles, les diagnostics et le suivi manuel. Les résultats encore en cours sont ceux de l’instant de l’export : réexportez après leur achèvement. Tous les fichiers sont générés localement, sans réseau.
 
 ### Formats pris en charge
 
