@@ -69,7 +69,7 @@ impl fmt::Display for Dec {
 }
 
 /// Division arrondie au plus proche, demi a l'ecart de zero (d > 0).
-fn round_div(n: i128, d: i128) -> i128 {
+pub(super) fn round_div(n: i128, d: i128) -> i128 {
     if n >= 0 {
         (n + d / 2) / d
     } else {

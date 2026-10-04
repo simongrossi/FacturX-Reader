@@ -77,6 +77,8 @@ const api = {
   libraryReset: () => invoke("library_reset"),
   libraryPrices: (hash, reference, name) => invoke("library_prices", { hash, reference, name }),
   pickFolder: () => invoke("pick_folder"),
+  pickWatchFolder: () => invoke("pick_watch_folder"),
+  scanWatchFolder: (folder) => invoke("scan_watch_folder", { folder }),
   startupPaths: () => invoke("startup_paths"),
   getPointage: (hash) => invoke("get_pointage", { hash }),
   setPointage: (hash, lines, filename) => invoke("set_pointage", { hash, lines, filename }),
@@ -116,13 +118,13 @@ function newFileEntry(name, status, result) {
 }
 
 /* Charge une liste de sources {name, load()} l'une après l'autre. */
-async function addSources(sources) {
+async function addSources(sources, options = {}) {
   const remaining = Math.max(0, 500 - state.files.length);
   if (sources.length > remaining) {
     workspaceNotice("La session est limitée à 500 documents. Fermez des onglets avant d’en ajouter d’autres.");
     sources = sources.slice(0, remaining);
   }
-  if (!sources.length) return;
+  if (!sources.length) return { processed: 0, cancelled: false };
   workspaceHasSession = true;
   const entries = sources.map((src) => {
     const entry = newFileEntry(src.name, "loading", null);
@@ -132,7 +134,10 @@ async function addSources(sources) {
     return entry;
   });
   renderList();
+  let processed = 0;
+  options.onProgress?.(0, sources.length);
   for (let i = 0; i < sources.length; i++) {
+    if (options.shouldCancel?.()) break;
     const entry = entries[i];
     try {
       if (sources[i].blob) {
@@ -154,6 +159,8 @@ async function addSources(sources) {
       entry.status = "error";
       entry.error = String((e && e.message) || e);
     }
+    processed++;
+    options.onProgress?.(processed, sources.length, entry);
     if (state.batch && !state.selected) refreshBatchProgress();
     if (i % 10 === 9 || i === sources.length - 1) {
       renderList();
@@ -161,11 +168,17 @@ async function addSources(sources) {
       await new Promise(resolve => requestAnimationFrame(resolve));
     }
   }
-  const lastOk = [...entries].reverse().find((x) => x.status === "ok");
-  if (!state.batch) {
+  if (processed < entries.length) {
+    const pending = new Set(entries.slice(processed));
+    state.files = state.files.filter(entry => !pending.has(entry));
+    renderList();
+  }
+  const lastOk = entries.slice(0, processed).reverse().find((x) => x.status === "ok");
+  if (!state.batch && processed > 0) {
     if (lastOk) selectFile(lastOk.id);
     else if (state.files.length) selectFile(state.files[0].id);
   }
+  return { processed, cancelled: processed < entries.length };
 }
 
 /* Fichiers choisis ou déposés dans la fenêtre (objets File). */
@@ -2100,6 +2113,7 @@ function wireUI() {
 
 window.addEventListener("DOMContentLoaded", async () => {
   wireSettings();
+  wireWatchFolder();
   wireDnD();
   wireUI();
   wireWorkspace();
@@ -2140,4 +2154,5 @@ window.addEventListener("DOMContentLoaded", async () => {
   }
   workspaceReady = true;
   renderWelcome();
+  resumeWatchFolder();
 });

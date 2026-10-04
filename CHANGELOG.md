@@ -15,11 +15,15 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
   frais/remises, total déclaré, chemins XML, calculs acceptés et tolérance.
 - Ventilation de TVA par taux UBL/CII dans la fiche et l’anomalie exacte : base, taux, TVA déclarée,
   chemins XML, calcul attendu, écart et tolérance ; occurrences de même taux distinguées.
+- Dossier surveillé choisi dans les paramètres : nouvelles factures détectées dans les sous-dossiers,
+  progression, pause, annulation entre fichiers et reprise des nouveautés après redémarrage.
 
 ### Corrigé
 
 - Le menu contextuel du tableau reste utilisable dans une petite fenêtre : un défilement
   programmatique ne le ferme plus pendant le clic sur une action.
+- L’affichage des prix unitaires, frais/remises et TVA de ligne reconstitués en UBL/CII utilise
+  des décimaux exacts et un arrondi explicite au centime, sans calcul `f64`.
 
 ## [0.7.1] - 2026-10-04
 
