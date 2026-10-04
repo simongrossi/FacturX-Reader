@@ -89,10 +89,12 @@ Les anciennes branches sont archivées ou déjà intégrées ; voir [l’inventa
 1. **Compléter la validation des plateformes** (P0) : essai macOS général fait ; restent les
    vérifications détaillées (menus, raccourcis, glisser-déposer, impression, persistance),
    Linux et l’installation documentée des paquets publiés.
-2. **Suite de la revue de code** : poursuivre le découpage de `app.js` et de `facturx.rs`.
+2. **Suite de la revue de code** : le découpage du moteur Rust en modules conteneurs, UBL et CII
+   est fait ; poursuivre celui de `app.js` et des contrôles communs de `facturx.rs`.
 3. **Calculs et provenance** (P1) : détail de la TVA par taux, affichage des lignes et
    calculs monétaires du tableau et de la bibliothèque en décimaux exacts terminés ;
-   élargir les tests sur des factures anonymisées.
+   le corpus synthétique comptable couvre les principaux cas ; l'élargir avec des factures
+   anonymisées autorisées quand elles seront disponibles.
 4. **Précomptabilisation à étudier** : écritures proposées pour achats et avoirs, revue puis exports EBP et Sage selon le produit/version. [Cadrage](IDEES.md).
 5. **Intégration au système différée** : signature des builds, « Ouvrir avec » et instance unique
    seront réévalués lors d’un chantier de distribution ; les builds actuels restent non signés.
@@ -191,8 +193,10 @@ lot avec historique et suivi. Ce qui en ressort pour le plan :
 - [x] Protection des pointages et du suivi : sauvegarde quotidienne, restauration, export/import,
   erreur visible si un fichier est illisible ; une corruption n'est plus traitée comme un
   historique vide. Suivi de vérification déplacé dans `suivi.json`.
-- [ ] Jeu de tests anonymisé et versionnable pour la CI : profils sans lignes, avoirs, remises,
-  frais, acomptes, plusieurs taux de TVA, arrondis, devises, PDF/ZIP et variantes UBL/CII.
+- [x] Jeu de tests synthétique et versionné pour la CI : profil sans lignes, avoir, remise,
+  frais, acompte, plusieurs taux de TVA, arrondi, devises, PDF/ZIP et variantes UBL/CII.
+  Voir [le corpus comptable](tests/corpus/accounting/README.md). Des factures réelles anonymisées
+  pourront compléter cette base après autorisation et vérification de leur anonymisation.
 - [ ] Mise à jour de PDF.js (3.11 embarqué) et déclaration explicite du worker.
 - [x] VALIDATION.md remis à jour pour la 0.5.0 : vérifié, non vérifié, limites.
 
