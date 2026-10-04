@@ -54,9 +54,9 @@ tableaux lisibles en français, **recalcule les montants** et signale ce qui ne 
 | ✅ **Contrôles de cohérence** | Calculs en décimaux exacts : lignes, HT, TVA par taux, TTC, net à payer. Mentions essentielles, clés SIREN/SIRET, n° de TVA et IBAN, échéance, escompte. |
 | 📊 **Tableau multi-factures** | Toutes les factures ouvertes sur une page : totaux par devise, avoirs déduits, filtres d'anomalies, de période, de montant et de fournisseur, export CSV. |
 | 🗂️ **Revue d’un lot** | Progression de la lecture et des validations, anomalies de toutes les factures regroupées, rapport PDF consolidé avec erreurs de lecture et contrôles incomplets. |
-| 📅 **Échéancier** | En développement pour la 0.8.0 : factures groupées par date d’échéance et devise, retards, avoirs déduits du solde indicatif, accès aux documents et export CSV. |
-| 📁 **Dossier surveillé** | En développement pour la 0.8.0 : nouvelles factures détectées dans un dossier choisi, import avec progression, pause et annulation. |
-| 🔎 **Provenance des valeurs** | En développement pour la 0.8.0 : source XML des dates, totaux, lignes et ventilations de TVA par taux, avec détail des calculs et accès depuis les anomalies. |
+| 📅 **Échéancier** | Factures groupées par date d’échéance et devise, retards, avoirs déduits du solde indicatif, accès aux documents et export CSV. |
+| 📁 **Dossier surveillé** | Nouvelles factures détectées dans un dossier choisi, import avec progression, pause et annulation. |
+| 🔎 **Provenance des valeurs** | Source XML des dates, totaux, lignes et ventilations de TVA par taux, avec détail des calculs et accès depuis les anomalies. |
 | 🗄️ **Bibliothèque locale** | Toutes les factures déjà ouvertes, retrouvables entre les sessions. Signale un IBAN nouveau pour un fournisseur, un doublon dans l'historique, une variation de prix unitaire. |
 | 🪟 **PDF et données côte à côte** | Vérifiez une ligne sans changer d'onglet ; recherchez et surlignez le texte du PDF. |
 | 🖊️ **Pointage et suivi** | Pointage des lignes, statut À vérifier / Vérifiée / Anomalie, commentaires par facture et par ligne. |
@@ -187,7 +187,7 @@ nécessaires à la session ; les pointages restent dans leur fichier habituel.
 Dans un dossier, seuls les `.pdf`, `.xml` et `.zip` sont retenus (500 fichiers au maximum,
 dossiers cachés ignorés). Un PDF sans XML de facture apparaît dans la liste avec son erreur.
 
-Pour suivre les nouveaux fichiers, choisissez **Paramètres → Dossier surveillé → Choisir un dossier…**. La surveillance est locale et active seulement quand l’application est ouverte. Les fichiers déjà présents lors du choix sont ignorés ; **Ouvrir un dossier** permet de les importer. La progression, la pause et l’annulation se trouvent dans les paramètres. [Fonctionnement et limites](docs/WATCH_FOLDER.md). Cette fonction est en développement pour la 0.8.0 et absente des installateurs 0.7.1.
+Pour suivre les nouveaux fichiers, choisissez **Paramètres → Dossier surveillé → Choisir un dossier…**. La surveillance est locale et active seulement quand l’application est ouverte. Les fichiers déjà présents lors du choix sont ignorés ; **Ouvrir un dossier** permet de les importer. La progression, la pause et l’annulation se trouvent dans les paramètres. [Fonctionnement et limites](docs/WATCH_FOLDER.md). Fonction disponible à partir de la 0.8.0.
 
 Dans le panneau **Fichiers** : **🗑** vide la liste, **✕** (au survol) retire un fichier,
 **‹ / ›** replie le panneau.
@@ -212,7 +212,7 @@ Après avoir ouvert un dossier ou plusieurs documents, ouvrez **Tableau**. **Bil
 
 ### Échéancier des factures
 
-Cette fonction est présente dans `main` pour la 0.8.0, mais absente des installateurs 0.7.1.
+Fonction disponible à partir de la 0.8.0.
 
 Dans **Tableau**, l’échéancier regroupe les documents ouverts par date d’échéance et devise. Il distingue les échéances dépassées, celles du jour, à venir et absentes. Les avoirs sans échéance réduisent le solde global, sans être attribués à une date. Filtrez les groupes par situation ou devise, ouvrez une facture ou exportez les lignes visibles en CSV. Les montants sont indicatifs : l’application ne connaît pas les paiements effectués. [Calcul, export et limites](docs/SCHEDULE.md).
 
@@ -220,9 +220,9 @@ Les totaux du tableau et de l'échéancier, les filtres monétaires et les compa
 
 ### Provenance des valeurs
 
-Dans **Données**, ouvrez **Voir la provenance** sur une date ou un montant clé pour retrouver son champ XML. Les montants contrôlés montrent aussi la formule et les valeurs utilisées pour le recalcul. Depuis une anomalie de total, **Voir la provenance des montants** ouvre la carte concernée. Cette fonction est en développement pour la 0.8.0, absente des installateurs 0.7.1. [Portée et limites](docs/PROVENANCE.md).
+Dans **Données**, ouvrez **Voir la provenance** sur une date ou un montant clé pour retrouver son champ XML. Les montants contrôlés montrent aussi la formule et les valeurs utilisées pour le recalcul. Depuis une anomalie de total, **Voir la provenance des montants** ouvre la carte concernée. Fonction disponible à partir de la 0.8.0. [Portée et limites](docs/PROVENANCE.md).
 
-La section **Ventilation de TVA** détaille chaque taux présent dans le XML : base, taux, TVA déclarée, calcul attendu et tolérance. Un écart de TVA par taux présente ce même détail dans le centre d’anomalies. Cette fonction est en développement pour la 0.8.0, absente des installateurs 0.7.1.
+La section **Ventilation de TVA** détaille chaque taux présent dans le XML : base, taux, TVA déclarée, calcul attendu et tolérance. Un écart de TVA par taux présente ce même détail dans le centre d’anomalies. Fonction disponible à partir de la 0.8.0.
 
 Dans le tableau des lignes, **Détail** affiche aussi la quantité, le prix déclaré, les frais ou remises, le total XML et les résultats du contrôle avec sa tolérance. Une anomalie de ligne donne accès au même détail sans quitter le centre d’anomalies.
 

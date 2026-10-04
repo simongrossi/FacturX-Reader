@@ -1,6 +1,6 @@
 # Dossier surveillé
 
-Fonction en développement pour la 0.8.0, absente des installateurs 0.7.1.
+Fonction disponible à partir de la 0.8.0.
 
 Dans **Paramètres → Dossier surveillé**, choisissez explicitement un dossier. La surveillance ne fonctionne que pendant que l’application est ouverte ; elle n’installe aucun service système et ne crée aucune association de fichiers. Le choix initial prend un relevé des `.pdf`, `.xml` et `.zip` déjà présents, y compris dans les sous-dossiers non cachés, et ne les importe pas. Pour importer ces fichiers existants, utilisez **Ouvrir un dossier**. Les liens symboliques sont ignorés pour éviter les cycles.
 

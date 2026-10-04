@@ -5,6 +5,8 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 
 ## [Non publié]
 
+## [0.8.0] - 2026-10-05
+
 ### Ajouté
 
 - Échéancier indicatif des factures ouvertes : regroupement par échéance et devise, retards,

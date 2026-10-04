@@ -1,6 +1,6 @@
 # Roadmap
 
-Mise à jour : 4 octobre 2026, [version 0.7.1 publiée](https://github.com/simongrossi/FacturX-Reader/releases/tag/v0.7.1) et préparation de la 0.8.0 avec échéancier, provenance des valeurs, dossier surveillé et calculs monétaires du tableau et de la bibliothèque en décimaux exacts.
+Mise à jour : 5 octobre 2026, version 0.8.0 préparée (échéancier, provenance des valeurs, dossier surveillé, recherche dans le PDF et calculs monétaires du tableau et de la bibliothèque en décimaux exacts) ; la dernière version publiée est la [0.7.1](https://github.com/simongrossi/FacturX-Reader/releases/tag/v0.7.1) tant que le tag `v0.8.0` n'est pas posé.
 Voir [CHANGELOG.md](CHANGELOG.md) pour le détail des versions, [README.md](README.md) pour
 l'utilisation, [VALIDATION.md](VALIDATION.md) pour le bilan de vérification P0 et
 [COMPARATIF.md](COMPARATIF.md) pour le bilan face aux autres outils et
@@ -50,14 +50,14 @@ Versions publiées (pré-versions, builds non signés) :
 - [x] Rapport PDF consolidé de toute la session, indépendamment des filtres, avec avoirs déduits par devise.
 - [Fonctionnement et limites](docs/BATCH_REVIEW.md).
 
-### Échéancier indicatif (non publié)
+### Échéancier indicatif (0.8.0)
 
 - [x] Regroupement des factures par échéance et devise, avec situation recalculée au jour de l’affichage.
 - [x] Avoirs déduits du solde global, sans les affecter à une date absente ; montants inconnus signalés.
 - [x] Filtres situation/devise, accès à la facture et export CSV des lignes filtrées et totaux par groupe.
 - [Calcul et limites](docs/SCHEDULE.md).
 
-### Provenance des valeurs (non publiée)
+### Provenance des valeurs (0.8.0)
 
 - [x] Chemin et valeur XML des montants clés ; dates extraites avec lien vers leur forme source.
 - [x] TVA sommée par taux identifiée comme calculée, avec ses entrées.
@@ -220,7 +220,7 @@ lot avec historique et suivi. Ce qui en ressort pour le plan :
   pointage de la facture entière ; distinct d'un paiement confirmé (0.4.0).
 - [x] Rapport de contrôle exportable en JSON : règle, attendu, constaté, écart, chemin XML (0.4.0).
 - [x] Revue du lot : progression, anomalies transversales et rapport PDF consolidé de tous les documents ouverts (0.7.1).
-- [x] Échéancier indicatif des factures ouvertes (non publié).
+- [x] Échéancier indicatif des factures ouvertes (0.8.0).
 
 ### Prévu
 

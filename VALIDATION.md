@@ -1,4 +1,4 @@
-# Validation — 0.7.1 publiée et développements 0.8.0, 4 octobre 2026
+# Validation — 0.7.1 publiée et 0.8.0 préparée, 5 octobre 2026
 
 Bilan de ce qui a été vérifié pour cette version, et de ce qui ne l'a pas été.
 Les commandes sont décrites dans [README.md](README.md#tests).
@@ -51,6 +51,12 @@ Ces tests ne valident pas encore la génération d'écritures ni un export compt
 Sur la branche de ce chantier, la vérification locale du 4 octobre a réussi : 75 tests Rust
 unitaires, 3 tests du corpus et `samples.rs` (3 tests longs ignorés), 30 scénarios navigateur,
 `npm run check:js` et la comparaison de 955 documents avec les références (aucun écart).
+
+Préparation de la 0.8.0, 5 octobre 2026 : sur `main` (macOS), `npm run check:js`, 75 tests Rust
+unitaires (3 tests longs ignorés), 3 tests du corpus comptable, `samples.rs` et 30 scénarios
+navigateur réussissent ; le workflow `Checks` est vert sur `main`. Les fonctions de la 0.8.0
+(échéancier, provenance, dossier surveillé, recherche dans le PDF) n'ont pas encore fait l'objet
+d'un essai manuel dans l'application installée, et le tag `v0.8.0` n'est pas posé.
 
 ## Vérifications réalisées
 

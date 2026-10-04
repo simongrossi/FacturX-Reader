@@ -1,6 +1,6 @@
 # Provenance des valeurs
 
-Chantier de la 0.8.0, présent dans `main` après la préversion 0.7.1.
+Chantier de la 0.8.0.
 
 Dans **Données**, les cartes Date d’émission, Échéance, Total HT, Total TVA, Total TTC et À payer proposent **Voir la provenance** lorsque le moteur dispose d’un chemin source. Chaque carte indique la valeur et le champ XML qui l’a fournie ; **Voir dans le XML** ouvre l’occurrence. Pour les montants, la valeur citée est le texte numérique du XML, avant normalisation de son affichage. Les dates sont des valeurs extraites et peuvent être reformattées (par exemple une date CII `20261004` affichée `2026-10-04`) : le lien XML montre la forme source.
 
