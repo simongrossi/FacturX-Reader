@@ -637,6 +637,8 @@ async function renderAllPages(doc) {
       if (token !== state.renderToken) return;
       const layer = document.createElement("div");
       layer.className = "pdf-text-layer";
+      // PDF.js dimensionne le calque et ses textes avec cette variable ; sans elle, le calque est vide.
+      layer.style.setProperty("--scale-factor", viewport.scale);
       layer.style.width = viewport.width + "px";
       layer.style.height = viewport.height + "px";
       div.appendChild(layer);

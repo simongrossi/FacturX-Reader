@@ -402,6 +402,16 @@ test('recherche dans le texte du PDF : résultats, navigation et zoom', async ({
   await page.locator('#pdf-search').fill('TEST-P0');
   await expect(page.locator('#pdf-search-status')).toHaveText('1 / 2');
   await expect(page.locator('.pdf-match')).toHaveCount(2);
+  // Le surlignage doit être visible sur le texte, pas replié dans un calque de hauteur nulle.
+  const highlight = await page.evaluate(() => {
+    const mark = document.querySelector('.pdf-match.active').getBoundingClientRect();
+    const layer = document.querySelector('.pdf-text-layer').getBoundingClientRect();
+    const canvas = document.querySelector('.pdf-page canvas').getBoundingClientRect();
+    return { layerHeight: layer.height, canvasHeight: canvas.height, offsetTop: mark.top - layer.top, bottom: mark.bottom - layer.top };
+  });
+  expect(Math.abs(highlight.layerHeight - highlight.canvasHeight)).toBeLessThan(2);
+  expect(highlight.offsetTop).toBeGreaterThan(5);
+  expect(highlight.bottom).toBeLessThan(highlight.layerHeight);
   await page.locator('#pdf-search-next').click();
   await expect(page.locator('#pdf-search-status')).toHaveText('2 / 2');
   await page.locator('#pdf-zoom').selectOption('1.5');
