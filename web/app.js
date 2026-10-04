@@ -11,6 +11,9 @@ const state = {
   pdfDoc: null,
   pdfSource: null,   // "pdf" | "xmlpdf" | null — source affichée dans le pane PDF partagé
   renderToken: 0,
+  pdfSearchPages: [],
+  pdfSearchMatches: [],
+  pdfSearchIndex: -1,
   fit: false,        // PDF ajusté à la largeur à l'ouverture
   batch: false,      // tableau multi-factures affiché (aucun document sélectionné)
   library: false,    // bibliothèque affichée (aucun document sélectionné)
@@ -565,6 +568,11 @@ async function renderPdf(f, src) {
   const pane = byId("pdf-pages");
   const pdfObj = (src === "xmlpdf") ? f.result.xml_pdf : f.result.pdf;
   state.pdfSource = src;
+  state.pdfSearchPages = [];
+  state.pdfSearchMatches = [];
+  state.pdfSearchIndex = -1;
+  byId("pdf-search").value = "";
+  updatePdfSearchStatus();
   if (!pdfObj) {
     pane.innerHTML = '<div class="pdf-none">' + (src === "xmlpdf"
       ? "Le XML de cette facture ne contient pas de PDF intégré distinct."
@@ -601,6 +609,7 @@ async function renderAllPages(doc) {
   }
   const pane = byId("pdf-pages");
   pane.innerHTML = "";
+  state.pdfSearchPages = [];
   const scale = state.zoom;
   for (let i = 1; i <= doc.numPages; i++) {
     if (token !== state.renderToken) return;
@@ -617,16 +626,104 @@ async function renderAllPages(doc) {
     div.appendChild(label);
     pane.appendChild(div);
     const viewport = page.getViewport({ scale });
+    div.style.width = viewport.width + "px";
     canvas.width = Math.floor(viewport.width);
     canvas.height = Math.floor(viewport.height);
     const ctx = canvas.getContext("2d");
     await page.render({ canvasContext: ctx, viewport }).promise;
+    if (token !== state.renderToken) return;
+    try {
+      const content = await page.getTextContent();
+      if (token !== state.renderToken) return;
+      const layer = document.createElement("div");
+      layer.className = "pdf-text-layer";
+      layer.style.width = viewport.width + "px";
+      layer.style.height = viewport.height + "px";
+      div.appendChild(layer);
+      const textDivs = [];
+      await pdfjsLib.renderTextLayer({ textContentSource: content, container: layer, viewport, textDivs }).promise;
+      if (token !== state.renderToken) return;
+      state.pdfSearchPages.push({ layer, content, textDivs, page: i });
+    } catch (e) { /* Un calque texte défectueux ne doit pas empêcher l'affichage du PDF. */ }
   }
   if (token === state.renderToken) {
+    updatePdfSearch(false);
     updatePageInfo(doc);
     const f = getFile(state.selected);
     if (f) { f.rendered.pdf = true; restoreDocumentScroll(f); }
   }
+}
+
+function updatePdfSearchStatus() {
+  const query = byId("pdf-search").value.trim();
+  const count = state.pdfSearchMatches.length;
+  byId("pdf-search-status").textContent = !query ? "" : !state.pdfDoc ? "PDF absent"
+    : !state.pdfSearchPages.some(p => p.content.items.some(item => item.str)) ? "Aucun texte (OCR requis)"
+    : count ? `${state.pdfSearchIndex + 1} / ${count}` : "Aucun résultat";
+  byId("pdf-search-prev").disabled = !count;
+  byId("pdf-search-next").disabled = !count;
+}
+
+function updatePdfSearch(navigate = true) {
+  state.pdfSearchMatches = [];
+  state.pdfSearchIndex = -1;
+  document.querySelectorAll(".pdf-match").forEach(el => el.remove());
+  const query = byId("pdf-search").value.trim().toLocaleLowerCase();
+  if (!query) { updatePdfSearchStatus(); return; }
+  for (const { layer, content, textDivs, page } of state.pdfSearchPages) {
+    const items = content.items;
+    const offsets = [];
+    let full = "";
+    items.forEach((item, index) => {
+      offsets.push(full.length);
+      full += item.str || "";
+      if (item.hasEOL) full += "\n";
+    });
+    const lower = full.toLocaleLowerCase();
+    for (let pos = 0; (pos = lower.indexOf(query, pos)) !== -1; pos += Math.max(1, query.length)) {
+      const marks = [];
+      const end = pos + query.length;
+      for (let i = 0; i < items.length; i++) {
+        const start = offsets[i], itemEnd = start + (items[i].str || "").length;
+        if (itemEnd <= pos || start >= end || !textDivs[i]?.firstChild) continue;
+        const node = textDivs[i].firstChild;
+        if (node.nodeType !== Node.TEXT_NODE) continue;
+        const range = document.createRange();
+        range.setStart(node, Math.max(0, pos - start));
+        range.setEnd(node, Math.min(node.length, end - start));
+        const origin = layer.getBoundingClientRect();
+        for (const rect of range.getClientRects()) {
+          if (!rect.width || !rect.height) continue;
+          const mark = document.createElement("span");
+          mark.className = "pdf-match";
+          mark.style.left = rect.left - origin.left + "px";
+          mark.style.top = rect.top - origin.top + "px";
+          mark.style.width = rect.width + "px";
+          mark.style.height = rect.height + "px";
+          layer.appendChild(mark);
+          marks.push(mark);
+        }
+      }
+      if (marks.length) state.pdfSearchMatches.push({ marks, page });
+    }
+  }
+  if (state.pdfSearchMatches.length) {
+    state.pdfSearchIndex = 0;
+    if (navigate) gotoPdfSearchMatch(0);
+    else state.pdfSearchMatches[0].marks.forEach(mark => mark.classList.add("active"));
+  }
+  updatePdfSearchStatus();
+}
+
+function gotoPdfSearchMatch(delta) {
+  const matches = state.pdfSearchMatches;
+  if (!matches.length) return;
+  matches[state.pdfSearchIndex]?.marks.forEach(mark => mark.classList.remove("active"));
+  state.pdfSearchIndex = (state.pdfSearchIndex + delta + matches.length) % matches.length;
+  const match = matches[state.pdfSearchIndex];
+  match.marks.forEach(mark => mark.classList.add("active"));
+  match.marks[0].scrollIntoView({ block: "center", inline: "nearest" });
+  updatePdfSearchStatus();
 }
 
 async function fitWidth() {
@@ -1461,6 +1558,12 @@ function schematronTail(sec, sch, unevaluated) {
 
   // Règles françaises BR-FR : évaluées à part, sans effet sur le verdict du Schematron.
   const fr = sch.br_fr;
+  if (sch.br_fr_perimetre) {
+    const perimeter = document.createElement("p");
+    perimeter.className = "verdict-note";
+    perimeter.textContent = "Périmètre BR-FR : " + sch.br_fr_perimetre.raison + ". " + sch.br_fr_perimetre.calendrier;
+    sec.appendChild(perimeter);
+  }
   if (fr) {
     const nonEval = fr.non_evaluables || [];
     const verdict = invoiceVerdicts({ status: "ok", result: { synthese: {}, schematron: sch } }).france;
@@ -1475,8 +1578,7 @@ function schematronTail(sec, sch, unevaluated) {
     if (fr.erreurs && fr.erreurs.length) sec.appendChild(schematronTable(fr.erreurs));
     sec.appendChild(Object.assign(document.createElement("p"), {
       className: "verdict-note",
-      textContent: "Règles BR-FR v" + fr.version + " (FNFE-MPE, norme XP Z12-012), évaluées parce que la facture est au profil EXTENDED-CTC-FR ou que vendeur et acheteur sont en France. " +
-        "Ce critère ne tient pas compte des cas où la réforme ne s'applique pas (B2C, opérations hors obligation) : ces règles ont leur propre verdict et ne changent pas celui du Schematron.",
+      textContent: "Règles BR-FR v" + fr.version + " (FNFE-MPE, norme XP Z12-012), évaluées à titre technique. Le statut B2B, les exemptions et la taille de l'entreprise restent à confirmer ; ces règles ne changent pas celui du Schematron.",
     }));
   }
 }
@@ -2064,6 +2166,12 @@ function wireUI() {
 
   byId("pdf-prev").addEventListener("click", () => gotoPage(-1));
   byId("pdf-next").addEventListener("click", () => gotoPage(1));
+  byId("pdf-search").addEventListener("input", () => updatePdfSearch());
+  byId("pdf-search").addEventListener("keydown", e => {
+    if (e.key === "Enter") { e.preventDefault(); gotoPdfSearchMatch(e.shiftKey ? -1 : 1); }
+  });
+  byId("pdf-search-prev").addEventListener("click", () => gotoPdfSearchMatch(-1));
+  byId("pdf-search-next").addEventListener("click", () => gotoPdfSearchMatch(1));
   byId("pdf-fit").addEventListener("click", () => {
     state.fit = true;
     captureDocumentView(); saveWorkspace();

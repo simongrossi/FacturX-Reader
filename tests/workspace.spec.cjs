@@ -394,6 +394,23 @@ test('PDF multipage : zoom et position après changement de vue et rechargement'
   await expect(page.locator('#pdf-zoom')).toHaveValue('1.5');
 });
 
+test('recherche dans le texte du PDF : résultats, navigation et zoom', async ({ page }) => {
+  await mockBackend(page, require('./fixtures.cjs').invoicePdf().toString('base64'));
+  await page.goto(url);
+  await page.locator('#file-input').setInputFiles({ name: 'synthetic.pdf', mimeType: 'application/pdf', buffer: Buffer.from('test') });
+  await expect(page.locator('.pdf-page')).toHaveCount(2);
+  await page.locator('#pdf-search').fill('TEST-P0');
+  await expect(page.locator('#pdf-search-status')).toHaveText('1 / 2');
+  await expect(page.locator('.pdf-match')).toHaveCount(2);
+  await page.locator('#pdf-search-next').click();
+  await expect(page.locator('#pdf-search-status')).toHaveText('2 / 2');
+  await page.locator('#pdf-zoom').selectOption('1.5');
+  await expect(page.locator('#pdf-search-status')).toHaveText('1 / 2');
+  await expect(page.locator('.pdf-match')).toHaveCount(2);
+  await page.locator('#pdf-search').fill('absent');
+  await expect(page.locator('#pdf-search-status')).toHaveText('Aucun résultat');
+});
+
 test('nettoyage conserve la session, quota et copie manquante sont signalés', async ({ page }) => {
   await mockBackend(page);
   await page.goto(url);

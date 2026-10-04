@@ -135,14 +135,29 @@ def schema(root):
 
 
 def french_scope(root):
-    if group(root).startswith('CTC-'):
-        return True
     if local(root.tag) == 'CrossIndustryInvoice':
         paths = ['.//ram:SellerTradeParty/ram:PostalTradeAddress/ram:CountryID', './/ram:BuyerTradeParty/ram:PostalTradeAddress/ram:CountryID']
+        buyer = root.find('.//ram:BuyerTradeParty', NS)
     else:
         paths = ['cac:AccountingSupplierParty/cac:Party/cac:PostalAddress/cac:Country/cbc:IdentificationCode',
                  'cac:AccountingCustomerParty/cac:Party/cac:PostalAddress/cac:Country/cbc:IdentificationCode']
-    return all(root.findtext(path, '', NS).strip().upper() == 'FR' for path in paths)
+        buyer = root.find('cac:AccountingCustomerParty', NS)
+    if not all(root.findtext(path, '', NS).strip().upper() == 'FR' for path in paths):
+        return False
+    if group(root).startswith('CTC-'):
+        return True
+    date = next((node for node in root.iter() if local(node.tag) in ('IssueDate', 'IssueDateTime')), None)
+    digits = ''.join(c for c in ''.join(date.itertext()) if c.isdigit())[:8] if date is not None else ''
+    if len(digits) == 8 and digits < '20260901':
+        return False
+    categories = [node.text.strip() for node in root.iter() if local(node.tag) == 'CategoryCode' and node.text]
+    categories += [next((child.text.strip() for child in node if local(child.tag) == 'ID' and child.text), '')
+                   for node in root.iter() if local(node.tag) == 'TaxCategory']
+    if categories and all(category in ('E', 'O') for category in categories):
+        return False
+    return buyer is not None and any(local(node.tag) in ('GlobalID', 'SpecifiedTaxRegistration', 'PartyTaxScheme', 'PartyLegalEntity')
+                                     and any(local(child.tag) in ('ID', 'CompanyID') and child.text and child.text.strip() for child in node.iter())
+                                     for node in buyer.iter())
 
 
 def variants(root):

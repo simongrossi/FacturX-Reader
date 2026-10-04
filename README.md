@@ -58,7 +58,7 @@ tableaux lisibles en français, **recalcule les montants** et signale ce qui ne 
 | 📁 **Dossier surveillé** | En développement pour la 0.8.0 : nouvelles factures détectées dans un dossier choisi, import avec progression, pause et annulation. |
 | 🔎 **Provenance des valeurs** | En développement pour la 0.8.0 : source XML des dates, totaux, lignes et ventilations de TVA par taux, avec détail des calculs et accès depuis les anomalies. |
 | 🗄️ **Bibliothèque locale** | Toutes les factures déjà ouvertes, retrouvables entre les sessions. Signale un IBAN nouveau pour un fournisseur, un doublon dans l'historique, une variation de prix unitaire. |
-| 🪟 **PDF et données côte à côte** | Vérifiez une ligne sans changer d'onglet. |
+| 🪟 **PDF et données côte à côte** | Vérifiez une ligne sans changer d'onglet ; recherchez et surlignez le texte du PDF. |
 | 🖊️ **Pointage et suivi** | Pointage des lignes, statut À vérifier / Vérifiée / Anomalie, commentaires par facture et par ligne. |
 | 🔎 **Recherche** | Texte ou regex, dans le document ou dans tous les documents ouverts, avec surlignage. |
 | 📤 **Exports** | Lignes et tableau en CSV ou Excel (.xlsx), rapport de contrôle en JSON ou PDF, copie en CSV, JSON ou Markdown par clic droit. |
@@ -255,7 +255,8 @@ L'option **Regex** accepte une
 expression régulière, sans délimiteurs (ex. `FAC-2026-\d+`). La recherche ignore la casse.
 Chaque résultat ouvre la facture dans **XML complet** et surligne l'élément en jaune.
 Utilisez les flèches ou `Entrée` / `Maj+Entrée` pour naviguer ; `Échap` efface la recherche.
-Les PDF et les contenus binaires ne sont pas recherchés. Les regex trop lentes sont interrompues.
+La recherche rapide ne parcourt pas les PDF ni les contenus binaires. Les regex trop lentes sont interrompues.
+Dans la barre de l'onglet **PDF**, utilisez **Rechercher dans le PDF** pour chercher le texte déjà présent dans le fichier, parcourir les résultats et les surligner. Un PDF image sans texte demande un OCR, non intégré à ce stade.
 Le compteur compte les éléments XML correspondants, pas les occurrences dans chaque valeur.
 Le surlignage jaune porte sur la ligne de l'élément trouvé.
 
@@ -292,7 +293,7 @@ un seul « conforme » :
 | **Calculs cohérents** | Les montants du XML se recalculent sans écart | Que la facture respecte la norme |
 | **Règles EN 16931 respectées** | Les règles métier évaluées par le moteur de l'application passent | Que le Schematron officiel passerait |
 | **Schematron officiel respecté** | Aucune règle bloquante du Schematron officiel (EN 16931, profil Factur-X ou EXTENDED-CTC-FR annoncé) n'est enfreinte | Que le XML respecte le schéma XSD ou les règles nationales |
-| **Règles françaises BR-FR respectées** | Les règles de la réforme française passent, pour une facture au profil EXTENDED-CTC-FR ou entre deux parties en France | Que la réforme s'applique bien à cette facture |
+| **Règles françaises BR-FR respectées** | Les règles techniques passent pour un profil EXTENDED-CTC-FR ou un B2B français identifié dans le XML | Que la réforme s'applique légalement à cette opération |
 | **Schéma XSD respecté** | La structure du XML suit le schéma officiel : éléments connus, à leur place, valeurs du bon type | Que les montants sont justes ou les règles métier respectées |
 | **PDF/A-3 déclaré, structure sans anomalie relevée** | Le PDF s'annonce PDF/A-3, déclare sa pièce jointe XML et passe les sept contrôles de structure | Que le fichier est conforme à ISO 19005-3 : la norme comporte bien d'autres exigences |
 
@@ -344,14 +345,14 @@ le texte de la règle et son emplacement dans le XML.
   règles CII, 953 règles UBL ;
 - les règles **BR-FR** de la réforme française (même dépôt, même version : 171 règles CII, 175
   règles UBL — longueur et format des identifiants, SIREN et SIRET, mentions obligatoires en
-  France, cadre de facturation…) sont évaluées en plus quand la facture relève de la réforme :
-  profil EXTENDED-CTC-FR, ou **vendeur et acheteur tous deux en France**. Une facture étrangère,
-  ou adressée à l'étranger, n'y est pas soumise. Elles ont **leur propre verdict**, « Règles
-  françaises BR-FR », et leur propre liste en bas du bloc : elles ne changent pas le verdict du
-  Schematron. Ce critère est en effet un choix de l'application, qui ne tient pas compte des cas
-  particuliers de la réforme (B2C, opérations exonérées de l'obligation, calendrier d'entrée en
-  vigueur selon la taille de l'entreprise) ; une règle BR-FR non respectée est donc signalée en
-  alerte, pas en écart ;
+  France, cadre de facturation…) sont évaluées à titre technique pour le profil EXTENDED-CTC-FR,
+  ou si les deux parties sont françaises et que le XML identifie l'acheteur comme entreprise.
+  Avant le 1er septembre 2026, elles ne sont pas appliquées automatiquement hors profil français.
+  Un acheteur sans identifiant professionnel ou une catégorie TVA exonérée/hors champ rend le
+  périmètre **indéterminé** : le bloc explique pourquoi. Elles ont **leur propre verdict** et ne
+  changent pas celui du Schematron. La taille de l'émetteur, la dispense de facturation et
+  l'assujettissement réel demandent une vérification humaine ; une règle BR-FR non respectée
+  reste donc une alerte, pas un écart. [Critères et limites](docs/BR_FR_SCOPE.md) ;
 - le profil EN 16931, XRechnung et tout autre CII ou UBL gardent les règles de la Commission ;
 - le profil EXTENDED tolère un centime d'écart sur certains calculs : une facture EXTENDED peut
   respecter son Schematron alors que les [règles natives](#règles-en-16931), qui appliquent la

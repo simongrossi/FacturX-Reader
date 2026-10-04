@@ -81,8 +81,9 @@ aucune facture réelle sur ce poste, car `samples/` est absent.
   séparément d'une comparaison de moteurs.
 - L'essai SaxonJS 2.7 a échoué avec `XPTY0004` sur une expression EXTENDED que SaxonC exécute.
   SaxonC est la référence retenue ; aucun échec de SaxonJS n'a été interprété comme un accord.
-- Le périmètre juridique BR-FR (B2C, exceptions et calendrier) et la conformité PDF/A-3 complète
-  restent hors de cette comparaison.
+- Le périmètre juridique BR-FR reste hors de cette comparaison. L'heuristique d'application
+  technique est décrite dans [BR_FR_SCOPE.md](../../docs/BR_FR_SCOPE.md). La conformité PDF/A-3
+  complète reste également hors de cette comparaison.
 - Le job `reference` du workflow `Checks` a également réussi sur la PR #2, comme les tests
   navigateur et natifs Windows : [exécution CI](https://github.com/simongrossi/FacturX-Reader/actions/runs/37161670374).
   Les travaux sont fusionnés dans `main` ; ce bilan reste daté de la comparaison effectuée.
