@@ -242,3 +242,12 @@ manuellement sur les systèmes ciblés. Détails et limites : [docs/EXPORTS.md](
 - `npm run check:js` et `git diff --check` réussis. Les essais manuels de cette interaction sur les applications natives restent à faire.
 
 [Fonctionnement et limites](docs/PROVENANCE.md).
+
+## Provenance des lignes — chantier du 4 octobre 2026
+
+- Les tests Rust couvrent une ligne UBL avec frais et une ligne CII avec remise, les chemins des valeurs, les deux résultats acceptés du contrôle, l’absence de calcul pour une ligne incomplète et l’index exact de la ligne en anomalie.
+- Le scénario navigateur supplémentaire vérifie le détail d’une ligne et celui de son anomalie, même lorsque deux lignes portent le même numéro affiché, ainsi que l’accès au total déclaré dans le XML. La suite compte désormais **25 scénarios**.
+- `npm run check:js` et `git diff --check` réussis. Les essais manuels de cette interaction dans les applications natives restent à faire.
+- Le test natif Windows attend maintenant la création de la page Tauri après l’ouverture du port WebView2 ; un premier lancement lent ne provoque plus un échec après seulement dix secondes. Il attend aussi que le PDF soit assez haut avant de vérifier la reprise du défilement.
+
+[Fonctionnement et limites](docs/PROVENANCE.md).

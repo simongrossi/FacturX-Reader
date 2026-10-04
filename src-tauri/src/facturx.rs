@@ -2563,6 +2563,7 @@ mod tests {
         // 2 x 50.00 : 100.01 s'explique par l'arrondi du prix, 100.02 non.
         assert_eq!(controle(&c, "Lignes :")["etat"], "ecart");
         assert_eq!(controle(&c, "Ligne 1 :")["ecart"], "0.02");
+        assert_eq!(controle(&c, "Ligne 1 :")["line_index"], 0);
         assert_eq!(controle(&c, "Somme des lignes")["ecart"], "-0.02");
         let tolerated = CII.replace(
             "<ram:LineExtensionAmount currencyID=\"EUR\">100.00",
@@ -2587,6 +2588,35 @@ mod tests {
         assert!(!r["controles"].as_array().unwrap().is_empty());
         assert_eq!(r["synthese"]["ht"], "115.00");
         assert_eq!(r["synthese"]["ttc"], "");
+        let proof = &r["synthese"]["provenance_lignes"][0];
+        assert_eq!(proof["comparison"]["base_expected"], "100.00");
+        assert_eq!(proof["comparison"]["adjusted_expected"], "115.00");
+        assert_eq!(proof["comparison"]["expected"], "115.00");
+        assert_eq!(proof["comparison"]["matches"], true);
+        assert_eq!(proof["inputs"][0]["value"], "10");
+        assert!(proof["inputs"][0]["path"].as_str().unwrap().ends_with("/InvoicedQuantity"));
+        assert_eq!(proof["inputs"][3]["label"], "Frais de ligne");
+        assert_eq!(proof["inputs"][3]["value"], "15.00");
+        assert!(proof["inputs"][3]["path"].as_str().unwrap().ends_with("/Amount"));
+        assert_eq!(proof["inputs"][5]["label"], "Taux de TVA déclaré");
+        assert!(r["synthese"]["provenance_lignes"][1]["comparison"].is_null());
+    }
+
+    #[test]
+    fn provenance_ligne_cii_remise_et_chemins() {
+        let xml = CII.replace(
+            "<ram:SpecifiedLineTradeSettlement><ram:CalculatedAmount",
+            "<ram:SpecifiedLineTradeSettlement><ram:SpecifiedTradeAllowanceCharge><ram:ChargeIndicator><ram:Indicator>false</ram:Indicator></ram:ChargeIndicator><ram:ActualAmount currencyID=\"EUR\">5.00</ram:ActualAmount></ram:SpecifiedTradeAllowanceCharge><ram:CalculatedAmount",
+        );
+        let r = parse_file("test-cii.xml", xml.as_bytes()).unwrap();
+        let proof = &r["synthese"]["provenance_lignes"][0];
+        assert_eq!(proof["inputs"][3]["label"], "Remise de ligne");
+        assert_eq!(proof["inputs"][3]["value"], "5.00");
+        assert!(proof["inputs"][3]["path"].as_str().unwrap().ends_with("/ActualAmount"));
+        assert_eq!(proof["comparison"]["base_expected"], "100.00");
+        assert_eq!(proof["comparison"]["adjusted_expected"], "95.00");
+        // Le moteur accepte aussi la convention où la remise est informationnelle.
+        assert_eq!(proof["comparison"]["matches"], true);
     }
 
     #[test]

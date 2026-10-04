@@ -1027,6 +1027,8 @@ function toggleDetail(f, idx) {
 function detailBox(line, f, idx) {
   const box = document.createElement("div");
   box.className = "line-detail-box";
+  const proof = f?.result.synthese?.provenance_lignes?.[idx];
+  if (proof) box.appendChild(lineProvenancePanel(proof, false));
   if (f && f.result.synthese && settings.library !== "off") {
     const history = Object.assign(document.createElement("button"), {
       type: "button", className: "btn btn-sm price-history-btn", textContent: "Historique des prix",
@@ -1066,6 +1068,42 @@ function detailBox(line, f, idx) {
   table.appendChild(tbody);
   box.appendChild(table);
   return box;
+}
+
+function provenanceSourceLink(path, label) {
+  const row = document.createElement("p");
+  row.className = "provenance-path";
+  row.appendChild(document.createTextNode(label + " · " + path + " "));
+  const button = Object.assign(document.createElement("button"), { type: "button", className: "btn btn-sm", textContent: "Voir dans le XML" });
+  button.addEventListener("click", () => {
+    setTab("xml");
+    byId("xml-search").value = "";
+    filterXmlTable("");
+    gotoXml(path);
+  });
+  row.appendChild(button);
+  return row;
+}
+
+function lineProvenancePanel(proof, open) {
+  const panel = Object.assign(document.createElement("details"), { className: "line-provenance", open });
+  panel.appendChild(Object.assign(document.createElement("summary"), { textContent: "Calcul et provenance de la ligne" }));
+  for (const input of proof.inputs || []) {
+    const label = input.label + " : " + (input.value || "Non disponible") + (input.note ? " (" + input.note + ")" : "");
+    panel.appendChild(input.path ? provenanceSourceLink(input.path, label) :
+      Object.assign(document.createElement("p"), { textContent: label }));
+  }
+  if (proof.comparison) {
+    const c = proof.comparison;
+    panel.appendChild(Object.assign(document.createElement("p"), { textContent: "Calcul : " + c.formula }));
+    panel.appendChild(Object.assign(document.createElement("p"), { textContent: "Sans frais/remises : " + c.base_expected +
+      (c.adjustments_net !== "0.00" ? " · Avec frais/remises : " + c.adjusted_expected + " (net " + c.adjustments_net + ")" : "") }));
+    panel.appendChild(Object.assign(document.createElement("p"), { textContent: "Valeur attendue retenue : " + c.expected + " · Tolérance du contrôle : ±" + c.tolerance }));
+    panel.appendChild(Object.assign(document.createElement("p"), { textContent: "Le contrôle accepte le calcul avec ou sans frais/remises lorsque l’écart est dans la tolérance." }));
+  } else {
+    panel.appendChild(Object.assign(document.createElement("p"), { textContent: "Calcul non vérifiable : quantité, prix unitaire ou total de ligne absent, ou quantité de base nulle." }));
+  }
+  return panel;
 }
 
 function syncStickyOffsets() {
@@ -1451,29 +1489,15 @@ function renderData(f) {
           textContent: (proof.type === "calculated" ? "Valeur calculée : " : proof.type === "extracted" ? "Valeur extraite : " : "Valeur exacte du XML : ") + proof.value,
         }));
         if (proof.formula) details.appendChild(Object.assign(document.createElement("p"), { textContent: "Calcul : " + proof.formula }));
-        function sourceLink(path, label) {
-          const row = document.createElement("p");
-          row.className = "provenance-path";
-          row.appendChild(document.createTextNode(label + " · " + path + " "));
-          const button = Object.assign(document.createElement("button"), { type: "button", className: "btn btn-sm", textContent: "Voir dans le XML" });
-          button.addEventListener("click", () => {
-            setTab("xml");
-            byId("xml-search").value = "";
-            filterXmlTable("");
-            gotoXml(path);
-          });
-          row.appendChild(button);
-          return row;
-        }
-        if (proof.path) details.appendChild(sourceLink(proof.path, "Champ source"));
-        for (const input of proof.inputs || []) if (input.path) details.appendChild(sourceLink(input.path, input.value));
+        if (proof.path) details.appendChild(provenanceSourceLink(proof.path, "Champ source"));
+        for (const input of proof.inputs || []) if (input.path) details.appendChild(provenanceSourceLink(input.path, input.value));
         if (proof.comparison) {
           details.appendChild(Object.assign(document.createElement("p"), {
             textContent: "Contrôle : " + proof.comparison.formula + " = " + proof.comparison.expected,
           }));
           for (const input of proof.comparison.inputs || []) {
             const label = input.label + " : " + input.value + (input.note ? " (" + input.note + ")" : "");
-            details.appendChild(input.path ? sourceLink(input.path, label) :
+            details.appendChild(input.path ? provenanceSourceLink(input.path, label) :
               Object.assign(document.createElement("p"), { textContent: label }));
           }
         }

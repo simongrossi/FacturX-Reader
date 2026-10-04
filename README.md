@@ -55,7 +55,7 @@ tableaux lisibles en français, **recalcule les montants** et signale ce qui ne 
 | 📊 **Tableau multi-factures** | Toutes les factures ouvertes sur une page : totaux par devise, avoirs déduits, filtres d'anomalies, de période, de montant et de fournisseur, export CSV. |
 | 🗂️ **Revue d’un lot** | Progression de la lecture et des validations, anomalies de toutes les factures regroupées, rapport PDF consolidé avec erreurs de lecture et contrôles incomplets. |
 | 📅 **Échéancier** | En développement pour la 0.8.0 : factures groupées par date d’échéance et devise, retards, avoirs déduits du solde indicatif, accès aux documents et export CSV. |
-| 🔎 **Provenance des valeurs** | En développement pour la 0.8.0 : source XML des dates et montants clés, détail des sommes et calculs comparés aux totaux déclarés. |
+| 🔎 **Provenance des valeurs** | En développement pour la 0.8.0 : source XML des dates, totaux et lignes, avec détail des calculs et accès depuis les anomalies. |
 | 🗄️ **Bibliothèque locale** | Toutes les factures déjà ouvertes, retrouvables entre les sessions. Signale un IBAN nouveau pour un fournisseur, un doublon dans l'historique, une variation de prix unitaire. |
 | 🪟 **PDF et données côte à côte** | Vérifiez une ligne sans changer d'onglet. |
 | 🖊️ **Pointage et suivi** | Pointage des lignes, statut À vérifier / Vérifiée / Anomalie, commentaires par facture et par ligne. |
@@ -216,6 +216,8 @@ Dans **Tableau**, l’échéancier regroupe les documents ouverts par date d’�
 ### Provenance des valeurs
 
 Dans **Données**, ouvrez **Voir la provenance** sur une date ou un montant clé pour retrouver son champ XML. Les montants contrôlés montrent aussi la formule et les valeurs utilisées pour le recalcul. Depuis une anomalie de total, **Voir la provenance des montants** ouvre la carte concernée. Cette fonction est en développement pour la 0.8.0, absente des installateurs 0.7.1. [Portée et limites](docs/PROVENANCE.md).
+
+Dans le tableau des lignes, **Détail** affiche aussi la quantité, le prix déclaré, les frais ou remises, le total XML et les résultats du contrôle avec sa tolérance. Une anomalie de ligne donne accès au même détail sans quitter le centre d’anomalies.
 
 ### Formats pris en charge
 
