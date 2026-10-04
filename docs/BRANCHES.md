@@ -90,3 +90,10 @@ par la [PR #12](https://github.com/simongrossi/FacturX-Reader/pull/12) (`e3f18c6
 navigateur, références et Rust/natif Windows étaient verts avant fusion. La branche
 `codex/exact-money-table-library` a été supprimée ; ce chantier est destiné à la 0.8.0 et
 n'est pas dans les installateurs 0.7.1.
+
+La recherche dans le texte du PDF et l'affinement du périmètre BR-FR ont été fusionnés par la
+[PR #13](https://github.com/simongrossi/FacturX-Reader/pull/13) (`9a326cb`) après validation des
+jobs navigateur, référence et Rust/natif Windows. La branche `codex/pdf-search-br-fr-scope` a été
+supprimée. La recherche utilise le texte intégré au PDF, sans OCR. Les règles BR-FR sont évaluées
+à titre technique selon les indices du XML ; la taille de l'émetteur et les exceptions légales
+restent à confirmer. [Critères et limites](BR_FR_SCOPE.md).
