@@ -42,6 +42,8 @@ fn collect_invoice_files(dir: &Path, out: &mut Vec<PathBuf>) {
         if out.len() > MAX_FOLDER_FILES {
             return;
         }
+        // Évite les cycles et les doublons créés par des liens symboliques.
+        if std::fs::symlink_metadata(&path).is_ok_and(|m| m.file_type().is_symlink()) { continue; }
         let hidden = path.file_name().is_some_and(|n| n.to_string_lossy().starts_with('.'));
         if hidden {
             continue;
@@ -136,6 +138,39 @@ async fn pick_folder(app: tauri::AppHandle) -> Result<Value, String> {
     let mut result = expand_paths([folder.clone()]);
     result["folder"] = folder.to_string_lossy().into();
     Ok(result)
+}
+
+fn folder_snapshot(folder: &Path) -> Result<Value, String> {
+    if !folder.is_dir() { return Err("Le dossier surveillé est introuvable ou inaccessible.".into()); }
+    std::fs::read_dir(folder).map_err(|e| format!("Lecture du dossier surveillé impossible : {e}"))?;
+    let mut paths = Vec::new();
+    collect_invoice_files(folder, &mut paths);
+    let truncated = paths.len() > MAX_FOLDER_FILES;
+    paths.truncate(MAX_FOLDER_FILES);
+    let files: Vec<Value> = paths.into_iter().filter_map(|path| {
+        let metadata = std::fs::metadata(&path).ok()?;
+        let modified = metadata.modified().ok()?.duration_since(std::time::UNIX_EPOCH).ok()?;
+        Some(json!({
+            "path": path.to_string_lossy(),
+            "size": metadata.len(),
+            "modified": modified.as_nanos().to_string(),
+        }))
+    }).collect();
+    Ok(json!({ "folder": folder.to_string_lossy(), "files": files, "truncated": truncated, "max": MAX_FOLDER_FILES }))
+}
+
+/// Choix volontaire du dossier à surveiller ; aucun fichier existant n'est importé d'office.
+#[tauri::command]
+async fn pick_watch_folder(app: tauri::AppHandle) -> Result<Value, String> {
+    let Some(folder) = app.dialog().file().blocking_pick_folder() else { return Ok(Value::Null); };
+    let folder = folder.into_path().map_err(|e| e.to_string())?;
+    folder_snapshot(&folder)
+}
+
+/// Relevé borné des fichiers candidats ; l'import reste piloté par la fenêtre.
+#[tauri::command]
+async fn scan_watch_folder(folder: String) -> Result<Value, String> {
+    folder_snapshot(Path::new(&folder))
 }
 
 /// Analyse un fichier designe par son chemin sur le disque.
@@ -268,6 +303,8 @@ pub fn run() {
             parse_file,
             startup_paths,
             pick_folder,
+            pick_watch_folder,
+            scan_watch_folder,
             parse_path,
             save_pdf,
             save_text,
@@ -300,7 +337,7 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::{collect_invoice_files, expand_paths, percent_decode, MAX_FOLDER_FILES};
+    use super::{collect_invoice_files, expand_paths, folder_snapshot, percent_decode, MAX_FOLDER_FILES};
 
     #[test]
     fn dossier_volumineux_limite() {
@@ -330,6 +367,21 @@ mod tests {
             files.iter().map(|p| p.file_name().unwrap().to_string_lossy().into_owned()).collect();
         std::fs::remove_dir_all(&root).unwrap();
         assert_eq!(names, ["c.zip", "a.xml", "b.PDF"]);
+    }
+
+    #[test]
+    fn releve_du_dossier_surveille() {
+        let root = std::env::temp_dir().join(format!("fx-reader-watch-test-{}", std::process::id()));
+        std::fs::create_dir_all(root.join("sous-dossier")).unwrap();
+        std::fs::write(root.join("sous-dossier").join("facture.xml"), b"<Invoice/>").unwrap();
+        std::fs::write(root.join("note.txt"), b"x").unwrap();
+        let snapshot = folder_snapshot(&root).unwrap();
+        assert_eq!(snapshot["files"].as_array().unwrap().len(), 1);
+        assert_eq!(snapshot["files"][0]["size"], 10);
+        assert!(snapshot["files"][0]["modified"].as_str().unwrap().len() > 10);
+        assert_eq!(snapshot["truncated"], false);
+        std::fs::remove_dir_all(&root).unwrap();
+        assert!(folder_snapshot(&root).is_err());
     }
 
     #[test]

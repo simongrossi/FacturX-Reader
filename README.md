@@ -55,6 +55,7 @@ tableaux lisibles en français, **recalcule les montants** et signale ce qui ne 
 | 📊 **Tableau multi-factures** | Toutes les factures ouvertes sur une page : totaux par devise, avoirs déduits, filtres d'anomalies, de période, de montant et de fournisseur, export CSV. |
 | 🗂️ **Revue d’un lot** | Progression de la lecture et des validations, anomalies de toutes les factures regroupées, rapport PDF consolidé avec erreurs de lecture et contrôles incomplets. |
 | 📅 **Échéancier** | En développement pour la 0.8.0 : factures groupées par date d’échéance et devise, retards, avoirs déduits du solde indicatif, accès aux documents et export CSV. |
+| 📁 **Dossier surveillé** | En développement pour la 0.8.0 : nouvelles factures détectées dans un dossier choisi, import avec progression, pause et annulation. |
 | 🔎 **Provenance des valeurs** | En développement pour la 0.8.0 : source XML des dates, totaux, lignes et ventilations de TVA par taux, avec détail des calculs et accès depuis les anomalies. |
 | 🗄️ **Bibliothèque locale** | Toutes les factures déjà ouvertes, retrouvables entre les sessions. Signale un IBAN nouveau pour un fournisseur, un doublon dans l'historique, une variation de prix unitaire. |
 | 🪟 **PDF et données côte à côte** | Vérifiez une ligne sans changer d'onglet. |
@@ -185,6 +186,8 @@ nécessaires à la session ; les pointages restent dans leur fichier habituel.
 
 Dans un dossier, seuls les `.pdf`, `.xml` et `.zip` sont retenus (500 fichiers au maximum,
 dossiers cachés ignorés). Un PDF sans XML de facture apparaît dans la liste avec son erreur.
+
+Pour suivre les nouveaux fichiers, choisissez **Paramètres → Dossier surveillé → Choisir un dossier…**. La surveillance est locale et active seulement quand l’application est ouverte. Les fichiers déjà présents lors du choix sont ignorés ; **Ouvrir un dossier** permet de les importer. La progression, la pause et l’annulation se trouvent dans les paramètres. [Fonctionnement et limites](docs/WATCH_FOLDER.md). Cette fonction est en développement pour la 0.8.0 et absente des installateurs 0.7.1.
 
 Dans le panneau **Fichiers** : **🗑** vide la liste, **✕** (au survol) retire un fichier,
 **‹ / ›** replie le panneau.
@@ -793,6 +796,7 @@ cargo run --example dump -- ../samples/facture.pdf > facture.json
 | `parse_file` | analyse des octets reçus (fichier choisi ou déposé) |
 | `parse_path` | analyse d'un fichier désigné par son chemin |
 | `pick_folder` | sélecteur de dossier natif, renvoie les fichiers factures trouvés |
+| `pick_watch_folder` / `scan_watch_folder` | choix volontaire puis relevé borné du dossier surveillé |
 | `startup_paths` | fichiers et dossiers passés en ligne de commande |
 | `get_pointage` / `set_pointage` / `clear_pointage` | pointages d'une facture |
 | `get_reviews` / `set_review` | suivi de vérification |

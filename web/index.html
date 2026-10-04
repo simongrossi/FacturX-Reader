@@ -419,6 +419,18 @@
         <button type="button" id="data-restore" class="btn btn-sm" hidden>Restaurer la dernière sauvegarde</button>
       </div>
     </section>
+    <section class="settings-group" id="watch-folder-settings">
+      <h3>Dossier surveillé</h3>
+      <p class="setting-help">Surveillance locale tant que l’application est ouverte. Les fichiers déjà présents sont ignorés au premier choix ; les nouveautés sont importées après stabilisation.</p>
+      <div id="watch-folder-path" class="setting-path">Aucun dossier choisi.</div>
+      <div class="setting-actions">
+        <button type="button" id="watch-folder-choose" class="btn btn-sm">Choisir un dossier…</button>
+        <button type="button" id="watch-folder-toggle" class="btn btn-sm" hidden>Mettre en pause</button>
+        <button type="button" id="watch-folder-cancel" class="btn btn-sm" hidden>Annuler l’import</button>
+      </div>
+      <progress id="watch-folder-progress" hidden max="1" value="0"></progress>
+      <p id="watch-folder-status" class="setting-help" role="status">Surveillance inactive.</p>
+    </section>
   </div>
   <p class="settings-credits">Idée originale : Christophe Mehault · Version Rust : Simon Grossi<br>
     Licence PolyForm Shield 1.0.0 — utilisation libre, produit concurrent interdit.</p>
@@ -446,6 +458,7 @@
 <script src="controls.js"></script>
 <script src="anomalies.js"></script>
 <script src="app.js"></script>
+<script src="watch-folder.js"></script>
 <script src="workspace.js"></script>
 <script src="review.js"></script>
 <script src="batch.js"></script>

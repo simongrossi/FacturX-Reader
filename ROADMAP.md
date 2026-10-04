@@ -1,6 +1,6 @@
 # Roadmap
 
-Mise à jour : 4 octobre 2026, [version 0.7.1 publiée](https://github.com/simongrossi/FacturX-Reader/releases/tag/v0.7.1) et préparation de la 0.8.0 avec échéancier et provenance des valeurs, y compris la TVA par taux.
+Mise à jour : 4 octobre 2026, [version 0.7.1 publiée](https://github.com/simongrossi/FacturX-Reader/releases/tag/v0.7.1) et préparation de la 0.8.0 avec échéancier, provenance des valeurs, dossier surveillé et calculs d’affichage des lignes en décimaux exacts.
 Voir [CHANGELOG.md](CHANGELOG.md) pour le détail des versions, [README.md](README.md) pour
 l'utilisation, [VALIDATION.md](VALIDATION.md) pour le bilan de vérification P0 et
 [COMPARATIF.md](COMPARATIF.md) pour le bilan face aux autres outils.
@@ -10,8 +10,8 @@ l'utilisation, [VALIDATION.md](VALIDATION.md) pour le bilan de vérification P0 
 | Priorité | Thème | État |
 |---|---|---|
 | P0 | Valider l'existant | Presque terminé : essai macOS positif ; reste la vérification exhaustive, Linux et l’installation des paquets |
-| P1 | Confort et fiabilité du moteur | Provenance des dates, totaux, lignes et TVA par taux développée ; restent les tests anonymisés et les calculs d’affichage en décimaux exacts. « Ouvrir avec » est différé |
-| P2 | Exploiter des lots de factures | Presque terminé : revue du lot et échéancier développés ; restent la recherche dans le PDF et le dossier surveillé |
+| P1 | Confort et fiabilité du moteur | Provenance et affichage des montants de ligne en décimaux exacts développés ; restent les tests anonymisés et certains calculs de bibliothèque/tableau. « Ouvrir avec » est différé |
+| P2 | Exploiter des lots de factures | Revue du lot, échéancier et dossier surveillé développés ; reste la recherche dans le PDF |
 | P3 | Conformité et distribution | Bien avancé : Schematron officiel (suite de tests officielle verte, résultat gardé entre sessions) et déclarations du conteneur ; reste PDF/A réel, règles nationales, signature des builds |
 | P4 | API, MCP et connecteurs | Pas commencé |
 
@@ -90,8 +90,9 @@ Les anciennes branches sont archivées ou déjà intégrées ; voir [l’inventa
    Linux et l’installation documentée des paquets publiés.
 2. **Suite de la revue de code** : ne plus refuser un PDF entier pour une pièce jointe secondaire trop
    volumineuse ; poursuivre le découpage de `app.js` et de `facturx.rs`.
-3. **Calculs et provenance** (P1) : détail de la TVA par taux terminé ; traiter les calculs
-   d’affichage encore en `f64` et élargir les tests anonymisés.
+3. **Calculs et provenance** (P1) : détail de la TVA par taux et affichage des lignes en
+   décimaux exacts terminés ; élargir les tests anonymisés, puis examiner les calculs du
+   tableau et de la bibliothèque qui utilisent encore des nombres flottants.
 4. **Affiner le périmètre des règles BR-FR** (B2C, opérations hors obligation, calendrier).
 5. **Intégration au système différée** : signature des builds, « Ouvrir avec » et instance unique
    seront réévalués lors d’un chantier de distribution ; les builds actuels restent non signés.
@@ -180,8 +181,9 @@ lot avec historique et suivi. Ce qui en ressort pour le plan :
 
 - [x] Doublons exacts (empreinte XML) et probables (vendeur + numéro) parmi les documents
   ouverts (0.2.0). Reste : comparer aussi le montant, et l'historique entre sessions (bibliothèque).
-- [ ] Calculs monétaires décimaux partout. Fait pour les contrôles (0.2.0) ; l'affichage du P.U.
-  et de la TVA de ligne reconstitués reste en `f64`.
+- [ ] Calculs monétaires décimaux partout. Fait pour les contrôles (0.2.0) et l’affichage du
+  P.U., des frais/remises et de la TVA de ligne reconstitués (0.8.0). Restent certains calculs
+  de tableau et de bibliothèque.
 - [x] Provenance des dates, totaux, lignes et ventilations de TVA par taux : distinguer XML et
   TVA reconstituée, montrer la valeur d'origine, le chemin et les formules de contrôle.
 - [x] Extraction PDF avec un vrai parseur, au-delà des expressions régulières : structures
@@ -233,7 +235,9 @@ lot avec historique et suivi. Ce qui en ressort pour le plan :
 - [ ] Renommage et classement des fichiers depuis les métadonnées (`Fournisseur_Date_N°.pdf`),
   avec confirmation avant toute écriture.
 - [x] Échéancier indicatif à partir des échéances du tableau, sans déduire le paiement effectif.
-- [ ] Dossier surveillé, progression et annulation des imports, analyse lourde hors du fil principal.
+- [x] Dossier surveillé local, opt-in, nouveautés détectées pendant l’ouverture de l’application,
+  progression et annulation entre fichiers. [Fonctionnement et limites](docs/WATCH_FOLDER.md).
+- [ ] Analyse lourde hors du fil principal, annulation immédiate du fichier en cours.
 
 ### Bibliothèque locale et ce qui en dépend
 

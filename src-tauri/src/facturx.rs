@@ -21,6 +21,7 @@ use sha2::{Digest, Sha256};
 use crate::tables;
 
 mod controles;
+use controles::{mul_cents, round_div, Dec, CENT, SCALE};
 mod imports;
 pub use imports::ArchiveSelection;
 use imports::{decompress_candidates, read_bounded, MAX_EXPANDED, MAX_XML, MAX_METADATA};
@@ -97,10 +98,6 @@ fn date_text(el: ON) -> String {
         }
     }
     v
-}
-
-fn num(s: &str) -> Option<f64> {
-    s.trim().parse::<f64>().ok()
 }
 
 fn thousands(n: usize) -> String {
@@ -298,44 +295,60 @@ fn cii_money(el: ON) -> String {
     }
 }
 
-fn money_num(num: Option<f64>, cur: Option<&str>) -> String {
-    match (num, cur) {
+fn decimal(s: &str) -> Option<Dec> {
+    Dec::parse(s).map(|(value, _)| value)
+}
+
+fn divide_cents(amount: Dec, quantity: Dec) -> Option<Dec> {
+    if quantity.0 <= 0 { return None; }
+    let numerator = amount.0.checked_mul(SCALE)?;
+    let cents = round_div(numerator, quantity.0.checked_mul(CENT)?);
+    Some(Dec(cents.checked_mul(CENT)?))
+}
+
+fn rounded_cents(value: Dec) -> Dec {
+    Dec(round_div(value.0, CENT) * CENT)
+}
+
+fn money_num(num: Option<Dec>, cur: Option<&str>) -> String {
+    match (num.map(rounded_cents), cur) {
         (None, _) => String::new(),
-        (Some(n), Some(c)) => format!("{n:.2} {c}"),
-        (Some(n), None) => format!("{n:.2}"),
+        (Some(n), Some(c)) => format!("{n} {c}"),
+        (Some(n), None) => n.to_string(),
     }
 }
 
 /// TVA due sur un montant HT au taux (en %) : HT x taux / 100.
 fn line_tax(total: &str, rate: &str) -> String {
-    match (num(total), num(rate)) {
-        (Some(total), Some(rate)) if rate > 0.0 && total != 0.0 => format!("{:.2}", total * rate / 100.0),
+    match (decimal(total), decimal(rate)) {
+        (Some(total), Some(rate)) if rate.0 > 0 && total.0 != 0 =>
+            mul_cents(total, rate, Dec(100 * SCALE)).map(|v| v.to_string()).unwrap_or_default(),
         _ => String::new(),
     }
 }
 
 struct AllowanceCharge {
-    net: f64,
+    net: Dec,
     cur: Option<String>,
     reasons: Vec<String>,
-    charges: f64,
-    allowances: f64,
+    charges: Dec,
+    allowances: Dec,
 }
 
 /// Somme nette des AllowanceCharge au niveau d'une ligne :
 /// net = charges - remises. (ChargeIndicator absent = majoration, cf. UBL.)
 fn line_allowance_charge(line: N) -> AllowanceCharge {
-    let mut ac = AllowanceCharge { net: 0.0, cur: None, reasons: Vec::new(), charges: 0.0, allowances: 0.0 };
+    let mut ac = AllowanceCharge { net: Dec(0), cur: None, reasons: Vec::new(), charges: Dec(0), allowances: Dec(0) };
     for el in findall(Some(line), "AllowanceCharge") {
         let indicator = find(Some(el), "ChargeIndicator");
         let is_charge = indicator.is_none()
             || matches!(text(indicator).to_lowercase().as_str(), "true" | "1" | "yes" | "oui");
         let amt_el = find(Some(el), "Amount");
-        let amt = num(&text(amt_el)).unwrap_or(0.0);
+        let amt = decimal(&text(amt_el)).unwrap_or(Dec(0));
         if is_charge {
-            ac.charges += amt;
+            ac.charges.0 += amt.0;
         } else {
-            ac.allowances += amt;
+            ac.allowances.0 += amt.0;
         }
         let reason = text(find(Some(el), "AllowanceChargeReason"));
         if !reason.is_empty() && !ac.reasons.contains(&reason) {
@@ -345,14 +358,14 @@ fn line_allowance_charge(line: N) -> AllowanceCharge {
             ac.cur = attr(amt_el, "currencyID");
         }
     }
-    ac.net = ac.charges - ac.allowances;
+    ac.net = Dec(ac.charges.0 - ac.allowances.0);
     ac
 }
 
 /// Montant d'un frais/remise avec devise (signe - pour une remise).
-fn fmt_ac(amount: f64, cur: Option<&str>) -> String {
-    let mut s = format!("{:.2}", amount.abs());
-    if amount < 0.0 {
+fn fmt_ac(amount: Dec, cur: Option<&str>) -> String {
+    let mut s = rounded_cents(Dec(amount.0.abs())).to_string();
+    if amount.0 < 0 {
         s.insert(0, '-');
     }
     match cur {
@@ -534,7 +547,7 @@ fn ubl_line(line: N, paths: &Paths) -> Value {
         .or_else(|| attr(price_el, "currencyID"))
         .or_else(|| ac.cur.clone());
     let tot_cur = tot_cur.as_deref();
-    let both = ac.charges != 0.0 && ac.allowances != 0.0;
+    let both = ac.charges.0 != 0 && ac.allowances.0 != 0;
     // Colonne Frais : detail brut (charges / remises) si les deux sont presentes, sinon le net.
     let (ac_display, ac_note) = if both {
         let charges = fmt_ac(ac.charges, ac_cur);
@@ -551,12 +564,12 @@ fn ubl_line(line: N, paths: &Paths) -> Value {
     // --- Total ligne HT = LineExtensionAmount (net autoritatif) ---
     let mut total_note = None;
     let total_num = if total_el.is_some() {
-        num(&text(total_el))
+        decimal(&text(total_el))
     } else if price_el.is_some() && qty.is_some() {
-        match (num(&text(price_el)), num(&text(qty))) {
+        match (decimal(&text(price_el)), decimal(&text(qty))) {
             (Some(p), Some(q)) => {
                 total_note = Some("Calculé : P.U. x quantité".to_string());
-                Some(p * q)
+                mul_cents(p, q, Dec(SCALE))
             }
             _ => None,
         }
@@ -576,30 +589,35 @@ fn ubl_line(line: N, paths: &Paths) -> Value {
     // Test de distinction : si le PU declare est coherent avec le total ligne,
     // les frais sont informationnels ; sinon on les retire.
     let qty_text = text(qty);
-    let qty_f = num(&qty_text).unwrap_or(0.0);
-    let (pu_value, pu_note) = match total_num {
-        Some(total) if qty_f > 0.0 => {
+    let qty_dec = decimal(&qty_text);
+    let (pu_value, pu_note) = match (total_num, qty_dec) {
+        (Some(total), Some(qty_dec)) if qty_dec.0 > 0 => {
             let mut pu_base = total;
-            if ac.net != 0.0 {
-                let coherent = num(&text(price_el)).is_some_and(|pu| (pu * qty_f - total).abs() < 0.02);
+            if ac.net.0 != 0 {
+                let coherent = decimal(&text(price_el))
+                    .and_then(|pu| mul_cents(pu, qty_dec, Dec(SCALE)))
+                    .is_some_and(|value| (value.0 - total.0).abs() < 2 * CENT);
                 if !coherent {
-                    pu_base = total - ac.net;
+                    pu_base = Dec(total.0 - ac.net.0);
                 }
             }
-            let note = if pu_base != total && ac.net > 0.0 {
+            let note = if pu_base != total && ac.net.0 > 0 {
                 format!(
-                    "PU de base : (Total ligne HT - frais) / quantité : ({total:.2} - {:.2}) / {qty_text}",
+                    "PU de base : (Total ligne HT - frais) / quantité : ({total} - {}) / {qty_text}",
                     ac.net
                 )
-            } else if pu_base != total && ac.net < 0.0 {
+            } else if pu_base != total && ac.net.0 < 0 {
                 format!(
-                    "PU de base : (Total ligne HT + remise) / quantité : ({total:.2} + {:.2}) / {qty_text}",
-                    -ac.net
+                    "PU de base : (Total ligne HT + remise) / quantité : ({total} + {}) / {qty_text}",
+                    Dec(-ac.net.0)
                 )
             } else {
-                format!("Total ligne HT / quantité : {total:.2} / {qty_text}")
+                format!("Total ligne HT / quantité : {total} / {qty_text}")
             };
-            (Some(money_num(Some(pu_base / qty_f), tot_cur)), Some(note))
+            match divide_cents(pu_base, qty_dec) {
+                Some(value) => (Some(money_num(Some(value), tot_cur)), Some(note)),
+                None => (price_el.map(|_| money(price_el)), None),
+            }
         }
         _ => (price_el.map(|_| money(price_el)), None),
     };
@@ -608,7 +626,7 @@ fn ubl_line(line: N, paths: &Paths) -> Value {
     let mut tax_value = taxamt_el.map(|_| money(taxamt_el));
     let mut tax_note = None;
     if let (None, Some(_), Some(total)) = (&tax_value, pct, total_num) {
-        let t = line_tax(&format!("{total:.2}"), &text(pct));
+        let t = line_tax(&total.to_string(), &text(pct));
         if !t.is_empty() {
             tax_value = Some(match tot_cur {
                 Some(c) => format!("{t} {c}"),
@@ -688,7 +706,7 @@ fn ubl_line(line: N, paths: &Paths) -> Value {
     );
     cells.insert(
         "frais".into(),
-        if ac.net != 0.0 || !ac.reasons.is_empty() {
+        if ac.net.0 != 0 || !ac.reasons.is_empty() {
             paths.cell("Frais / Remises (AllowanceCharge)", ac_first, ac_note, Some(ac_display))
         } else {
             empty("Frais / Remises (AllowanceCharge)")
@@ -961,11 +979,13 @@ fn cii_line(li: N, paths: &Paths) -> Value {
     let mut pu_note = None;
     let total_value = cii_money(total_el);
     if total_el.is_some() && qty.is_some() {
-        if let (Some(tq), Some(tv)) = (num(&text(qty)), num(&text(total_el))) {
-            if tq > 0.0 {
+        if let (Some(tq), Some(tv)) = (decimal(&text(qty)), decimal(&text(total_el))) {
+            if tq.0 > 0 {
                 let cur = attr(total_el, "currencyID").or_else(|| attr(price_el, "currencyID"));
-                pu_value = Some(money_num(Some(tv / tq), cur.as_deref()));
-                pu_note = Some(format!("Total ligne HT / quantité : {} / {}", text(total_el), text(qty)));
+                if let Some(value) = divide_cents(tv, tq) {
+                    pu_value = Some(money_num(Some(value), cur.as_deref()));
+                    pu_note = Some(format!("Total ligne HT / quantité : {} / {}", text(total_el), text(qty)));
+                }
             }
         }
     }
@@ -2736,8 +2756,29 @@ mod tests {
         assert_eq!(thousands(1234567), "1,234,567");
         assert_eq!(thousands(999), "999");
         assert_eq!(note_slug("N° série / Compteur"), "note_n_s_rie_compteur");
-        assert_eq!(fmt_ac(-3.5, Some("EUR")), "-3.50 EUR");
+        assert_eq!(fmt_ac(decimal("-3.5").unwrap(), Some("EUR")), "-3.50 EUR");
         assert_eq!(line_tax("100.00", "20"), "20.00");
         assert_eq!(line_tax("100.00", "0"), "");
+        assert_eq!(line_tax("0.15", "10"), "0.02");
+        assert_eq!(money_num(divide_cents(decimal("1.00").unwrap(), decimal("3").unwrap()), None), "0.33");
+    }
+
+    #[test]
+    fn affichage_monetaire_des_lignes_en_decimaux_exacts() {
+        let ubl = UBL.replace("<cbc:InvoicedQuantity unitCode=\"C62\">10", "<cbc:InvoicedQuantity unitCode=\"C62\">3")
+            .replace("<cbc:LineExtensionAmount currencyID=\"EUR\">115.00", "<cbc:LineExtensionAmount currencyID=\"EUR\">0.15")
+            .replace("<cbc:PriceAmount currencyID=\"EUR\">10.00", "<cbc:PriceAmount currencyID=\"EUR\">0.05")
+            .replace("<cbc:Percent>20", "<cbc:Percent>10")
+            .replace("<cac:AllowanceCharge><cbc:ChargeIndicator>true</cbc:ChargeIndicator><cbc:AllowanceChargeReason>Port</cbc:AllowanceChargeReason><cbc:Amount currencyID=\"EUR\">15.00</cbc:Amount></cac:AllowanceCharge>", "");
+        let result = parse_file("display.xml", ubl.as_bytes()).unwrap();
+        assert_eq!(result["lines"][0]["cells"]["price"]["value"], "0.05 EUR");
+        assert_eq!(result["lines"][0]["cells"]["taxamt"]["value"], "0.02 EUR");
+
+        let cii = CII.replace("<ram:InvoicedQuantity unitCode=\"H87\">2.00", "<ram:InvoicedQuantity unitCode=\"H87\">3")
+            .replace("<ram:LineExtensionAmount currencyID=\"EUR\">100.00", "<ram:LineExtensionAmount currencyID=\"EUR\">1.00")
+            .replace("<ram:CalculatedAmount currencyID=\"EUR\">20.00</ram:CalculatedAmount><ram:ApplicableTradeTax>", "<ram:ApplicableTradeTax>");
+        let result = parse_file("display-cii.xml", cii.as_bytes()).unwrap();
+        assert_eq!(result["lines"][0]["cells"]["price"]["value"], "0.33 EUR");
+        assert_eq!(result["lines"][0]["cells"]["taxamt"]["value"], "0.20 EUR");
     }
 }

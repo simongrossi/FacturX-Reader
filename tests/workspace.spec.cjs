@@ -16,10 +16,18 @@ test.afterAll(() => server.close());
 async function mockBackend(page, pdf = null, extra = {}) {
   await page.addInitScript(({ pdf, extra }) => {
     window.__TAURI__ = { core: { invoke: async (command, args) => {
+      if (command === 'pick_watch_folder') return window.__watchPick || null;
+      if (command === 'scan_watch_folder') return window.__watchSnapshot ||
+        JSON.parse(sessionStorage.getItem('mock-watch-snapshot') || 'null') ||
+        { folder: args.folder, files: [], truncated: false, max: 500 };
       if (command === 'startup_paths') return { files: [] };
       if (command === 'app_info') return { version: 'test', pointages: 'test' };
       if (command === 'get_pointage') return { lines: [] };
       if (command === 'parse_path' && args.path.includes('missing')) throw new Error('Fichier introuvable');
+      if (command === 'parse_path') {
+        window.__parsedPaths = [...(window.__parsedPaths || []), args.path];
+        if (window.__blockWatchParse && args.path.includes('slow')) await new Promise(resolve => { window.__releaseWatchParse = resolve; });
+      }
       if (command === 'save_binary') { window.__binary = args; return true; }
       if (command === 'save_text') { window.__saved = args; return true; }
       if (command === 'validate_schematron') {
@@ -197,6 +205,70 @@ test('provenance TVA par taux dans la fiche et l’anomalie de la bonne occurren
   await panel.locator('summary').click();
   await expect(panel).toContainText('Écart : -1.00 · Tolérance du contrôle : ±0.01');
   expect(errors).toEqual([]);
+});
+test('dossier surveillé : nouveaux fichiers stables, pause et annulation entre fichiers', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await mockBackend(page);
+  await page.goto(url);
+  const item = (name, modified = '1') => ({ path: '/factures/' + name, size: 100, modified });
+  await page.evaluate(existing => {
+    window.__watchPick = { folder: '/factures', files: [existing], truncated: false, max: 500 };
+    window.__watchSnapshot = window.__watchPick;
+  }, item('ancien.xml'));
+  await page.locator('#btn-settings').click();
+  await page.locator('#watch-folder-choose').click();
+  await expect(page.locator('#watch-folder-path')).toHaveText('/factures');
+  expect(await page.evaluate(() => window.__parsedPaths || [])).toEqual([]);
+  await page.evaluate(() => { window.__watchSnapshot = { folder: '/factures', files: [
+    { path: '/factures/ancien.xml', size: 100, modified: '1' },
+    { path: '/factures/nouveau.xml', size: 100, modified: '1' },
+  ], truncated: false, max: 500 }; });
+  await page.evaluate(() => watchPoll());
+  expect(await page.evaluate(() => window.__parsedPaths || [])).toEqual([]);
+  await page.evaluate(() => watchPoll());
+  await expect.poll(() => page.evaluate(() => window.__parsedPaths || [])).toEqual(['/factures/nouveau.xml']);
+  await page.evaluate(() => watchPoll());
+  expect(await page.evaluate(() => window.__parsedPaths)).toEqual(['/factures/nouveau.xml']);
+  await page.locator('#watch-folder-toggle').click();
+  await expect(page.locator('#watch-folder-status')).toContainText('en pause');
+  await page.evaluate(() => { window.__watchSnapshot.files.push({ path: '/factures/second.xml', size: 100, modified: '1' }); });
+  await page.evaluate(() => watchPoll());
+  expect(await page.evaluate(() => window.__parsedPaths)).toHaveLength(1);
+  await page.locator('#watch-folder-toggle').click();
+  await page.evaluate(() => watchPoll());
+  await page.evaluate(() => watchPoll());
+  await expect.poll(() => page.evaluate(() => window.__parsedPaths || [])).toEqual(['/factures/nouveau.xml', '/factures/second.xml']);
+  await page.evaluate(() => {
+    window.__blockWatchParse = true;
+    window.__watchSnapshot.files.push({ path: '/factures/slow.xml', size: 100, modified: '1' },
+      { path: '/factures/after.xml', size: 100, modified: '1' });
+  });
+  await page.evaluate(() => watchPoll());
+  await page.evaluate(() => { watchPoll(); });
+  await expect.poll(() => page.evaluate(() => !!window.__releaseWatchParse)).toBe(true);
+  await page.locator('#watch-folder-cancel').click();
+  await page.evaluate(() => window.__releaseWatchParse());
+  await expect(page.locator('#watch-folder-status')).toContainText('Import interrompu');
+  expect(await page.evaluate(() => window.__parsedPaths)).not.toContain('/factures/after.xml');
+  expect(errors).toEqual([]);
+});
+test('dossier surveillé : nouveautés survenues pendant la fermeture reprises au lancement', async ({ page }) => {
+  await mockBackend(page);
+  await page.goto(url);
+  await page.evaluate(() => {
+    window.__watchPick = { folder: '/factures', files: [{ path: '/factures/ancien.xml', size: 100, modified: '1' }], truncated: false, max: 500 };
+    window.__watchSnapshot = window.__watchPick;
+  });
+  await page.locator('#btn-settings').click();
+  await page.locator('#watch-folder-choose').click();
+  await expect(page.locator('#watch-folder-path')).toHaveText('/factures');
+  await page.evaluate(() => sessionStorage.setItem('mock-watch-snapshot', JSON.stringify({ folder: '/factures', truncated: false, max: 500,
+    files: [{ path: '/factures/ancien.xml', size: 100, modified: '1' }, { path: '/factures/hors-ligne.xml', size: 100, modified: '1' }] })));
+  await page.reload();
+  await expect(page.locator('#watch-folder-path')).toHaveText('/factures');
+  await page.evaluate(() => watchPoll());
+  await expect.poll(() => page.evaluate(() => window.__parsedPaths || [])).toEqual(['/factures/hors-ligne.xml']);
 });
 test('session, accueil, onglets, récents et recherche transversale', async ({ page }) => {
   const errors = [];
