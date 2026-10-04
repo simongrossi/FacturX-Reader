@@ -61,12 +61,14 @@ async function main() {
       throw new Error(`WebView2 non accessible ${attempts / 5} s après le lancement ; l'application tourne toujours, ${webviews} processus msedgewebview2. Dernière erreur : ${lastError}. ${stderr}`);
     }
     let page;
-    for (let i = 0; i < 100; i++) {
+    // Le port CDP peut répondre avant que WebView2 ait créé la page Tauri.
+    for (let i = 0; i < Number(process.env.FACTURX_LAUNCH_SECONDS || 20) * 10; i++) {
+      if (exited) throw new Error(`L'application s'est arrêtée avant l'ouverture de la fenêtre (code ${exited.code}, signal ${exited.signal}). ${stderr}`);
       page = browser.contexts().flatMap(context => context.pages()).find(page => page.url().includes('tauri.localhost'));
       if (page) break;
       await new Promise(resolve => setTimeout(resolve, 100));
     }
-    if (!page) throw new Error('Fenêtre Tauri introuvable.');
+    if (!page) throw new Error('Fenêtre Tauri introuvable. Pages CDP : ' + browser.contexts().flatMap(context => context.pages()).map(page => page.url()).join(', ') + '. ' + stderr);
     page.on('pageerror', error => errors.push(error.message));
     await page.waitForFunction(() => typeof workspaceReady !== 'undefined' && workspaceReady);
     return page;
@@ -100,6 +102,7 @@ async function main() {
     await page.getByRole('button', { name: 'PDF', exact: true }).click();
     await page.locator('#pdf-zoom').selectOption('1.5');
     await page.waitForFunction(() => !workspaceScrollTarget && state.zoom === 1.5 && getFile(state.selected)?.rendered.pdf);
+    await page.waitForFunction(() => { const main = document.querySelector('.main'); return main.scrollHeight - main.clientHeight >= 650; });
     await page.evaluate(() => { document.querySelector('.main').scrollTop = 650; });
     await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('fx-workspace')).files[0].view.scroll.pdf)).toBe(650);
     await stop(page);
