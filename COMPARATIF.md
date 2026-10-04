@@ -114,7 +114,7 @@ Les autres visionneuses affichent une facture ; celle-ci sert à la vérifier.
 | Règles allemandes XRechnung | Une XRechnung est lue et validée EN 16931, pas contre ses règles nationales | Moyen : le moteur Schematron existe | À décider avec l'ouverture hors de France |
 | Âge des règles embarquées | Le jeu de règles appliqué est nommé, mais rien n'avertit qu'il est ancien. Sans réseau, seule une nouvelle version de l'application les met à jour | Faible | Afficher version et date des règles, avertir au-delà d'un an |
 | Chiffres mesurés | Poids annoncé faux de 4 Mo, démarrage et mémoire jamais mesurés | Faible | Mesurer et publier : c'est l'argument face à Electron |
-| Export vers la comptabilité | Les progiciels créent les écritures ; l'application fournit des exports CSV/XLSX | — | Hors périmètre, comme la création de factures |
+| Export vers la comptabilité | Les exports CSV/XLSX actuels sont des données et rapports, pas des écritures importables | Moyen à élevé : affectation, contrôle et profils par logiciel | Idée prioritaire : écritures proposées pour achats et avoirs, puis profils EBP et Sage ([cadrage](IDEES.md)) |
 
 ### La licence, tranchée le 4 octobre 2026
 
