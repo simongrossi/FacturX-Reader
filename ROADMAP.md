@@ -1,6 +1,6 @@
 # Roadmap
 
-Mise à jour : 4 octobre 2026, préparation de la version 0.7.1 et échéancier indicatif en développement.
+Mise à jour : 4 octobre 2026, version 0.7.1 en cours de publication et préparation de la 0.8.0 avec un échéancier indicatif.
 Voir [CHANGELOG.md](CHANGELOG.md) pour le détail des versions, [README.md](README.md) pour
 l'utilisation, [VALIDATION.md](VALIDATION.md) pour le bilan de vérification P0 et
 [COMPARATIF.md](COMPARATIF.md) pour le bilan face aux autres outils.

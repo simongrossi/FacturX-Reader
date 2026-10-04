@@ -1,6 +1,6 @@
 # Échéancier indicatif des factures ouvertes
 
-Chantier du 4 octobre 2026, après la [revue d’un lot](BATCH_REVIEW.md). Fonctionnalité de développement postérieure à la base 0.7.1.
+Chantier du 4 octobre 2026, après la [revue d’un lot](BATCH_REVIEW.md). Fonctionnalité de développement prévue pour la version suivante, 0.8.0, après la base 0.7.1.
 
 ## Utilisation
 

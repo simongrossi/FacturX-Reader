@@ -1,6 +1,6 @@
 [package]
 name = "facturx-reader"
-version = "0.7.1"
+version = "0.8.0"
 description = "Visualiseur local de factures electroniques (Factur-X, UBL, CII)"
 authors = ["Christophe Mehault", "Simon Grossi"]
 license = "PolyForm-Shield-1.0.0"
