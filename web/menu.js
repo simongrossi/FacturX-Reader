@@ -187,5 +187,7 @@ function wireContextMenu() {
     buttons[(next + buttons.length) % buttons.length].focus();
   });
   window.addEventListener("blur", hideContextMenu);
-  document.querySelector(".main").addEventListener("scroll", hideContextMenu);
+  // Un défilement programmatique (par exemple pour rendre un item visible) ne doit
+  // pas détacher le menu pendant son clic. Le geste de défilement utilisateur le ferme.
+  document.querySelector(".main").addEventListener("wheel", hideContextMenu, { passive: true });
 }

@@ -225,6 +225,7 @@ manuellement sur les systèmes ciblés. Détails et limites : [docs/EXPORTS.md](
 
 - `npm run check:js` et `git diff --check` réussis ; **23 scénarios navigateur verts** sous Chromium/macOS, dont les 22 scénarios précédents.
 - Le scénario ajouté vérifie une échéance passée, du jour et future, deux devises, un avoir sans échéance, une date impossible, un montant manquant et un fichier illisible. Il confirme le solde global EUR avec avoir déduit, les groupes datés distincts, les filtres, l’indépendance du filtre du tableau, le CSV filtré, la protection d’une valeur ressemblant à une formule et l’accès à la facture.
+- Le scénario du menu contextuel existant s’exécute aussi à une hauteur de fenêtre de 600 px : il vérifie que les actions restent cliquables malgré le défilement nécessaire pour afficher le tableau et le menu.
 - Capture de l’interface inspectée visuellement. Les moteurs Rust et les règles officielles ne sont pas modifiés. La vérification manuelle des nouvelles interactions sur macOS, Windows et Linux reste à faire.
 
 [Calcul et limites](docs/SCHEDULE.md).

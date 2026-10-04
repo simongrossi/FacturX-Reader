@@ -278,6 +278,7 @@ test('contrôles affichés, doublon signalé et export CSV des lignes visibles',
 test('tableau multi-factures : totaux, filtres, export et menu contextuel', async ({ page }) => {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
+  await page.setViewportSize({ width: 1280, height: 600 });
   await mockBackend(page, null, {
     synthese: { numero: 'F-1', type: '380', avoir: false, date: '2026-10-03', echeance: '2026-09-01', jours_echeance: -31,
       week_end: true, vendeur: 'Test Seller', acheteur: 'Buyer', devise: 'EUR', ht: '1000.00', tva: '200.00', ttc: '1200.00', a_payer: '1200.00' },

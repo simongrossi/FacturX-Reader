@@ -29,6 +29,8 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 
 ### Corrigé
 
+- Le menu contextuel du tableau reste utilisable dans une petite fenêtre : un défilement
+  programmatique ne le ferme plus pendant le clic sur une action.
 - Validation XSD UBL : les valeurs non numériques des montants, quantités et pourcentages
   dérivés de types complexes pouvaient être déclarées valides. Correctif `uppsala` amont
   épinglé au commit `5d115adf0a1a830d71ec514fe184b5affeee6077`, testé contre libxml2.
