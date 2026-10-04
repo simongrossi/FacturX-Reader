@@ -1,6 +1,6 @@
 # Roadmap
 
-Mise à jour : 4 octobre 2026, préparation de la version 0.7.1, exports enrichis et centre d’anomalies (non publiés).
+Mise à jour : 4 octobre 2026, préparation de la version 0.7.1, exports enrichis, centre d’anomalies et revue d’un lot (non publiés).
 Voir [CHANGELOG.md](CHANGELOG.md) pour le détail des versions, [README.md](README.md) pour
 l'utilisation, [VALIDATION.md](VALIDATION.md) pour le bilan de vérification P0 et
 [COMPARATIF.md](COMPARATIF.md) pour le bilan face aux autres outils.
@@ -41,6 +41,13 @@ Versions publiées (pré-versions, builds non signés) :
 - [x] Contrôles incomplets séparés, actualisation Schematron, aide intégrée aux rapports JSON/PDF.
 - [Fonctionnement et limites](docs/ANOMALIES.md).
 
+### Revue d’un lot (non publiée)
+
+- [x] Progression de la lecture et des validations Schematron jusqu’au dernier document.
+- [x] Points à examiner regroupés pour toutes les factures, erreurs de lecture et contrôles incomplets compris.
+- [x] Rapport PDF consolidé de toute la session, indépendamment des filtres, avec avoirs déduits par devise.
+- [Fonctionnement et limites](docs/BATCH_REVIEW.md).
+
 ## Prochaines étapes proposées
 
 État au 4 octobre 2026 : la 0.7.0 est publiée en pré-version. L’utilisateur confirme le bon
@@ -55,8 +62,9 @@ EXTENDED fix-FR04 de France_RFE et à remplacer le correctif `uppsala` épinglé
 
 Travaux fusionnés dans `main` : [préparation 0.7.1 (#1)](https://github.com/simongrossi/FacturX-Reader/pull/1),
 [comparaison et correctifs (#2)](https://github.com/simongrossi/FacturX-Reader/pull/2)
-et [exports Excel/PDF (#3)](https://github.com/simongrossi/FacturX-Reader/pull/3).
-Ces PR sont intégrées ; le contrôle de `main` sur `e35e7cc` est vert. Les anciennes branches sont
+et [exports Excel/PDF (#3)](https://github.com/simongrossi/FacturX-Reader/pull/3), puis
+[centre d’anomalies (#4)](https://github.com/simongrossi/FacturX-Reader/pull/4).
+Ces PR sont intégrées ; le centre d’anomalies est dans `main` depuis `a97ba1d`. Les anciennes branches sont
 archivées ou déjà intégrées ; voir [l’inventaire](docs/BRANCHES.md). La prochaine livraison
 reste à publier après le contrôle de `main`.
 
@@ -189,6 +197,7 @@ lot avec historique et suivi. Ce qui en ressort pour le plan :
 - [x] Statuts « À vérifier », « Vérifiée », « Anomalie », commentaires par facture et par ligne,
   pointage de la facture entière ; distinct d'un paiement confirmé (0.4.0).
 - [x] Rapport de contrôle exportable en JSON : règle, attendu, constaté, écart, chemin XML (0.4.0).
+- [x] Revue du lot : progression, anomalies transversales et rapport PDF consolidé de tous les documents ouverts (non publiée).
 
 ### Prévu
 

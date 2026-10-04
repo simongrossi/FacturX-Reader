@@ -11,7 +11,7 @@ Les PR #1 et #2 sont fusionnées dans `main` :
 Les tests navigateur, Rust, natifs Windows et de comparaison aux références de la PR #2 sont
 verts dans le [workflow Checks](https://github.com/simongrossi/FacturX-Reader/actions/runs/37161670374).
 Ces travaux sont intégrés au code principal, mais ne sont pas encore distribués dans une
-version publiée. Les exports Excel/PDF (PR #3) sont également intégrés ; tous les jobs
+version publiée. Les exports Excel/PDF (PR #3) et le centre d’anomalies (PR #4) sont également intégrés ; tous les jobs
 du [contrôle de `main` sur `e35e7cc`](https://github.com/simongrossi/FacturX-Reader/actions/runs/37192860140)
 sont verts (navigateur, Rust/natif Windows et références).
 
@@ -25,7 +25,7 @@ Les résultats détaillés sont dans [tests/reference/REPORT.md](tests/reference
 | `npm run check:js` | Syntaxe de tous les scripts de l'interface |
 | `npm run test:rust` | 63 tests unitaires réussis sous macOS le 4 octobre (3 tests longs ignorés) : bibliothèque (filtres avant pagination sur 1002 factures, réassociation par empreinte), imports (archive ambiguë, plafonds de décompression), exemples officiels français, règles BR-FR (fonctions, périmètre), conteneur PDF (déclarations, sept contrôles de structure), schéma XSD (XML d'origine validé, chargement des huit schémas, facture et avoir UBL, choix d'après le profil, exemple officiel valide, élément inconnu, attribut inconnu, montant non numérique, jamais « valide » sans évaluation), Schematron officiel (compilation de toutes les règles, suite de tests officielle de la Commission, exemples officiels, règles enfreintes, file de travail, résultat repris de la bibliothèque entre deux sessions, résultats identiques avec et sans optimisations), moteur UBL/CII, contrôles en décimaux exacts, règles EN 16931, conteneur PDF (déclarations lues, écarts), pointages et suivi (corruption, sauvegarde, restauration, fusion), bibliothèque SQLite |
 | Test Rust `samples.rs` | Factures réelles vérifiées sur le poste d’origine ; sous macOS le 4 octobre, test sans effet car `samples/` est absent |
-| `npm run test:ui` | 21 scénarios navigateur (Edge le 3 octobre ; Chromium sous macOS le 4 octobre et par la CI), commandes Rust simulées, PDF.js réel |
+| `npm run test:ui` | 22 scénarios navigateur sous Chromium/macOS le 4 octobre, commandes Rust simulées, PDF.js réel ; les 21 scénarios précédents restent verts |
 | `npm run test:native` | Vrai exécutable Windows, vraies commandes Rust, profil WebView2 et dossier de données jetables. Vert en local et sur la machine de GitHub |
 | Workflow `Checks` | Tests navigateur (Linux), Rust et test natif Windows, comparaison aux références (macOS) verts sur la PR #2 avant fusion et sur `main` après les exports (PR #3) |
 | Essai manuel macOS (4 octobre 2026) | Fonctionnement général confirmé par l’utilisateur ; détails de présentation à améliorer. Fonctions précises et mode d’installation non documentés |
@@ -209,3 +209,12 @@ manuellement sur les systèmes ciblés. Détails et limites : [docs/EXPORTS.md](
   à effectuer. Le changement n’altère pas les moteurs Schematron/XSD ni leurs règles.
 
 [Documentation complète et limites](docs/ANOMALIES.md).
+
+## Revue d’un lot — chantier du 4 octobre 2026
+
+- `npm run check:js` et `git diff --check` réussis ; **22 scénarios navigateur verts**.
+- Le scénario ajouté vérifie l’import en attente, les étapes de validation Schematron, le blocage du rapport jusqu’à la fin, une facture avec 60 anomalies, un avoir, une autre devise et un fichier illisible.
+- Il vérifie la pagination des points à examiner, la navigation vers le XML et l’indépendance du bilan et du PDF par rapport aux filtres du tableau. La relecture du PDF par PDF.js contrôle les quatre documents, les totaux EUR avec avoir déduit et CHF, les neuf pages et leur numérotation.
+- Le PDF généré a été rendu et inspecté visuellement sur ses premières pages. Les moteurs Rust et les règles officielles n’ont pas été modifiés dans ce chantier ; les essais manuels de l’interface restent à faire sur macOS, Windows et Linux.
+
+[Parcours, sens des chiffres et limites](docs/BATCH_REVIEW.md).
