@@ -1,4 +1,4 @@
-# Validation — 0.7.1 publiée et 0.8.0 préparée, 5 octobre 2026
+# Validation — 0.8.0 publiée en préversion, 5 octobre 2026
 
 Bilan de ce qui a été vérifié pour cette version, et de ce qui ne l'a pas été.
 Les commandes sont décrites dans [README.md](README.md#tests).
@@ -52,11 +52,13 @@ Sur la branche de ce chantier, la vérification locale du 4 octobre a réussi : 
 unitaires, 3 tests du corpus et `samples.rs` (3 tests longs ignorés), 30 scénarios navigateur,
 `npm run check:js` et la comparaison de 955 documents avec les références (aucun écart).
 
-Préparation de la 0.8.0, 5 octobre 2026 : sur `main` (macOS), `npm run check:js`, 75 tests Rust
+Publication de la 0.8.0, 5 octobre 2026 : sur `main` (macOS), `npm run check:js`, 75 tests Rust
 unitaires (3 tests longs ignorés), 3 tests du corpus comptable, `samples.rs` et 30 scénarios
-navigateur réussissent ; le workflow `Checks` est vert sur `main`. Les fonctions de la 0.8.0
-(échéancier, provenance, dossier surveillé, recherche dans le PDF) n'ont pas encore fait l'objet
-d'un essai manuel dans l'application installée, et le tag `v0.8.0` n'est pas posé.
+navigateur réussissent. Les [contrôles du tag](https://github.com/simongrossi/FacturX-Reader/actions/runs/37242389378)
+et les [constructions macOS, Linux et Windows](https://github.com/simongrossi/FacturX-Reader/actions/runs/37242389356)
+sont verts ; les sept fichiers sont dans la [préversion 0.8.0](https://github.com/simongrossi/FacturX-Reader/releases/tag/v0.8.0).
+Les fonctions de la 0.8.0 (échéancier, provenance, dossier surveillé, recherche dans le PDF)
+n'ont pas encore fait l'objet d'un essai manuel dans l'application installée.
 
 ## Vérifications réalisées
 
@@ -67,10 +69,10 @@ d'un essai manuel dans l'application installée, et le tag `v0.8.0` n'est pas po
 | Test Rust `samples.rs` | Factures réelles vérifiées sur le poste d’origine ; sous macOS le 4 octobre, test sans effet car `samples/` est absent |
 | `npm run test:ui` | 22 scénarios navigateur pour la 0.7.1, puis 23 sur `main` après l’échéancier, sous Chromium/macOS le 4 octobre ; commandes Rust simulées, PDF.js réel |
 | `npm run test:native` | Vrai exécutable Windows, vraies commandes Rust, profil WebView2 et dossier de données jetables. Vert en local et sur la machine de GitHub |
-| Workflow `Checks` | Tests navigateur (Linux), Rust et test natif Windows, comparaison aux références (macOS) verts sur la PR #2 avant fusion et sur `main` après les exports (PR #3) |
+| Workflow `Checks` | Tests navigateur (Linux), Rust et test natif Windows, comparaison aux références (macOS) verts sur le tag `v0.8.0` ; les précédentes PR avaient aussi leurs contrôles verts |
 | Essai manuel macOS (4 octobre 2026) | Fonctionnement général confirmé par l’utilisateur ; détails de présentation à améliorer. Fonctions précises et mode d’installation non documentés |
 | `npm run test:reference` | 955 XML : 1 208 comparaisons Schematron concordent avec SaxonC-HE 12.9 ; 955 verdicts XSD concordent avec libxml2 2.9.13, dont 433 invalides. Exécution locale et job macOS de la PR #2 réussis |
-| Workflow `Release` | Tag `v0.7.1` : jobs macOS, Linux et Windows verts ; sept fichiers publiés en préversion, non signés |
+| Workflow `Release` | Tag `v0.8.0` : jobs macOS, Linux et Windows verts ; sept fichiers publiés en préversion, non signés |
 
 ### Ce que couvre le test natif Windows
 

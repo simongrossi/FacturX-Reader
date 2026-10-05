@@ -123,7 +123,9 @@ Aloaha), aux logiciels de gestion et aux outils en ligne de commande, et liste c
 
 ## Téléchargement
 
-Les installeurs sont sur la page [Releases](https://github.com/simongrossi/FacturX-Reader/releases) :
+La [préversion 0.8.0](https://github.com/simongrossi/FacturX-Reader/releases/tag/v0.8.0)
+contient les installeurs ; les autres versions restent sur la page
+[Releases](https://github.com/simongrossi/FacturX-Reader/releases) :
 
 | Système | Fichier |
 |---|---|

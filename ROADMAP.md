@@ -1,6 +1,6 @@
 # Roadmap
 
-Mise à jour : 5 octobre 2026, version 0.8.0 préparée (échéancier, provenance des valeurs, dossier surveillé, recherche dans le PDF et calculs monétaires du tableau et de la bibliothèque en décimaux exacts) ; la dernière version publiée est la [0.7.1](https://github.com/simongrossi/FacturX-Reader/releases/tag/v0.7.1) tant que le tag `v0.8.0` n'est pas posé.
+Mise à jour : 5 octobre 2026. La [préversion 0.8.0](https://github.com/simongrossi/FacturX-Reader/releases/tag/v0.8.0) est publiée avec l'échéancier, la provenance des valeurs, le dossier surveillé, la recherche dans le PDF et les calculs monétaires exacts.
 Voir [CHANGELOG.md](CHANGELOG.md) pour le détail des versions, [README.md](README.md) pour
 l'utilisation, [VALIDATION.md](VALIDATION.md) pour le bilan de vérification P0 et
 [COMPARATIF.md](COMPARATIF.md) pour le bilan face aux autres outils et
@@ -11,7 +11,7 @@ l'utilisation, [VALIDATION.md](VALIDATION.md) pour le bilan de vérification P0 
 | Priorité | Thème | État |
 |---|---|---|
 | P0 | Valider l'existant | Presque terminé : essai macOS positif ; reste la vérification exhaustive, Linux et l’installation des paquets |
-| P1 | Confort et fiabilité du moteur | Provenance, affichage des lignes et calculs monétaires du tableau et de la bibliothèque en décimaux exacts développés ; restent les tests anonymisés. « Ouvrir avec » est différé |
+| P1 | Confort et fiabilité du moteur | Provenance, affichage des lignes, calculs monétaires exacts et corpus synthétique de régression livrés ; des factures réelles anonymisées pourront compléter les tests. « Ouvrir avec » est différé |
 | P2 | Exploiter des lots de factures | Revue du lot, échéancier, dossier surveillé et recherche dans le PDF développés ; restent la recherche dans toutes les lignes et la comparaison PDF/XML |
 | P3 | Conformité et distribution | Bien avancé : Schematron officiel (suite de tests officielle verte, résultat gardé entre sessions) et déclarations du conteneur ; reste PDF/A réel, règles nationales, signature des builds |
 | P4 | API, MCP et connecteurs | Pas commencé |
@@ -27,6 +27,7 @@ Versions publiées (pré-versions, builds non signés) :
 | 0.6.0 | Schematron officiel EN 16931 évalué en Rust, déclarations du conteneur PDF, verdicts séparés, filtres métier |
 | 0.7.0 | Schéma XSD (CII par profil Factur-X, UBL 2.1), Schematron des profils Factur-X, règles françaises EXTENDED-CTC-FR et BR-FR, validation du XML d'origine, contrôles de structure PDF/A-3, Schematron plus rapide |
 | 0.7.1 | Comparaison reproductible aux moteurs de référence, exports Excel/PDF, centre d’anomalies et revue d’un lot |
+| 0.8.0 | Échéancier, provenance des montants/lignes/TVA, dossier surveillé, recherche PDF, calculs décimaux exacts et corpus comptable synthétique |
 
 ### Exports enrichis (publiés dans la 0.7.1)
 
