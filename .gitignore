@@ -14,3 +14,7 @@ playwright-report/
 tests/reference/cache/
 tests/reference/output/
 tests/reference/__pycache__/
+
+# Journaux de la session de développement locale
+dev.log
+dev-launch.log
