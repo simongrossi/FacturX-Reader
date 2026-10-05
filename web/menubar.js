@@ -34,6 +34,7 @@ const MENUBAR = [
     { label: "Exporter le tableau des factures en CSV…", run: () => byId("batch-export").click(), on: () => state.files.length > 0 },
     { label: "Centre d’anomalies", run: () => { setTab("data"); focusControlSection("anomaly-center"); }, on: () => !!menubarDoc() },
     { label: "Imprimer…", keys: "Ctrl+P", run: () => printView(), on: () => !!menubarDoc() || state.library || (state.batch && state.files.length > 0) },
+    { label: "Impression groupée…", run: () => openBatchPrintDialog(), on: () => state.printSelection.size > 0 },
     null,
     { label: "Fermer le document", keys: "Ctrl+W", run: () => removeFile(state.selected), on: () => !!state.selected },
     { label: "Fermer tous les documents", run: () => clearAllFiles(), on: () => state.files.length > 0 },

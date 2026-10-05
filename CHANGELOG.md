@@ -5,6 +5,10 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 
 ## [Non publié]
 
+### Ajouté
+
+- Impression groupée des factures ouvertes : sélection par icône imprimante dans la barre de fichiers, entrée **Fichier → Impression groupée…**, choix du PDF à imprimer (**PDF du XML sinon document**, **PDF du XML seul** ou **PDF du document seul**) et impression de tout le lot en un seul job système. Voir [docs/BATCH_PRINT.md](docs/BATCH_PRINT.md).
+
 ## [0.8.1] - 2026-10-05
 
 ### Ajouté

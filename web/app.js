@@ -17,6 +17,7 @@ const state = {
   fit: false,        // PDF ajusté à la largeur à l'ouverture
   batch: false,      // tableau multi-factures affiché (aucun document sélectionné)
   library: false,    // bibliothèque affichée (aucun document sélectionné)
+  printSelection: new Set(), // ids des factures cochées pour l'impression groupée
 };
 let fileSeq = 0;
 
@@ -606,19 +607,35 @@ function renderList(preserveSearch = false) {
   }
 
   for (const f of filtered) {
+    // Icône imprimante : uniquement les factures analysées qui portent au moins un PDF.
+    const printable = f.status === "ok" && !!(f.result && (f.result.pdf || f.result.xml_pdf));
+    const selectedForPrint = printable && state.printSelection.has(f.id);
     const li = document.createElement("li");
-    li.className = "file-item" + (f.id === state.selected ? " selected" : "");
+    li.className = "file-item"
+      + (f.id === state.selected ? " selected" : "")
+      + (printable ? " printable" : "")
+      + (selectedForPrint ? " print-selected" : "");
     li.dataset.fileId = f.id;
     li.innerHTML =
       '<div class="fi-name">' + esc(f.name) + "</div>" +
       (f.status === "error"
         ? '<div class="fi-error">Erreur : ' + esc(f.error) + "</div>"
         : '<div class="fi-meta">' + fmtBadge(f.result) + "</div>") +
+      (printable
+        ? '<button type="button" class="fi-print' + (selectedForPrint ? " on" : "") + '" title="'
+          + (selectedForPrint ? "Retirer de la sélection d'impression" : "Sélectionner pour l'impression groupée")
+          + '" aria-pressed="' + selectedForPrint + '">' + PRINT_ICON_SVG + "</button>"
+        : "") +
       '<button type="button" class="fi-del" title="Retirer ce fichier" aria-label="Retirer ce fichier">✕</button>';
     li.addEventListener("click", () => selectFile(f.id));
     li.querySelector(".fi-del").addEventListener("click", (e) => {
       e.stopPropagation();
       removeFile(f.id);
+    });
+    const printBtn = li.querySelector(".fi-print");
+    if (printBtn) printBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      togglePrintSelection(f.id);
     });
     ul.appendChild(li);
   }
@@ -629,6 +646,7 @@ function removeFile(id) {
   const idx = state.files.findIndex((x) => x.id === id);
   if (idx === -1) return;
   state.files.splice(idx, 1);
+  state.printSelection.delete(id);
   if (state.selected === id) {
     const next = state.files[Math.min(idx, state.files.length - 1)];
     state.selected = next ? next.id : null;
@@ -644,6 +662,7 @@ function clearAllFiles() {
   if (!state.files.length) return;
   if (!confirm("Vider tous les fichiers de la session ?\n(Les pointages déjà sauvegardés ne seront pas supprimés.)")) return;
   state.files = [];
+  state.printSelection.clear();
   state.selected = null;
   state.tab = "pdf";
   state.pdfDoc = null;
@@ -2349,7 +2368,7 @@ function wireDnD() {
 
 const SETTINGS_KEY = "fx-settings";
 const THEME_KEY = "fx-theme";   // lu par index.html avant le premier rendu
-const SETTING_DEFAULTS = { theme: "jour", density: "normal", defaultTab: "pdf", pdfZoom: "1.25", startup: "restore", library: "on" };
+const SETTING_DEFAULTS = { theme: "jour", density: "normal", defaultTab: "pdf", pdfZoom: "1.25", startup: "restore", library: "on", printMode: "mixed" };
 const SETTING_CHOICES = {
   theme: ["jour", "nuit", "auto", "girl"],
   density: ["normal", "compact"],
@@ -2357,6 +2376,7 @@ const SETTING_CHOICES = {
   startup: ["restore", "home"],
   library: ["on", "off"],
   pdfZoom: ["fit", "0.75", "1", "1.25", "1.5", "2"],
+  printMode: ["mixed", "xml", "doc"],
 };
 const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
 const settings = loadSettings();
@@ -2546,6 +2566,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   wireBatch();
   wireContextMenu();
   wireMenubar();
+  wireBatchPrint();
   wireReview();
   wireDataProtection();
   wireLibrary();

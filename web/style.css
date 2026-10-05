@@ -484,6 +484,38 @@ button, input, select { font: inherit; color: inherit; }
 .file-item:hover .fi-del,
 .file-item:focus-within .fi-del { opacity: 1; }
 .fi-del:hover { color: var(--err); border-color: var(--err); background: color-mix(in srgb, var(--err) 10%, transparent); }
+/* Icône « sélectionner pour impression groupée », à gauche du bouton de retrait. */
+.file-item.printable .fi-name { padding-right: 56px; }
+.fi-print {
+  position: absolute;
+  top: 8px;
+  right: 32px;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0;
+  opacity: 0;
+  transition: opacity 0.12s, color 0.12s, border-color 0.12s, background 0.12s;
+}
+.fi-print svg { display: block; }
+.file-item:hover .fi-print,
+.file-item:focus-within .fi-print { opacity: 1; }
+.fi-print:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+.fi-print.on,
+.file-item.print-selected .fi-print {
+  opacity: 1;
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.file-item.print-selected { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
 .file-item .fi-meta { display: flex; flex-wrap: wrap; gap: 5px; }
 .file-item .fi-error { color: var(--err); font-size: 12px; margin-top: 4px; word-break: break-word; }
 .side-hint { font-size: 12px; color: var(--muted); border-top: 1px solid var(--border-soft); padding-top: 10px; }
@@ -1085,6 +1117,31 @@ tr.flash { animation: flash 1.8s ease-out; }
 
 .settings-credits { margin: 0; padding: 10px 18px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--border-soft); }
 
+/* ---------- impression groupée ---------- */
+.bp-modes {
+  margin: 10px 0 2px;
+  padding: 10px 14px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+}
+.bp-modes legend {
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.bp-modes label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 0;
+  font-size: 13.5px;
+  cursor: pointer;
+}
+.bp-modes input { accent-color: var(--accent); cursor: pointer; }
+
 /* ---------- contrôles de cohérence ---------- */
 .badge.err { color: var(--err); border-color: color-mix(in srgb, var(--err) 40%, transparent); background: color-mix(in srgb, var(--err) 8%, var(--panel)); font-weight: 600; }
 .controls-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; cursor: pointer; }
@@ -1378,3 +1435,23 @@ tr.flash { animation: flash 1.8s ease-out; }
 .schedule-item .btn { justify-self: start; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 720px) { .schedule-item { grid-template-columns: 1fr auto; } .schedule-item > span:nth-child(2) { grid-column: 1 / -1; } }
 @media print { .schedule-tools, .schedule-item .btn { display: none; } .schedule-group { break-inside: avoid; } }
+
+/* ---------- impression groupée : feuille de rendu hors écran ---------- */
+#batch-print-sheet { display: none; }
+@media print {
+  body.batch-printing #menubar,
+  body.batch-printing .topbar,
+  body.batch-printing .tabbar,
+  body.batch-printing #workspace-message,
+  body.batch-printing #quick-search,
+  body.batch-printing .layout,
+  body.batch-printing .ctx-menu,
+  body.batch-printing .pop,
+  body.batch-printing .toast,
+  body.batch-printing dialog { display: none !important; }
+  body.batch-printing { background: #fff !important; }
+  body.batch-printing #batch-print-sheet { display: block; }
+  #batch-print-sheet .bp-doc .bp-page + .bp-page { break-before: page; }
+  #batch-print-sheet .bp-doc + .bp-doc { break-before: page; }
+  #batch-print-sheet .bp-page img { width: 100%; height: auto; display: block; }
+}

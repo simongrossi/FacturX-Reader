@@ -490,6 +490,26 @@
   </div>
 </dialog>
 
+<dialog id="batch-print-dialog" class="settings batch-print" aria-labelledby="batch-print-title">
+  <div class="settings-head">
+    <h2 id="batch-print-title">Impression groupée</h2>
+    <button type="button" id="batch-print-close" class="icon-btn" title="Fermer" aria-label="Fermer">✕</button>
+  </div>
+  <div class="settings-body">
+    <fieldset class="bp-modes">
+      <legend>PDF à imprimer</legend>
+      <label><input type="radio" name="bp-mode" value="mixed" checked> <span>PDF du XML, sinon PDF du document</span></label>
+      <label><input type="radio" name="bp-mode" value="xml"> <span>PDF du XML uniquement (les autres ne sont pas imprimés)</span></label>
+      <label><input type="radio" name="bp-mode" value="doc"> <span>PDF du document uniquement</span></label>
+    </fieldset>
+    <p id="batch-print-info" class="setting-help" role="status"></p>
+  </div>
+  <div class="settings-foot">
+    <button type="button" id="batch-print-cancel" class="btn">Annuler</button>
+    <button type="button" id="batch-print-go" class="btn primary" disabled>IMPRIMER 0 Fichiers PDF ?</button>
+  </div>
+</dialog>
+
 <script src="exports/exceljs.min.js"></script>
 <script src="exports/jspdf.umd.min.js"></script>
 <script src="decimal.js"></script>
@@ -506,6 +526,7 @@
 <script src="schedule.js"></script>
 <script src="library.js"></script>
 <script src="menu.js"></script>
+<script src="print-batch.js"></script>
 <script src="menubar.js"></script>
 </body>
 </html>
