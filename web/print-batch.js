@@ -13,6 +13,8 @@ const PRINT_ICON_SVG =
 const BP_MAX_PAGES = 400; // plafond de confort mémoire pour un seul job
 const BP_SCALE = 2;       // échelle de rendu (A4 ≈ 1587 × 2245 px)
 
+let batchPrintBusy = false;
+
 function plural(n, singulier, pluriel) { return n > 1 ? pluriel : singulier; }
 
 function togglePrintSelection(id) {
@@ -63,7 +65,7 @@ function refreshBatchPrintDialog() {
 }
 
 function openBatchPrintDialog() {
-  if (!state.printSelection.size) return;
+  if (batchPrintBusy || document.body.classList.contains("batch-printing") || !state.printSelection.size) return;
   const dialog = byId("batch-print-dialog");
   const saved = dialog.querySelector('input[name="bp-mode"][value="' + (settings.printMode || "mixed") + '"]');
   if (saved) saved.checked = true;
@@ -72,10 +74,20 @@ function openBatchPrintDialog() {
 }
 
 function destroyQuietly(doc) {
-  try { doc.destroy(); } catch (e) { /* déjà détruit */ }
+  try { Promise.resolve(doc.destroy()).catch(() => {}); } catch (e) { /* déjà détruit */ }
 }
 
 async function launchBatchPrint() {
+  if (batchPrintBusy || document.body.classList.contains("batch-printing")) return;
+  batchPrintBusy = true;
+  byId("batch-print-go").disabled = true;
+  try { await prepareBatchPrint(); } finally {
+    batchPrintBusy = false;
+    refreshBatchPrintDialog();
+  }
+}
+
+async function prepareBatchPrint() {
   const mode = batchPrintMode();
   const { jobs } = batchPrintJobs(mode);
   if (!jobs.length) return;
@@ -96,7 +108,7 @@ async function launchBatchPrint() {
     return;
   }
   if (total > BP_MAX_PAGES) {
-    const ok = confirm("Ce lot compte " + total + " pages au total (plafard conseillé : " + BP_MAX_PAGES + "). Continuer ?");
+    const ok = confirm("Ce lot compte " + total + " pages au total (plafond conseillé : " + BP_MAX_PAGES + "). Continuer ?");
     if (!ok) {
       loaded.forEach((l) => destroyQuietly(l.doc));
       return;
@@ -119,6 +131,7 @@ async function launchBatchPrint() {
         const img = document.createElement("img");
         img.alt = job.name + " — page " + i;
         img.src = canvas.toDataURL("image/png");
+        await img.decode();
         canvas.width = 0;
         canvas.height = 0;
         const wrap = document.createElement("div");
@@ -131,6 +144,7 @@ async function launchBatchPrint() {
       sheet.appendChild(group);
     }
   } catch (e) {
+    loaded.forEach((l) => destroyQuietly(l.doc));
     sheet.innerHTML = "";
     alert("Impression impossible : " + ((e && e.message) || e));
     return;

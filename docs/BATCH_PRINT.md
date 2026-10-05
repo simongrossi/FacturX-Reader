@@ -1,6 +1,6 @@
 # Impression groupée des factures ouvertes
 
-Chantier du 5 octobre 2026, sur la branche `Print_Facility`. Fonctionnalité en cours d’intégration (non publiée).
+Intégrée le 5 octobre 2026 depuis la PR #15 (non publiée).
 
 ## Utilisation
 

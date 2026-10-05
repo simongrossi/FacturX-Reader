@@ -134,3 +134,41 @@ test('sélection par icône, modes, compteurs et impression unique', async ({ pa
   await expect(page.locator('.file-item.print-selected')).toHaveCount(2);
   expect(errors).toEqual([]);
 });
+
+
+test('préparation unique, images décodées et reprise après erreur', async ({ page }) => {
+  await mockBackend(page);
+  await page.locator('#file-input').setInputFiles([
+    { name: 'avec-xml.pdf', mimeType: 'application/pdf', buffer: Buffer.from('x') },
+  ]);
+  await page.locator('.fi-print').click();
+  await page.evaluate(() => {
+    openBatchPrintDialog();
+    window.__originalPdfjs = window.pdfjsLib;
+    window.pdfjsLib = { getDocument: () => ({ promise: new Promise((resolve, reject) => {
+      window.__rejectPdf = reject;
+    }) }) };
+    launchBatchPrint();
+    launchBatchPrint();
+  });
+  await expect(page.locator('#batch-print-go')).toBeDisabled();
+  page.once('dialog', dialog => dialog.accept());
+  await page.evaluate(() => window.__rejectPdf(new Error('PDF invalide')));
+  await expect(page.locator('#batch-print-go')).toBeEnabled();
+  await page.evaluate(() => {
+    window.pdfjsLib = window.__originalPdfjs;
+    const originalPrint = api.print;
+    api.print = () => {
+      window.__imagesReady = [...document.querySelectorAll('#batch-print-sheet img')]
+        .every(img => img.complete && img.naturalWidth > 0);
+      return originalPrint();
+    };
+  });
+  await page.locator('#batch-print-go').click();
+  await expect.poll(() => page.evaluate(() => window.__printed)).toBe(1);
+  expect(await page.evaluate(() => window.__imagesReady)).toBe(true);
+  await page.evaluate(() => launchBatchPrint());
+  expect(await page.evaluate(() => window.__printed)).toBe(1);
+  await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+  await expect(page.locator('#batch-print-sheet')).toHaveText('');
+});

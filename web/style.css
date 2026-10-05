@@ -1449,6 +1449,7 @@ tr.flash { animation: flash 1.8s ease-out; }
   body.batch-printing .pop,
   body.batch-printing .toast,
   body.batch-printing dialog { display: none !important; }
+  body.batch-printing .bp-page { break-inside: avoid; }
   body.batch-printing { background: #fff !important; }
   body.batch-printing #batch-print-sheet { display: block; }
   #batch-print-sheet .bp-doc .bp-page + .bp-page { break-before: page; }
