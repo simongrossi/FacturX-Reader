@@ -72,6 +72,9 @@
   <button id="quick-prev" class="btn" aria-label="Résultat précédent" disabled>‹</button>
   <button id="quick-next" class="btn" aria-label="Résultat suivant" disabled>›</button>
   <span id="quick-status" role="status" aria-live="polite">Sélectionnez un document · données XML</span>
+  <label class="quick-filter-check" title="Ne voir dans la barre de fichiers à gauche que les documents correspondants">
+    <input id="quick-filter-sidebar" type="checkbox"> Filtrer la liste
+  </label>
   <button type="button" id="quick-close" class="icon-btn" title="Fermer la recherche (Échap)" aria-label="Fermer la recherche">✕</button>
 </div>
 <div class="layout">
@@ -79,11 +82,42 @@
     <div class="side-title">
       <span class="side-label">Fichiers</span>
       <span class="side-actions">
+        <button type="button" id="btn-file-filter-toggle" class="icon-btn"
+                title="Afficher ou masquer les filtres" aria-label="Afficher ou masquer les filtres" aria-pressed="true">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+        </button>
         <button type="button" id="btn-clear-all" class="icon-btn"
                 title="Vider tous les fichiers" aria-label="Vider tous les fichiers">🗑</button>
         <button type="button" id="btn-fold" class="icon-btn"
                 title="Replier le panneau" aria-label="Replier le panneau">‹</button>
       </span>
+    </div>
+    <div id="side-filter" class="side-filter" role="region" aria-label="Filtres des fichiers" hidden>
+      <div class="side-filter-search">
+        <input id="side-filter-query" type="search" class="side-filter-input"
+               placeholder="Filtrer par nom, n°, tiers…" aria-label="Filtrer la liste des fichiers">
+      </div>
+      <div class="side-filter-chips" role="toolbar" aria-label="Critères de filtrage">
+        <button type="button" class="side-chip active" data-filter="all" title="Tous les fichiers" aria-pressed="true">
+          <span>Tous</span><span class="side-chip-count" id="chip-count-all">0</span>
+        </button>
+        <button type="button" class="side-chip" data-filter="error" title="Fichiers non lus ou avec écarts et non-conformités" aria-pressed="false">
+          <span>Erreurs</span><span class="side-chip-count" id="chip-count-error">0</span>
+        </button>
+        <button type="button" class="side-chip" data-filter="search" id="side-chip-search" title="Fichiers correspondant à la recherche de la barre de texte" aria-pressed="false">
+          <span>Recherche</span><span class="side-chip-count" id="chip-count-search">0</span>
+        </button>
+        <button type="button" class="side-chip" data-filter="alert" title="Fichiers avec alertes, anomalies ou écarts" aria-pressed="false">
+          <span>Alertes</span><span class="side-chip-count" id="chip-count-alert">0</span>
+        </button>
+        <button type="button" class="side-chip" data-filter="valid" title="Fichiers valides sans aucune anomalie" aria-pressed="false">
+          <span>Valides</span><span class="side-chip-count" id="chip-count-valid">0</span>
+        </button>
+      </div>
+      <div id="side-filter-info" class="side-filter-info" hidden>
+        <span id="side-filter-count"></span>
+        <button type="button" id="side-filter-reset" class="side-filter-reset" title="Réinitialiser les filtres">Effacer</button>
+      </div>
     </div>
     <ul id="file-list" class="file-list"></ul>
     <div class="side-hint">

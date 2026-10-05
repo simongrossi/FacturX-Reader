@@ -191,8 +191,11 @@ dossiers cachés ignorés). Un PDF sans XML de facture apparaît dans la liste a
 
 Pour suivre les nouveaux fichiers, choisissez **Paramètres → Dossier surveillé → Choisir un dossier…**. La surveillance est locale et active seulement quand l’application est ouverte. Les fichiers déjà présents lors du choix sont ignorés ; **Ouvrir un dossier** permet de les importer. La progression, la pause et l’annulation se trouvent dans les paramètres. [Fonctionnement et limites](docs/WATCH_FOLDER.md). Fonction disponible à partir de la 0.8.0.
 
-Dans le panneau **Fichiers** : **🗑** vide la liste, **✕** (au survol) retire un fichier,
-**‹ / ›** replie le panneau.
+Dans le panneau **Fichiers** :
+- **Filtres rapides** : puces d'accès direct **Tous**, **Erreurs** (lecture, calculs, règles EN 16931, Schematron, XSD), **Recherche** (documents correspondant au texte recherché), **Alertes** et **Valides**.
+- **Recherche textuelle directe** : champ instantané pour filtrer par nom, tiers ou numéro au fil de la frappe (`Échap` ou lien « Effacer » pour réinitialiser).
+- **Synchronisation avec la recherche rapide** : la case **Filtrer la liste** dans la barre de recherche (`Ctrl+F` / `Cmd+F`) restreint la barre latérale aux seuls documents correspondants.
+- **Actions et affichage** : l'icône entonnoir replie ou déplie les filtres (mémorisé), **🗑** vide la liste, **✕** (au survol) retire un fichier, **‹ / ›** replie le panneau. Fonction disponible à partir de la 0.8.1.
 
 ### Exports Excel et rapport PDF
 

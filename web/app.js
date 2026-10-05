@@ -282,6 +282,290 @@ function hideQuickSearch() {
   scheduleQuickSearch();
   byId("quick-search").hidden = true;
   byId("btn-search").setAttribute("aria-pressed", "false");
+  if (typeof sidebarFilter !== "undefined" && sidebarFilter.mode === "search") {
+    setSidebarFilterMode("all");
+  }
+}
+
+/* ---------------- filtre de la liste latérale ---------------- */
+
+const sidebarFilter = {
+  mode: "all", // "all" | "error" | "search" | "alert" | "valid"
+  query: "",
+  open: true,
+};
+
+try {
+  const savedFilterOpen = localStorage.getItem("fx-sidebar-filter-open");
+  if (savedFilterOpen !== null) sidebarFilter.open = savedFilterOpen === "1";
+} catch (e) {}
+
+function fileHasError(f) {
+  if (!f) return false;
+  if (f.status === "error") return true;
+  if (!f.result) return false;
+  try {
+    const v = invoiceVerdicts(f);
+    if (v.lecture && v.lecture.etat === "erreur") return true;
+    if (v.calculs && v.calculs.etat === "ecart") return true;
+    if (v.regles && v.regles.etat === "ecart") return true;
+    if (v.schematron && v.schematron.etat === "ecart") return true;
+    if (v.xsd && v.xsd.etat === "ecart") return true;
+    if (v.france && v.france.etat === "ecart") return true;
+    if (v.conteneur && v.conteneur.etat === "ecart") return true;
+  } catch (e) {}
+  if ((f.result.controles || []).some((c) => c.etat === "ecart")) return true;
+  if (f.result.regles && f.result.regles.non_conformes > 0) return true;
+  if (f.result.schematron && f.result.schematron.non_conformes > 0) return true;
+  if (f.result.xsd && f.result.xsd.evalue && !f.result.xsd.ok) return true;
+  return false;
+}
+
+function fileHasAlert(f) {
+  if (!f) return false;
+  if (fileHasError(f)) return true;
+  if (!f.result) return false;
+  try {
+    const v = invoiceVerdicts(f);
+    if (v.alertes > 0) return true;
+    if (v.schematron && v.schematron.etat === "alerte") return true;
+    if (v.france && v.france.etat === "alerte") return true;
+    if (v.conteneur && v.conteneur.etat === "alerte") return true;
+  } catch (e) {}
+  if ((f.result.controles || []).some((c) => c.etat === "alerte")) return true;
+  if (typeof duplicateChecks === "function" && duplicateChecks(f).length > 0) return true;
+  return false;
+}
+
+function fileMatchesText(f, query, isRegex = false) {
+  if (!query) return true;
+  if (!f) return false;
+  let re = null;
+  if (isRegex) {
+    try { re = new RegExp(query, "i"); } catch { return false; }
+  }
+  const needle = query.toLowerCase();
+  const testVal = (val) => {
+    if (val == null) return false;
+    const s = String(val);
+    return re ? re.test(s) : s.toLowerCase().includes(needle);
+  };
+
+  if (testVal(f.name)) return true;
+  if (testVal(f.error)) return true;
+
+  const s = f.result && f.result.synthese;
+  if (s) {
+    if (testVal(s.numero)) return true;
+    if (testVal(s.vendeur)) return true;
+    if (testVal(s.acheteur)) return true;
+    if (testVal(s.date)) return true;
+    if (testVal(s.echeance)) return true;
+    if (testVal(s.ht)) return true;
+    if (testVal(s.ttc)) return true;
+    if (testVal(s.a_payer)) return true;
+  }
+  if (f.result) {
+    if (testVal(f.result.format)) return true;
+    if (testVal(f.result.profil)) return true;
+    const rows = f.result.rows;
+    if (rows && Array.isArray(rows)) {
+      for (const row of rows) {
+        if (row.binary) continue;
+        if (testVal(row.title) || testVal(row.value) || testVal(row.tag) || testVal(row.path)) return true;
+      }
+    }
+  }
+  return false;
+}
+
+function fileMatchesSearch(f, quickQuery, isRegex = false) {
+  if (quickQuery) {
+    if (typeof quickHits !== "undefined" && quickHits.some((h) => h.id === f.id)) return true;
+    return fileMatchesText(f, quickQuery, isRegex);
+  }
+  const sideQuery = (byId("side-filter-query")?.value || "").trim();
+  if (sideQuery) {
+    return fileMatchesText(f, sideQuery, false);
+  }
+  return true;
+}
+
+function getFilteredFiles() {
+  const mode = sidebarFilter.mode;
+  const sideQuery = sidebarFilter.query.trim();
+  const quickQuery = (byId("quick-query")?.value || "").trim();
+  const isRegex = !!byId("quick-regex")?.checked;
+
+  return state.files.filter((f) => {
+    if (mode === "error") {
+      if (!fileHasError(f)) return false;
+    } else if (mode === "search") {
+      if (!fileMatchesSearch(f, quickQuery, isRegex)) return false;
+    } else if (mode === "alert") {
+      if (!fileHasAlert(f)) return false;
+    } else if (mode === "valid") {
+      if (f.status !== "ok" || fileHasError(f) || fileHasAlert(f)) return false;
+    }
+
+    if (sideQuery) {
+      if (!fileMatchesText(f, sideQuery, false)) return false;
+    }
+
+    return true;
+  });
+}
+
+function updateSidebarFilterCounts() {
+  const total = state.files.length;
+  const countAll = byId("chip-count-all");
+  const countErr = byId("chip-count-error");
+  const countSch = byId("chip-count-search");
+  const countAlt = byId("chip-count-alert");
+  const countVal = byId("chip-count-valid");
+
+  if (!countAll) return;
+  countAll.textContent = total;
+
+  const numErrors = state.files.filter(fileHasError).length;
+  countErr.textContent = numErrors;
+  countErr.classList.toggle("has-errors", numErrors > 0);
+
+  const quickQuery = (byId("quick-query")?.value || "").trim();
+  const sideQuery = (byId("side-filter-query")?.value || "").trim();
+  const isRegex = !!byId("quick-regex")?.checked;
+  let numSearch = 0;
+  if (quickQuery || sideQuery) {
+    numSearch = state.files.filter((f) => fileMatchesSearch(f, quickQuery, isRegex)).length;
+    countSch.textContent = numSearch;
+    countSch.classList.toggle("has-hits", numSearch > 0);
+  } else {
+    countSch.textContent = total;
+    countSch.classList.remove("has-hits");
+  }
+
+  const numAlerts = state.files.filter(fileHasAlert).length;
+  countAlt.textContent = numAlerts;
+
+  const numValid = state.files.filter((f) => f.status === "ok" && !fileHasError(f) && !fileHasAlert(f)).length;
+  if (countVal) countVal.textContent = numValid;
+}
+
+function updateSidebarFilterUI(filteredCount, totalCount) {
+  const bar = byId("side-filter");
+  const toggleBtn = byId("btn-file-filter-toggle");
+  if (!bar) return;
+
+  if (totalCount === 0) {
+    bar.hidden = true;
+    if (toggleBtn) toggleBtn.disabled = true;
+    return;
+  }
+
+  if (toggleBtn) {
+    toggleBtn.disabled = false;
+    toggleBtn.setAttribute("aria-pressed", sidebarFilter.open ? "true" : "false");
+  }
+  bar.hidden = !sidebarFilter.open;
+
+  document.querySelectorAll(".side-chip").forEach((chip) => {
+    const isAct = chip.dataset.filter === sidebarFilter.mode;
+    chip.classList.toggle("active", isAct);
+    chip.setAttribute("aria-pressed", isAct ? "true" : "false");
+  });
+
+  updateSidebarFilterCounts();
+
+  const hasActiveFilter = sidebarFilter.mode !== "all" || !!sidebarFilter.query.trim();
+  const info = byId("side-filter-info");
+  const countText = byId("side-filter-count");
+  if (info && countText) {
+    info.hidden = !hasActiveFilter;
+    if (hasActiveFilter) {
+      countText.textContent = `${filteredCount} / ${totalCount} affiché${filteredCount > 1 ? "s" : ""}`;
+    }
+  }
+
+  if (toggleBtn) {
+    toggleBtn.classList.toggle("has-filter", hasActiveFilter);
+  }
+
+  const quickFilterCheck = byId("quick-filter-sidebar");
+  if (quickFilterCheck) {
+    quickFilterCheck.checked = sidebarFilter.mode === "search";
+  }
+}
+
+function setSidebarFilterMode(mode) {
+  sidebarFilter.mode = mode;
+  if (mode === "search") {
+    const quickQuery = (byId("quick-query")?.value || "").trim();
+    const sideQuery = (byId("side-filter-query")?.value || "").trim();
+    if (!quickQuery && !sideQuery) {
+      showQuickSearch();
+    }
+  }
+  renderList(true);
+}
+
+function resetSidebarFilter() {
+  sidebarFilter.mode = "all";
+  sidebarFilter.query = "";
+  const inp = byId("side-filter-query");
+  if (inp) inp.value = "";
+  renderList(true);
+}
+
+function toggleSidebarFilter() {
+  sidebarFilter.open = !sidebarFilter.open;
+  try {
+    localStorage.setItem("fx-sidebar-filter-open", sidebarFilter.open ? "1" : "0");
+  } catch (e) {}
+  const bar = byId("side-filter");
+  if (bar) bar.hidden = !sidebarFilter.open;
+  const toggleBtn = byId("btn-file-filter-toggle");
+  if (toggleBtn) toggleBtn.setAttribute("aria-pressed", sidebarFilter.open ? "true" : "false");
+}
+
+function wireSidebarFilter() {
+  const queryInp = byId("side-filter-query");
+  if (queryInp) {
+    queryInp.addEventListener("input", (e) => {
+      sidebarFilter.query = e.target.value;
+      renderList(true);
+    });
+    queryInp.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        queryInp.value = "";
+        sidebarFilter.query = "";
+        renderList(true);
+      }
+    });
+  }
+
+  document.querySelectorAll(".side-chip").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      const targetMode = chip.dataset.filter;
+      if (sidebarFilter.mode === targetMode && targetMode !== "all") {
+        setSidebarFilterMode("all");
+      } else {
+        setSidebarFilterMode(targetMode);
+      }
+    });
+  });
+
+  const resetBtn = byId("side-filter-reset");
+  if (resetBtn) resetBtn.addEventListener("click", resetSidebarFilter);
+
+  const toggleBtn = byId("btn-file-filter-toggle");
+  if (toggleBtn) toggleBtn.addEventListener("click", toggleSidebarFilter);
+
+  const quickFilterCheck = byId("quick-filter-sidebar");
+  if (quickFilterCheck) {
+    quickFilterCheck.addEventListener("change", (e) => {
+      setSidebarFilterMode(e.target.checked ? "search" : "all");
+    });
+  }
 }
 
 function renderList(preserveSearch = false) {
@@ -290,9 +574,38 @@ function renderList(preserveSearch = false) {
   renderDocumentTabs();
   saveWorkspace();
   if (!preserveSearch) scheduleQuickSearch();
+
+  const totalCount = state.files.length;
+  const filtered = getFilteredFiles();
+  const filteredCount = filtered.length;
+
+  updateSidebarFilterUI(filteredCount, totalCount);
+
   const ul = byId("file-list");
   ul.innerHTML = "";
-  for (const f of state.files) {
+
+  if (totalCount > 0 && filteredCount === 0) {
+    const emptyLi = document.createElement("li");
+    emptyLi.className = "file-list-empty";
+    let msg = "Aucun document ne correspond au filtre actif.";
+    if (sidebarFilter.mode === "error") {
+      msg = "Aucun document en erreur.";
+    } else if (sidebarFilter.mode === "search") {
+      msg = "Aucun document ne correspond à la recherche.";
+    } else if (sidebarFilter.mode === "alert") {
+      msg = "Aucun document avec alerte ou anomalie.";
+    } else if (sidebarFilter.mode === "valid") {
+      msg = "Aucun document conforme sans anomalie.";
+    }
+    emptyLi.innerHTML =
+      '<p>' + esc(msg) + '</p>' +
+      '<button type="button" class="btn btn-sm" id="btn-file-filter-reset">Effacer le filtre</button>';
+    emptyLi.querySelector("#btn-file-filter-reset").addEventListener("click", resetSidebarFilter);
+    ul.appendChild(emptyLi);
+    return;
+  }
+
+  for (const f of filtered) {
     const li = document.createElement("li");
     li.className = "file-item" + (f.id === state.selected ? " selected" : "");
     li.dataset.fileId = f.id;
@@ -1868,6 +2181,8 @@ function scheduleQuickSearch() {
   byId("quick-status").textContent = query ? "Recherche…" :
     (currentOnly ? "Document sélectionné" : "Tous les documents ouverts") + " · données XML";
   if (query) quickTimer = setTimeout(runQuickSearch, 200);
+  if (typeof updateSidebarFilterCounts === "function") updateSidebarFilterCounts();
+  if (typeof sidebarFilter !== "undefined" && sidebarFilter.mode === "search") renderList(true);
 }
 function runQuickSearch() {
   const worker = quickWorker = new Worker("search-worker.js");
@@ -1886,6 +2201,8 @@ function runQuickSearch() {
     quickButtons();
     byId("quick-status").textContent = data.error || "Aucun résultat";
     if (quickHits.length) moveQuickSearch(1);
+    if (typeof updateSidebarFilterCounts === "function") updateSidebarFilterCounts();
+    if (typeof sidebarFilter !== "undefined" && sidebarFilter.mode === "search") renderList(true);
   };
   worker.postMessage({
     query: byId("quick-query").value, regex: byId("quick-regex").checked,
@@ -2162,6 +2479,7 @@ function wireUI() {
   try {
     if (localStorage.getItem("fx-sidebar") === "1") toggleSidebar();
   } catch (e) {}
+  wireSidebarFilter();
 
   document.querySelectorAll(".tab").forEach((t) =>
     t.addEventListener("click", () => setTab(t.dataset.tab)));

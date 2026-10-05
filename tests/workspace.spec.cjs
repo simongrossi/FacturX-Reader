@@ -1519,3 +1519,80 @@ test('échéancier : dates, devises, avoir non affecté, export filtré et accè
   expect(await page.evaluate(() => scheduleDate('2026-02-30'))).toBe('');
   expect(errors).toEqual([]);
 });
+
+test('barre de fichiers : filtres activables, erreurs, recherche synchronisée et puces', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await mockBackend(page);
+  await page.goto(url);
+
+  // Au démarrage sans fichiers, le panneau de filtre est masqué
+  await expect(page.locator('#side-filter')).toBeHidden();
+
+  // Chargement d'un fichier valide et d'un fichier en erreur (missing)
+  await page.evaluate(async () => {
+    await addPaths({ files: ['C:/valide.xml', 'C:/missing.xml'] });
+  });
+
+  // Dès qu'il y a des fichiers, le filtre latéral est visible
+  await expect(page.locator('#side-filter')).toBeVisible();
+  await expect(page.locator('.file-item')).toHaveCount(2);
+  await expect(page.locator('#chip-count-all')).toHaveText('2');
+  await expect(page.locator('#chip-count-error')).toHaveText('1');
+
+  // Filtre "Erreurs" : uniquement missing.xml
+  await page.locator('.side-chip[data-filter="error"]').click();
+  await expect(page.locator('.side-chip[data-filter="error"]')).toHaveClass(/active/);
+  await expect(page.locator('.file-item')).toHaveCount(1);
+  await expect(page.locator('.file-item')).toContainText('missing.xml');
+  await expect(page.locator('#side-filter-info')).toBeVisible();
+  await expect(page.locator('#side-filter-count')).toContainText('1 / 2');
+
+  // Clic à nouveau sur "Erreurs" pour désactiver le filtre (revient à Tous)
+  await page.locator('.side-chip[data-filter="error"]').click();
+  await expect(page.locator('.side-chip[data-filter="all"]')).toHaveClass(/active/);
+  await expect(page.locator('.file-item')).toHaveCount(2);
+  await expect(page.locator('#side-filter-info')).toBeHidden();
+
+  // Filtre par texte dans la barre de recherche rapide (Ctrl+F)
+  await page.locator('#btn-search').click();
+  await expect(page.locator('#quick-search')).toBeVisible();
+  await page.locator('#quick-query').fill('valide');
+  await page.locator('#quick-filter-sidebar').check();
+  await expect(page.locator('.side-chip[data-filter="search"]')).toHaveClass(/active/);
+  await expect(page.locator('.file-item')).toHaveCount(1);
+  await expect(page.locator('.file-item')).toContainText('valide.xml');
+
+  // Décocher le filtre de recherche dans la barre rapide
+  await page.locator('#quick-filter-sidebar').uncheck();
+  await expect(page.locator('.file-item')).toHaveCount(2);
+
+  // Recherche sans résultat : message d'état vide dans la liste
+  await page.locator('.side-chip[data-filter="search"]').click();
+  await page.locator('#quick-query').fill('inexistant-xyz');
+  await expect(page.locator('.file-list-empty')).toBeVisible();
+  await expect(page.locator('.file-list-empty')).toContainText('Aucun document ne correspond à la recherche');
+
+  // Bouton "Effacer le filtre" dans l'état vide
+  await page.locator('#btn-file-filter-reset').click();
+  await expect(page.locator('.file-item')).toHaveCount(2);
+
+  // Filtre textuel direct dans la barre latérale
+  await page.locator('#side-filter-query').fill('miss');
+  await expect(page.locator('.file-item')).toHaveCount(1);
+  await expect(page.locator('.file-item')).toContainText('missing.xml');
+
+  // Bouton "Effacer" dans l'info barre latérale
+  await page.locator('#side-filter-reset').click();
+  await expect(page.locator('.file-item')).toHaveCount(2);
+
+  // Repli et dépli du panneau de filtre latéral via l'icône
+  const toggleBtn = page.locator('#btn-file-filter-toggle');
+  await toggleBtn.click();
+  await expect(page.locator('#side-filter')).toBeHidden();
+  await toggleBtn.click();
+  await expect(page.locator('#side-filter')).toBeVisible();
+
+  expect(errors).toEqual([]);
+});
+

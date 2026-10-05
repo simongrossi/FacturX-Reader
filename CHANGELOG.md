@@ -5,6 +5,16 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 
 ## [Non publié]
 
+## [0.8.1] - 2026-10-05
+
+### Ajouté
+
+- Filtres activables dans la barre de fichiers latérale : puces d'accès rapide (**Tous**, **Erreurs**, **Recherche**, **Alertes**, **Valides**) avec décompte en direct et mise en valeur des documents à examiner.
+- Filtrage ciblé des erreurs et non-conformités : isole en un clic les documents en échec de lecture, avec écarts arithmétiques, règles EN 16931 non respectées, ou erreurs de validation Schematron officiel et schéma XSD.
+- Synchronisation avec la recherche textuelle : case à cocher « Filtrer la liste » dans la barre de recherche rapide (`Ctrl+F` / `Cmd+F`) pour restreindre la barre de fichiers aux seuls documents correspondants, et puce « Recherche » qui ouvre et cible la recherche si aucun terme n'est actif.
+- Champ de filtre textuel instantané dans le panneau latéral pour filtrer les fichiers par nom, tiers ou numéro au clavier, avec réinitialisation par `Échap` ou via le lien « Effacer ».
+- Repli/dépli du panneau de filtres via une icône entonnoir dans l'en-tête de la barre de fichiers, avec persistance locale de la préférence.
+
 ## [0.8.0] - 2026-10-05
 
 ### Ajouté
