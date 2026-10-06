@@ -1596,3 +1596,46 @@ test('barre de fichiers : filtres activables, erreurs, recherche synchronisée e
   expect(errors).toEqual([]);
 });
 
+
+test('vues par usage : personnalisation, persistance et accès avancé', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await mockBackend(page, null, {
+    summary: [{ title: 'Vendeur', value: 'Fournisseur' }, { title: 'Total HT', value: '100 EUR' }],
+    sections: [{ name: 'Livraison', rows: [{ title: 'Ville', value: 'Paris', path: 'Delivery/City' }] }],
+  });
+  await page.goto(url);
+  await page.locator('#btn-display').click();
+  await page.getByRole('menuitem', { name: 'Réception / Stock' }).click();
+  await expect(page.locator('html')).toHaveClass(/hide-display-amounts/);
+  await expect(page.locator('html')).toHaveClass(/hide-display-controls/);
+  await page.locator('#file-input').setInputFiles({ name: 'reception.xml', mimeType: 'text/xml', buffer: Buffer.from('<Invoice/>') });
+  await page.locator('#tabs [data-tab="data"]').click();
+  await expect(page.locator('[data-display="amounts"]').first()).toBeHidden();
+  await expect(page.locator('[data-display="delivery"]')).toBeVisible();
+  await expect(page.locator('#tabs [data-tab="raw"]')).toBeHidden();
+  await page.locator('#btn-display').click();
+  await page.getByRole('menuitem', { name: 'Avancé : XML brut' }).click();
+  await expect(page.locator('#tab-raw')).toBeVisible();
+  await page.locator('#btn-display').click();
+  await page.getByRole('menuitem', { name: 'Avancé : contrôles' }).click();
+  await expect(page.locator('#anomaly-center')).toBeVisible();
+  await page.locator('#btn-settings').click();
+  await expect(page.locator('#display-preset')).toHaveValue('stock');
+  await page.locator('[data-display-option="amounts"]').check();
+  await expect(page.locator('#display-preset')).toHaveValue('custom');
+  await expect(page.locator('html')).not.toHaveClass(/hide-display-amounts/);
+  await page.locator('#settings-close').click();
+  await page.reload();
+  await page.locator('#btn-settings').click();
+  await expect(page.locator('#display-preset')).toHaveValue('custom');
+  await expect(page.locator('[data-display-option="amounts"]')).toBeChecked();
+  await page.locator('#display-preset').selectOption('accounting');
+  await expect(page.locator('html')).toHaveClass(/hide-display-delivery/);
+  await page.locator('#display-preset').selectOption('custom');
+  await expect(page.locator('[data-display-option="delivery"]')).toBeChecked();
+  await page.locator('#settings-reset').click();
+  await expect(page.locator('#display-preset')).toHaveValue('full');
+  await expect(page.locator('html')).not.toHaveClass(/hide-display-/);
+  expect(errors).toEqual([]);
+});

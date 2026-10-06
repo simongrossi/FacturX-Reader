@@ -1374,6 +1374,8 @@ function linesTable(f) {
   trh.appendChild(thPoint);
   for (const col of cols) {
     const th = document.createElement("th");
+    if (col.key === "detail") th.dataset.display = "lineDetails";
+    if (["price", "taxrate", "taxamt", "total", "frais"].includes(col.key)) th.dataset.display = "amounts";
     const label = document.createElement("span");
     label.textContent = col.title;
     th.appendChild(label);
@@ -1421,6 +1423,8 @@ function linesTable(f) {
     tr.appendChild(tdPoint);
     for (const col of cols) {
       const td = document.createElement("td");
+      if (col.key === "detail") td.dataset.display = "lineDetails";
+      if (["price", "taxrate", "taxamt", "total", "frais"].includes(col.key)) td.dataset.display = "amounts";
       if (col.key === "detail") {
         td.classList.add("col-detail");
         const open = (f._openDetails || new Set()).has(idx);
@@ -1945,6 +1949,7 @@ function renderData(f) {
     for (const s of summaries) {
       const c = document.createElement("div");
       c.className = "card";
+      if (/HT|TTC|TVA|payer/i.test(s.title)) c.dataset.display = "amounts";
       const money = /HT|TTC|TVA|payer|EUR|€|\d/.test(s.value) &&
         /HT|TTC|TVA|payer/i.test(s.title);
       c.innerHTML =
@@ -1955,6 +1960,7 @@ function renderData(f) {
         c.dataset.provenance = key;
         const details = document.createElement("details");
         details.className = "provenance-details";
+        details.dataset.display = "provenance";
         details.appendChild(Object.assign(document.createElement("summary"), { textContent: "Voir la provenance" }));
         details.appendChild(Object.assign(document.createElement("p"), {
           textContent: (proof.type === "calculated" ? "Valeur calculée : " : proof.type === "extracted" ? "Valeur extraite : " : "Valeur exacte du XML : ") + proof.value,
@@ -1976,7 +1982,7 @@ function renderData(f) {
       }
       cards.appendChild(c);
     }
-    pane.appendChild(cards);
+    pane.appendChild(displayBlock(cards, "summary"));
   }
 
   const taxProofs = r.synthese?.provenance_tva_taux || [];
@@ -1984,24 +1990,25 @@ function renderData(f) {
     const section = Object.assign(document.createElement("section"), { id: "tax-breakdown", className: "section" });
     section.appendChild(Object.assign(document.createElement("h3"), { textContent: "Ventilation de TVA" }));
     for (const [index, proof] of taxProofs.entries()) section.appendChild(taxBreakdownPanel(proof, index));
-    pane.appendChild(section);
+    pane.appendChild(displayBlock(section, "totals"));
   }
 
-  if (r.synthese) pane.appendChild(verdictStrip(f));
-  pane.appendChild(anomalyCenter(f));
+  if (r.synthese) pane.appendChild(displayBlock(verdictStrip(f), "controls"));
+  pane.appendChild(displayBlock(anomalyCenter(f), "controls"));
   const controls = controlsSection(f);
-  if (controls) pane.appendChild(controls);
+  if (controls) pane.appendChild(displayBlock(controls, "controls"));
   const rules = rulesSection(f);
-  if (rules) pane.appendChild(rules);
+  if (rules) pane.appendChild(displayBlock(rules, "controls"));
   const sch = schematronSection(f);
-  if (sch) pane.appendChild(sch);
+  if (sch) pane.appendChild(displayBlock(sch, "controls"));
   const xsd = xsdSection(f);
-  if (xsd) pane.appendChild(xsd);
-  pane.appendChild(reviewPanel(f));
+  if (xsd) pane.appendChild(displayBlock(xsd, "controls"));
+  pane.appendChild(displayBlock(reviewPanel(f), "review"));
 
   if (r.lines && r.lines.length) {
     const sec = document.createElement("div");
     sec.className = "section lines-section";
+    sec.dataset.display = "lines";
     const head = document.createElement("div");
     head.id = "lines-head";
     head.className = "lines-head";
@@ -2097,6 +2104,7 @@ function renderData(f) {
     if (!section.rows || !section.rows.length) continue;
     const sec = document.createElement("div");
     sec.className = "section";
+    sec.dataset.display = ({ Vendeur: "parties", Acheteur: "parties", Livraison: "delivery", Paiement: "payment", Totaux: "totals" })[section.name] || "parties";
     sec.innerHTML = '<div class="section-head">' + esc(section.name) + "</div>";
     const wrap = document.createElement("div");
     wrap.className = "table-wrap";
@@ -2107,7 +2115,7 @@ function renderData(f) {
 
   if (!r.synthese && !r.lines?.length && !(r.sections || []).some((s) => s.rows?.length)) {
     pane.innerHTML = '<div class="notice">Aucune donnée structurée reconnue — consultez les onglets « XML complet » et « XML brut ».</div>';
-    pane.appendChild(reviewPanel(f));
+    pane.appendChild(displayBlock(reviewPanel(f), "review"));
   }
 }
 
@@ -2366,10 +2374,82 @@ function wireDnD() {
 
 /* ---------------- paramètres ---------------- */
 
+const DISPLAY_OPTIONS = {
+  summary: "Synthèse de la facture", amounts: "Montants et colonnes de prix / TVA",
+  lines: "Articles et pointages", review: "Suivi et commentaires",
+  parties: "Détails vendeur et acheteur", delivery: "Livraison",
+  payment: "Paiement", totals: "Totaux détaillés et ventilation TVA",
+  controls: "Contrôles et centre d’anomalies", provenance: "Provenance des valeurs",
+  lineDetails: "Détails techniques des articles",
+  xml: "Onglets XML complet et XML brut",
+};
+const DISPLAY_PRESETS = {
+  full: { label: "Complète", visible: Object.keys(DISPLAY_OPTIONS) },
+  accounting: { label: "Comptabilité", visible: ["summary", "amounts", "lines", "review", "parties", "payment", "totals", "controls"] },
+  stock: { label: "Réception / Stock", visible: ["summary", "lines", "review", "parties", "delivery"] },
+};
+function displayEnabled(key) {
+  return (settings.displayPreset === "custom" ? settings.displayCustom : DISPLAY_PRESETS[settings.displayPreset].visible).includes(key);
+}
+function displayBlock(node, key) { if (node) node.dataset.display = key; return node; }
+function applyDisplay() {
+  for (const key of Object.keys(DISPLAY_OPTIONS)) document.documentElement.classList.toggle("hide-display-" + key, !displayEnabled(key));
+  const select = byId("display-preset");
+  if (select) select.value = settings.displayPreset;
+  document.querySelectorAll("[data-display-option]").forEach(input => { input.checked = displayEnabled(input.dataset.displayOption); });
+  syncStickyOffsets();
+}
+function openDisplaySettings() {
+  byId("btn-settings").click();
+  byId("display-settings").scrollIntoView({ block: "start" });
+}
+function wireDisplay() {
+  const box = byId("display-options");
+  for (const [key, title] of Object.entries(DISPLAY_OPTIONS)) {
+    const label = document.createElement("label");
+    const input = Object.assign(document.createElement("input"), { type: "checkbox" });
+    input.dataset.displayOption = key;
+    input.addEventListener("change", () => {
+      const visible = Object.keys(DISPLAY_OPTIONS).filter(displayEnabled);
+      settings.displayCustom = input.checked ? [...new Set([...visible, key])] : visible.filter(k => k !== key);
+      settings.displayPreset = "custom";
+      saveSettings(); applyDisplay(); syncSettingsUI();
+    });
+    label.append(input, document.createTextNode(" " + title)); box.appendChild(label);
+  }
+  byId("display-preset").addEventListener("change", e => setSetting("displayPreset", e.target.value));
+  byId("btn-display").addEventListener("click", e => {
+    e.stopPropagation();
+    const button = byId("btn-display");
+    if (button.getAttribute("aria-expanded") === "true") hideContextMenu();
+    else openMenubar(button, { items: displayMenuItems() });
+  });
+  applyDisplay();
+}
+function openAdvancedControls() {
+  const f = menubarDoc();
+  if (!f) return;
+  setTab("data");
+  loadPointage(f).then(() => {
+    if (state.selected !== f.id || state.tab !== "data") return;
+    if (!f.rendered.data) { renderData(f); f.rendered.data = true; }
+    focusControlSection("anomaly-center");
+  });
+}
+function displayMenuItems() {
+  return [...Object.entries(DISPLAY_PRESETS).map(([value, preset]) => ({ label: preset.label,
+    checked: () => settings.displayPreset === value, run: () => setSetting("displayPreset", value) })),
+    { label: "Personnalisée", checked: () => settings.displayPreset === "custom", run: () => setSetting("displayPreset", "custom") },
+    null, { label: "Personnaliser l’affichage…", run: openDisplaySettings },
+    null, { label: "Avancé : contrôles", on: () => !!menubarDoc(), run: openAdvancedControls },
+    ...[["xml", "XML complet"], ["raw", "XML brut"]].map(([tab, label]) => ({ label: "Avancé : " + label, on: () => !!menubarDoc(), run: () => setTab(tab) }))];
+}
+
 const SETTINGS_KEY = "fx-settings";
 const THEME_KEY = "fx-theme";   // lu par index.html avant le premier rendu
-const SETTING_DEFAULTS = { theme: "jour", density: "normal", defaultTab: "pdf", pdfZoom: "1.25", startup: "restore", library: "on", printMode: "mixed" };
+const SETTING_DEFAULTS = { theme: "jour", density: "normal", defaultTab: "pdf", pdfZoom: "1.25", startup: "restore", library: "on", printMode: "mixed", displayPreset: "full" };
 const SETTING_CHOICES = {
+  displayPreset: ["full", "accounting", "stock", "custom"],
   theme: ["jour", "nuit", "auto", "girl"],
   density: ["normal", "compact"],
   defaultTab: ["pdf", "data"],
@@ -2390,6 +2470,7 @@ function loadSettings() {
   const out = {};
   for (const key in SETTING_DEFAULTS)
     out[key] = SETTING_CHOICES[key].includes(saved[key]) ? saved[key] : SETTING_DEFAULTS[key];
+  out.displayCustom = Array.isArray(saved.displayCustom) ? saved.displayCustom.filter(key => Object.hasOwn(DISPLAY_OPTIONS, key)) : [...DISPLAY_PRESETS.stock.visible];
   return out;
 }
 
@@ -2421,7 +2502,7 @@ function applyPdfZoom() {
   else renderAllPages(state.pdfDoc);
 }
 
-const SETTING_APPLIERS = { theme: applyTheme, density: applyDensity, pdfZoom: applyPdfZoom };
+const SETTING_APPLIERS = { displayPreset: applyDisplay, theme: applyTheme, density: applyDensity, pdfZoom: applyPdfZoom };
 
 function setSetting(key, value) {
   if (!SETTING_CHOICES[key] || !SETTING_CHOICES[key].includes(value)) return;
@@ -2432,6 +2513,7 @@ function setSetting(key, value) {
 }
 
 function syncSettingsUI() {
+  applyDisplay();
   document.querySelectorAll(".seg[data-setting] button").forEach((b) => {
     const active = settings[b.parentElement.dataset.setting] === b.dataset.value;
     b.classList.toggle("active", active);
@@ -2460,6 +2542,7 @@ function wireSettings() {
     sel.addEventListener("change", () => setSetting(sel.dataset.setting, sel.value));
   });
   byId("settings-reset").addEventListener("click", () => {
+    settings.displayCustom = [...DISPLAY_PRESETS.stock.visible];
     for (const key in SETTING_DEFAULTS) setSetting(key, SETTING_DEFAULTS[key]);
   });
   darkQuery.addEventListener("change", () => { if (settings.theme === "auto") applyTheme(); });
@@ -2473,6 +2556,7 @@ function wireSettings() {
     copy.addEventListener("click", () => copyText(info.pointages, copy));
   }).catch(() => {});
 
+  wireDisplay();
   applyTheme();
   applyDensity();
   applyPdfZoom();

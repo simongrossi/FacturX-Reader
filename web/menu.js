@@ -68,7 +68,7 @@ const MENU_FORMATS = {
 
 function hideContextMenu() {
   document.querySelector(".ctx-menu")?.remove();
-  document.querySelectorAll('.menubar [aria-expanded="true"]').forEach((b) => b.setAttribute("aria-expanded", "false"));
+  document.querySelectorAll('.menubar [aria-expanded="true"], #btn-display[aria-expanded="true"]').forEach((b) => b.setAttribute("aria-expanded", "false"));
 }
 
 function showContextMenu(event, td) {

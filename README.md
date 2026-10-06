@@ -631,6 +631,25 @@ c'est lui qui est utilisé. Le chemin effectif est affiché dans les Paramètres
 Les suivis saisis avec la version 0.4.0, alors stockés dans la WebView, sont repris dans
 `suivi.json` au premier lancement.
 
+### Affichage par usage
+
+Le pictogramme **Mode d’affichage** (curseurs de réglage) et le menu **Affichage** proposent les vues **Complète**,
+**Comptabilité**, **Réception / Stock** et **Personnalisée**. La vue Complète conserve
+l’affichage habituel. Réception / Stock met en avant les articles, les quantités,
+les pointages, le suivi et la livraison, en masquant les montants et les contrôles détaillés.
+
+Dans **Paramètres → Affichage par usage**, cochez les sections à afficher : synthèse,
+montants et colonnes de prix/TVA, articles et pointages, suivi/commentaires, tiers,
+livraison, paiement, totaux, contrôles, provenance et onglets XML. Modifier une case
+active la vue Personnalisée ; ses choix sont conservés même après utilisation d’un preset.
+Les préférences sont mémorisées sur cet appareil et s’appliquent à toutes les fiches,
+y compris en lecture côte à côte. Elles ne modifient ni les données, ni les validations,
+ni les exports, ni le tableau du lot ou la bibliothèque.
+
+Les entrées **Avancé** du menu Affichage permettent d’ouvrir les XML et les contrôles
+masqués. Ouvrir un contrôle le révèle temporairement ; sélectionner une vue réapplique
+ses préférences. Les avertissements de lecture restent visibles dans toutes les vues.
+
 ### Paramètres
 
 Le bouton **⚙** (ou `Ctrl+,`) ouvre les Paramètres ; chaque réglage est appliqué immédiatement

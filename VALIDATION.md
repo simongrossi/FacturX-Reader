@@ -3,6 +3,25 @@
 Bilan de ce qui a été vérifié pour cette version, et de ce qui ne l'a pas été.
 Les commandes sont décrites dans [README.md](README.md#tests).
 
+## Affichage par usage — développement local du 6 octobre 2026
+
+Les vues Complète, Comptabilité, Réception / Stock et Personnalisée ont été vérifiées
+avec `npm run check:js` et les 34 scénarios Playwright. Le nouveau scénario couvre
+le masquage des montants et onglets XML, l’accès avancé au XML et aux contrôles,
+la personnalisation, sa conservation après rechargement et changement de preset,
+et la restauration des valeurs par défaut. Après remplacement du bouton texte/émoji
+par un SVG monochrome, les deux scénarios ciblés (menus et vues par usage) passent.
+`git diff --check` est propre.
+
+La compilation locale macOS `npm run build -- --bundles app` a réussi et l’application
+compilée a été relancée. L’utilisateur a essayé l’interface, demandé le remplacement
+du pictogramme initial, puis validé la présentation corrigée pour ce push.
+Le dialogue de personnalisation a aussi été inspecté visuellement en navigateur.
+Ces essais ne constituent pas une validation exhaustive de l’application native.
+Le tableau du lot, la bibliothèque et les exports ne sont pas filtrés par les presets.
+Aucune nouvelle release ni aucun nouveau tag n’est créé par ce chantier ; les autres
+plateformes restent à vérifier pour ces modifications d’affichage.
+
 ## Livraison et vérification distante
 
 Les PR #1 et #2 sont fusionnées dans `main` :

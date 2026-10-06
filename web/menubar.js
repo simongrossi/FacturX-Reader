@@ -50,6 +50,8 @@ const MENUBAR = [
       on: () => state.files.length > 0 },
   ] },
   { label: "Affichage", items: [
+    ...displayMenuItems().filter(entry => !entry?.label?.startsWith("Avancé : XML")),
+    null,
     { label: "Accueil", run: () => showWorkspaceHome(), checked: () => !state.selected && !state.batch && !state.library },
     { label: "Tableau des factures", run: () => showBatch(), on: () => state.files.length > 0,
       checked: () => !state.selected && state.batch && state.files.length > 0 },
@@ -95,6 +97,7 @@ function openMenubar(button, menu) {
   const r = button.getBoundingClientRect();
   drop.style.left = Math.max(4, Math.min(r.left, window.innerWidth - drop.offsetWidth - 4)) + "px";
   drop.style.top = r.bottom + 2 + "px";
+  drop.style.maxHeight = Math.max(80, window.innerHeight - r.bottom - 10) + "px";
 }
 
 function wireMenubar() {

@@ -7,6 +7,7 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 
 ### Ajouté
 
+- Affichage adapté aux usages : presets **Complète**, **Comptabilité**, **Réception / Stock** et **Personnalisée**, accessibles par un pictogramme de curseurs et le menu **Affichage**. Cases à cocher dans les paramètres pour choisir les sections et les colonnes de montants visibles, avec mémorisation locale. XML et contrôles masqués accessibles depuis le menu ; les données et les exports restent complets. Voir [Affichage par usage](README.md#affichage-par-usage).
 - Impression groupée des factures ouvertes : sélection par icône imprimante dans la barre de fichiers, entrée **Fichier → Impression groupée…**, choix du PDF à imprimer (**PDF du XML sinon document**, **PDF du XML seul** ou **PDF du document seul**) et impression de tout le lot en un seul job système. Voir [docs/BATCH_PRINT.md](docs/BATCH_PRINT.md).
 
 ## [0.8.1] - 2026-10-05

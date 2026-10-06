@@ -104,6 +104,9 @@ function incompleteVerdict(v) {
 function focusControlSection(id) {
   const section = byId(id);
   if (!section) return;
+  if (typeof displayEnabled === "function" && !displayEnabled("controls")) {
+    document.documentElement.classList.remove("hide-display-controls");
+  }
   for (let node = section; node; node = node.parentElement) {
     if (node.tagName === "DETAILS") node.open = true;
   }

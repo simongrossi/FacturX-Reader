@@ -50,6 +50,11 @@
         <circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/>
       </svg>
     </button>
+    <button type="button" id="btn-display" class="btn btn-icon" title="Choisir le mode d’affichage" aria-label="Affichage par usage" aria-haspopup="menu" aria-expanded="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>
+      </svg>
+    </button>
     <button type="button" id="btn-settings" class="btn btn-icon" title="Paramètres (Ctrl+,)" aria-label="Paramètres">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <circle cx="12" cy="12" r="3.2"/>
@@ -369,6 +374,14 @@
     <button type="button" id="settings-close" class="icon-btn" title="Fermer" aria-label="Fermer">✕</button>
   </div>
   <div class="settings-body">
+    <section class="settings-group" id="display-settings">
+      <h3>Affichage par usage</h3>
+      <div class="setting"><label for="display-preset">Vue</label>
+        <select id="display-preset"><option value="full">Complète</option><option value="accounting">Comptabilité</option><option value="stock">Réception / Stock</option><option value="custom">Personnalisée</option></select>
+      </div>
+      <p class="setting-help">Cochez les éléments à afficher. Modifier une case crée votre vue personnalisée, conservée sur cet appareil. Les réglages concernent la fiche facture et ses colonnes ; les exports conservent toutes les données. Les fonctions avancées restent accessibles par le menu Affichage.</p>
+      <div id="display-options" class="display-options"></div>
+    </section>
     <section class="settings-group">
       <h3>Historique et copies locales</h3>
       <p id="workspace-cache-info" class="setting-help">Copies conservées sur cet appareil, dans la limite de 256 Mo.</p>

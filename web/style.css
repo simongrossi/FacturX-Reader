@@ -1456,3 +1456,20 @@ tr.flash { animation: flash 1.8s ease-out; }
   #batch-print-sheet .bp-doc + .bp-doc { break-before: page; }
   #batch-print-sheet .bp-page img { width: 100%; height: auto; display: block; }
 }
+
+/* Préférences d’affichage : données et validations conservées. */
+.display-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.display-options label { display: flex; align-items: center; gap: 8px; }
+.hide-display-summary [data-display="summary"] { display: none !important; }
+.hide-display-amounts [data-display="amounts"] { display: none !important; }
+.hide-display-lines [data-display="lines"] { display: none !important; }
+.hide-display-review [data-display="review"] { display: none !important; }
+.hide-display-parties [data-display="parties"] { display: none !important; }
+.hide-display-delivery [data-display="delivery"] { display: none !important; }
+.hide-display-payment [data-display="payment"] { display: none !important; }
+.hide-display-totals [data-display="totals"] { display: none !important; }
+.hide-display-controls [data-display="controls"] { display: none !important; }
+.hide-display-provenance [data-display="provenance"] { display: none !important; }
+.hide-display-xml #tabs [data-tab="xml"], .hide-display-xml #tabs [data-tab="raw"] { display: none; }
+
+.hide-display-lineDetails [data-display="lineDetails"] { display: none !important; }
