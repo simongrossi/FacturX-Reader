@@ -1,4 +1,4 @@
-# Validation — préparation de la 0.9.0, 6 octobre 2026
+# Validation — 0.9.0 publiée en préversion, 6 octobre 2026
 
 Bilan de ce qui a été vérifié pour cette version, et de ce qui ne l'a pas été.
 Les commandes sont décrites dans [README.md](README.md#tests).
@@ -19,8 +19,14 @@ du pictogramme initial, puis validé la présentation corrigée pour ce push.
 Le dialogue de personnalisation a aussi été inspecté visuellement en navigateur.
 Ces essais ne constituent pas une validation exhaustive de l’application native.
 Le tableau du lot, la bibliothèque et les exports ne sont pas filtrés par les presets.
-La publication de la 0.9.0 est préparée après ce push ; les builds et contrôles GitHub
-Windows, macOS et Linux doivent réussir avant publication.
+La [préversion 0.9.0](https://github.com/simongrossi/FacturX-Reader/releases/tag/v0.9.0)
+est publiée le 6 octobre 2026. Le tag `v0.9.0` pointe sur `31ae0c7`.
+Les [contrôles du tag](https://github.com/simongrossi/FacturX-Reader/actions/runs/37473937614)
+(interface, Rust/natif Windows et comparaison des validateurs) et les
+[builds de distribution](https://github.com/simongrossi/FacturX-Reader/actions/runs/37473937605)
+sont tous verts. Sept fichiers sont joints : EXE et MSI Windows, DMG et archive app
+macOS universels, AppImage, DEB et RPM Linux. Ces builds ne remplacent pas un essai
+manuel exhaustif des installateurs sur chaque plateforme.
 
 ## Livraison et vérification distante
 
