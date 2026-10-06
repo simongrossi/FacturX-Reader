@@ -5,6 +5,8 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 
 ## [Non publié]
 
+## [0.9.0] - 2026-10-06
+
 ### Ajouté
 
 - Affichage adapté aux usages : presets **Complète**, **Comptabilité**, **Réception / Stock** et **Personnalisée**, accessibles par un pictogramme de curseurs et le menu **Affichage**. Cases à cocher dans les paramètres pour choisir les sections et les colonnes de montants visibles, avec mémorisation locale. XML et contrôles masqués accessibles depuis le menu ; les données et les exports restent complets. Voir [Affichage par usage](README.md#affichage-par-usage).

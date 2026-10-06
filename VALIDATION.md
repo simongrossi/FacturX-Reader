@@ -1,4 +1,4 @@
-# Validation — 0.8.0 publiée en préversion, 5 octobre 2026
+# Validation — préparation de la 0.9.0, 6 octobre 2026
 
 Bilan de ce qui a été vérifié pour cette version, et de ce qui ne l'a pas été.
 Les commandes sont décrites dans [README.md](README.md#tests).
@@ -19,8 +19,8 @@ du pictogramme initial, puis validé la présentation corrigée pour ce push.
 Le dialogue de personnalisation a aussi été inspecté visuellement en navigateur.
 Ces essais ne constituent pas une validation exhaustive de l’application native.
 Le tableau du lot, la bibliothèque et les exports ne sont pas filtrés par les presets.
-Aucune nouvelle release ni aucun nouveau tag n’est créé par ce chantier ; les autres
-plateformes restent à vérifier pour ces modifications d’affichage.
+La publication de la 0.9.0 est préparée après ce push ; les builds et contrôles GitHub
+Windows, macOS et Linux doivent réussir avant publication.
 
 ## Livraison et vérification distante
 
