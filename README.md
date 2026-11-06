@@ -54,7 +54,7 @@ tableaux lisibles en français, **recalcule les montants** et signale ce qui ne 
 | ✅ **Contrôles de cohérence** | Calculs en décimaux exacts : lignes, HT, TVA par taux, TTC, net à payer. Mentions essentielles, clés SIREN/SIRET, n° de TVA et IBAN, échéance, escompte. |
 | 📊 **Tableau multi-factures** | Toutes les factures ouvertes sur une page : totaux par devise, avoirs déduits, filtres d'anomalies, de période, de montant et de fournisseur, export CSV. |
 | 🗂️ **Revue d’un lot** | Progression de la lecture et des validations, anomalies de toutes les factures regroupées, rapport PDF consolidé avec erreurs de lecture et contrôles incomplets. |
-| 📅 **Échéancier** | Factures groupées par date d’échéance et devise, retards, avoirs déduits du solde indicatif, accès aux documents et export CSV. |
+| 📅 **Échéancier** | Factures groupées par date d’échéance et devise, retards, avoirs non affectés et doublons probables séparés, accès aux documents et export CSV. |
 | 📁 **Dossier surveillé** | Nouvelles factures détectées dans un dossier choisi, import avec progression, pause et annulation. |
 | 🔎 **Provenance des valeurs** | Source XML des dates, totaux, lignes et ventilations de TVA par taux, avec détail des calculs et accès depuis les anomalies. |
 | 🗄️ **Bibliothèque locale** | Toutes les factures déjà ouvertes, retrouvables entre les sessions. Signale un IBAN nouveau pour un fournisseur, un doublon dans l'historique, une variation de prix unitaire. |
@@ -211,6 +211,12 @@ Dans **Données**, le centre rassemble les écarts et alertes des différents co
 
 Les valeurs inconnues sont indiquées comme telles ; les contrôles incomplets restent distincts des anomalies. L’aide est incluse dans les rapports JSON et PDF. [Fonctionnement, tests et limites](docs/ANOMALIES.md).
 
+### Comparaison PDF et XML
+
+À l’ouverture d’une facture UBL ou CII accompagnée d’un PDF, l’application compare cinq champs lorsqu’elle reconnaît leurs libellés dans le texte du PDF. Elle recherche le numéro de facture, l’identifiant explicitement attribué au fournisseur, la devise, le total TTC et le net à payer. Le PDF principal est comparé en priorité. À défaut, la comparaison utilise le PDF du XML.
+
+Les écarts figurent dans **Données → Contrôles**, le centre d’anomalies et la revue du lot. Les liens mènent à la page PDF et au champ XML lorsque son chemin est disponible. Un champ absent ou ambigu est signalé comme non vérifiable. Les PDF sans texte ne sont pas passés à l’OCR. La comparaison est limitée à 50 pages et à un million de caractères extraits.
+
 ### Revue d’un lot
 
 Après avoir ouvert un dossier ou plusieurs documents, ouvrez **Tableau**. **Bilan du lot** suit la lecture et les validations Schematron. Ses points à examiner réunissent les anomalies de toutes les factures, les contrôles incomplets et les fichiers illisibles ; une carte mène à la facture et au contrôle. **Rapport du lot PDF** devient disponible une fois tous les documents analysés. Il inclut chaque document ouvert et les totaux par devise, avoirs déduits, même si le tableau est filtré. [Parcours, sens des chiffres et limites](docs/BATCH_REVIEW.md).
@@ -219,7 +225,7 @@ Après avoir ouvert un dossier ou plusieurs documents, ouvrez **Tableau**. **Bil
 
 Fonction disponible à partir de la 0.8.0.
 
-Dans **Tableau**, l’échéancier regroupe les documents ouverts par date d’échéance et devise. Il distingue les échéances dépassées, celles du jour, à venir et absentes. Les avoirs sans échéance réduisent le solde global, sans être attribués à une date. Filtrez les groupes par situation ou devise, ouvrez une facture ou exportez les lignes visibles en CSV. Les montants sont indicatifs : l’application ne connaît pas les paiements effectués. [Calcul, export et limites](docs/SCHEDULE.md).
+Dans **Tableau**, l’échéancier regroupe les documents ouverts par date d’échéance et devise. Il distingue les échéances dépassées, celles du jour, à venir et absentes. Les copies de XML sont comptées une seule fois. Les doublons probables sont à arbitrer et les avoirs non affectés sont présentés par fournisseur et devise, hors totaux de factures. Filtrez les groupes par situation ou devise, ouvrez une facture ou exportez les lignes visibles en CSV. Les montants sont indicatifs : l’application ne connaît pas les paiements effectués. [Calcul, export et limites](docs/SCHEDULE.md).
 
 Les totaux du tableau et de l'échéancier, les filtres monétaires et les comparaisons de prix de la bibliothèque utilisent des décimaux exacts (jusqu'à 18 chiffres entiers et huit décimales). Chaque montant est arrondi au centime avant d'entrer dans un total ; les devises restent séparées. Les valeurs trop précises pour une cellule numérique Excel sont exportées comme texte.
 
@@ -556,7 +562,7 @@ L'onglet **Bibliothèque**, à côté d'Accueil et de Tableau, liste ces facture
 
 | Constat | Déclenchement |
 |---|---|
-| **IBAN différent des factures précédentes** (alerte) | Le fournisseur a déjà des factures avec un IBAN, et celui de cette facture n'y figure pas. À vérifier auprès du fournisseur par un canal connu avant de payer. |
+| **IBAN fournisseur à vérifier** (alerte) | La bibliothèque a vu plusieurs IBAN pour ce fournisseur et celui de la facture attend une confirmation. Dans **Données → Contrôles**, renseignez le canal fournisseur connu ou la référence de vérification, puis choisissez **Confirmer l’IBAN**. La date et la preuve restent dans la bibliothèque locale. |
 | **Doublon probable dans la bibliothèque** (alerte) | Même fournisseur et même numéro qu'une facture déjà vue, avec un contenu différent. |
 | **Prix unitaire modifié** (info) | Le prix d'un article diffère du dernier prix connu chez ce fournisseur, sur une facture antérieure. |
 
@@ -567,7 +573,7 @@ Un article est reconnu par sa référence, à défaut sa désignation. Dans le d
 Limites : la bibliothèque ne connaît que les factures ouvertes au moins une fois sur ce poste ;
 la première facture d'un fournisseur ne peut donc déclencher aucune alerte. Elle n'est pas
 incluse dans l'export des pointages et du suivi : rouvrir un dossier de factures la reconstitue,
-sauf les dates de première vue.
+sauf les dates de première vue et les confirmations manuelles d’IBAN.
 
 *Paramètres → Données* permet de désactiver la bibliothèque, de la vider, ou de la réinitialiser
 si la base est illisible (elle est alors conservée à côté, jamais supprimée).

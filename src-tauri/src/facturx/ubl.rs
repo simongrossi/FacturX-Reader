@@ -4,6 +4,26 @@ use super::*;
 
 // ------------------------------------------------------------------ extraction UBL
 
+pub(super) fn invoice_tax_total(root: N<'_>) -> ON<'_> {
+    let currency = text(find(Some(root), "DocumentCurrencyCode"));
+    let tax_currency = text(find(Some(root), "TaxCurrencyCode"));
+    let totals = findall(Some(root), "TaxTotal");
+    // À priorité égale, garder le premier bloc dans l’ordre du XML.
+    let eligible = totals.into_iter().rev().filter(|total| {
+        match find(Some(*total), "TaxAmount").and_then(|amount| amount.attribute("currencyID")) {
+            Some(code) if !currency.is_empty() => code == currency,
+            Some(code) => code != tax_currency,
+            None => true,
+        }
+    });
+    eligible.max_by_key(|total| {
+        let amount = find(Some(*total), "TaxAmount");
+        let matches_currency = !currency.is_empty()
+            && amount.and_then(|node| node.attribute("currencyID")) == Some(currency.as_str());
+        (matches_currency, find(Some(*total), "TaxSubtotal").is_some())
+    })
+}
+
 fn ubl_columns() -> Value {
     columns(&[
         ("id", "N°", "left"),
@@ -573,7 +593,7 @@ pub(super) fn extract_ubl(
 
     // totaux
     let mut rows = Vec::new();
-    let ttotal = find(root, "TaxTotal");
+    let ttotal = root.and_then(invoice_tax_total);
     if ttotal.is_some() {
         for sub in findall(ttotal, "TaxSubtotal") {
             let sub = Some(sub);
@@ -599,6 +619,21 @@ pub(super) fn extract_ubl(
         let total = find(ttotal, "TaxAmount");
         if total.is_some() {
             rows.push(row("Total TVA", money(total), paths.of(total), None));
+        }
+    }
+    let tax_currency = text(find(root, "TaxCurrencyCode"));
+    if !tax_currency.is_empty() && tax_currency != text(find(root, "DocumentCurrencyCode")) {
+        let accounting_tax = findall(root, "TaxTotal")
+            .into_iter()
+            .filter_map(|total| find(Some(total), "TaxAmount"))
+            .find(|amount| amount.attribute("currencyID") == Some(tax_currency.as_str()));
+        if let Some(amount) = accounting_tax {
+            rows.push(row(
+                "Total TVA en devise comptable",
+                money(Some(amount)),
+                paths.of(Some(amount)),
+                None,
+            ));
         }
     }
     let lmt = find(root, "LegalMonetaryTotal");

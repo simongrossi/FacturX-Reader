@@ -87,7 +87,15 @@ function renderBatchIssues(snapshot) {
       if (point.issue) openAnomalyLocation(point.f, point.issue);
       else { selectFile(point.f.id); if (point.f.status === "ok") { setTab("data"); focusControlSection("anomaly-center"); } }
     });
-    card.appendChild(open); list.appendChild(card);
+    card.appendChild(open);
+    if (point.issue?.pdfPage) {
+      const pdf = Object.assign(document.createElement("button"), {
+        type: "button", className: "btn btn-sm", textContent: "Voir la page PDF " + point.issue.pdfPage,
+      });
+      pdf.addEventListener("click", () => openPdfComparisonPage(point.f, point.issue));
+      card.appendChild(pdf);
+    }
+    list.appendChild(card);
   }
   byId("batch-anomaly-more").hidden = selected.length <= batchReview.limit;
 }

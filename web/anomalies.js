@@ -2,7 +2,7 @@
 
 /* Présentation uniquement : ne modifie ni XML ni verdicts des moteurs. */
 const ANOMALY_SOURCES = {
-  coherence: "Cohérence et historique", native: "Règles EN 16931", schematron: "Schematron officiel",
+  coherence: "Cohérence et historique", pdf_xml: "Comparaison PDF / XML", native: "Règles EN 16931", schematron: "Schematron officiel",
   france: "Règles françaises BR-FR", xsd: "Schéma XSD", lecture: "Lecture",
 };
 // Libellés des règles de présence, identiques à ceux de l’implémentation native.
@@ -50,6 +50,7 @@ function resolveAnomalyPath(f, path) {
 }
 
 function anomalyAdvice(issue) {
+  if (issue.source === "pdf_xml") return "Comparer la page PDF et le champ XML. Demander une pièce corrigée si l’écart est confirmé.";
   const title = issue.title.toLowerCase(), detail = issue.detail.toLowerCase();
   if (/iban/.test(title)) return "Confirmer les coordonnées bancaires auprès d’un contact connu du fournisseur avant tout paiement. Demander une facture corrigée si l’IBAN est erroné.";
   if (/doublon/.test(title)) return "Comparer le fournisseur, le numéro et les documents d’origine avant de conserver ou comptabiliser cette facture une seconde fois.";
@@ -73,6 +74,7 @@ function invoiceAnomalies(f) {
     const values = /Attendu (-?\d+(?:\.\d+)?), constaté (-?\d+(?:\.\d+)?)\./.exec(entry.detail || "");
     const issue = {
       source, severity: entry.severity || "ecart", rule: entry.rule || "", title: entry.title || "Contrôle à examiner",
+      pdfPage: entry.pdfPage, pdfSource: entry.pdfSource,
       detail: entry.detail || "", family: entry.family || "", location: entry.path || "", path: resolved?.path || "",
       found: entry.found ?? values?.[2] ?? (leaf && !resolved.binary && !resolved.truncated ? resolved.value : null),
       expected: entry.expected ?? values?.[1] ?? null, gap: entry.gap || "", target: entry.target || "controls",
@@ -86,7 +88,7 @@ function invoiceAnomalies(f) {
     issues.push(issue);
   }
   for (const c of [...duplicateChecks(f), ...(r.controles || [])]) {
-    if (["ecart", "alerte"].includes(c.etat)) add("coherence", { severity: c.etat, title: c.regle, detail: c.detail, family: c.famille, path: c.path, found: c.constate || undefined, expected: c.attendu || undefined, gap: c.ecart, lineIndex: c.line_index, taxIndex: c.tax_breakdown_index });
+    if (["ecart", "alerte"].includes(c.etat)) add(c.famille === "pdf_xml" ? "pdf_xml" : "coherence", { pdfPage: c.pdf_page, pdfSource: c.pdf_source, severity: c.etat, title: c.regle, detail: c.detail, family: c.famille, path: c.path, found: c.constate || undefined, expected: c.attendu || undefined, gap: c.ecart, lineIndex: c.line_index, taxIndex: c.tax_breakdown_index });
     else if (c.etat === "non_verifiable") incomplete.push(c.regle + " : " + (c.detail || "données insuffisantes"));
   }
   for (const rule of r.regles?.liste || []) {
@@ -189,7 +191,7 @@ function anomalyCenter(f) {
       card.appendChild(Object.assign(document.createElement("p"), { className: "verdict-note", textContent: ANOMALY_SOURCES[issue.source] + (issue.rule ? " · " + issue.rule : "") }));
       if (issue.detail) card.appendChild(Object.assign(document.createElement("p"), { className: "anomaly-detail", textContent: issue.detail }));
       const values = Object.assign(document.createElement("dl"), { className: "anomaly-values" });
-      for (const [label, value] of [["Valeur trouvée", issue.found], ["Valeur attendue", issue.expected]]) {
+      for (const [label, value] of [[issue.pdfPage ? "Valeur PDF" : "Valeur trouvée", issue.found], [issue.pdfPage ? "Valeur XML" : "Valeur attendue", issue.expected]]) {
         values.append(Object.assign(document.createElement("dt"), { textContent: label }), Object.assign(document.createElement("dd"), { textContent: value == null ? "Non fournie par ce contrôle" : String(value) }));
       }
       if (issue.gap) values.append(Object.assign(document.createElement("dt"), { textContent: "Écart" }), Object.assign(document.createElement("dd"), { textContent: issue.gap }));
@@ -214,7 +216,15 @@ function anomalyCenter(f) {
       }
       const request = Object.assign(document.createElement("button"), { type: "button", className: "btn btn-sm", textContent: "Copier la demande de vérification" });
       request.addEventListener("click", () => copyIssues([issue], request));
-      actions.append(location, request); card.appendChild(actions); list.appendChild(card);
+      actions.append(location);
+      if (issue.pdfPage) {
+        const pdf = Object.assign(document.createElement("button"), {
+          type: "button", className: "btn btn-sm", textContent: "Voir la page PDF " + issue.pdfPage,
+        });
+        pdf.addEventListener("click", () => openPdfComparisonPage(f, issue));
+        actions.append(pdf);
+      }
+      actions.append(request); card.appendChild(actions); list.appendChild(card);
     }
     if (issues.length > view.limit) {
       const more = Object.assign(document.createElement("button"), { type: "button", className: "btn btn-sm", textContent: "Afficher davantage" });

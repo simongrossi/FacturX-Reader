@@ -165,7 +165,7 @@ async function main() {
   }
   const server = http.createServer((req, res) => {
     const file = path.join(root, 'web', req.url === '/' ? 'index.html' : req.url.split('?')[0]);
-    res.setHeader('Content-Type', file.endsWith('.js') ? 'application/javascript' : file.endsWith('.css') ? 'text/css' : file.endsWith('.svg') ? 'image/svg+xml' : 'text/html');
+    res.setHeader('Content-Type', /\.m?js$/.test(file) ? 'application/javascript' : file.endsWith('.css') ? 'text/css' : file.endsWith('.svg') ? 'image/svg+xml' : 'text/html');
     fs.readFile(file, (err, data) => { res.statusCode = err ? 404 : 200; res.end(err ? '' : data); });
   });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));

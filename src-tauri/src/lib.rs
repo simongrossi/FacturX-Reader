@@ -330,6 +330,7 @@ pub fn run() {
             bibliotheque::library_clear,
             bibliotheque::library_reset,
             bibliotheque::library_prices,
+            bibliotheque::library_confirm_iban,
         ])
         .run(tauri::generate_context!())
         .expect("erreur au lancement de Factur-X Reader");

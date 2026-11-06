@@ -102,6 +102,11 @@ validateur XSD (BSD-2-Clause), include_dir (MIT), et leurs dépendances.
 L'application n'embarque plus aucun composant propriétaire : le moteur SaxonJS, utilisé un temps
 pour exécuter le Schematron, a été remplacé par une évaluation directe des règles en Rust.
 
+PDF.js est embarqué depuis le paquet officiel `pdfjs-dist@6.5.438` (build
+`legacy`). Sa licence Apache-2.0 et les licences des polices et décodeurs
+embarqués figurent dans `web/pdfjs/`. Les décodeurs JavaScript de secours
+permettent de conserver la politique de sécurité de l’application sans
+autoriser la compilation WebAssembly.
 
 ### Outils de comparaison (développement uniquement)
 

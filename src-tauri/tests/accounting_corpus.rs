@@ -163,3 +163,45 @@ fn montant_a_payer_incoherent_reste_un_ecart_visible() {
                 && c["etat"] == "ecart"
         ));
 }
+
+#[test]
+fn tva_ubl_distingue_devise_de_facture_et_devise_comptable() {
+    let source = fs::read_to_string(corpus().join("ubl-multi-tax.xml")).unwrap();
+    let source = source.replace(
+        "</cbc:DocumentCurrencyCode>",
+        "</cbc:DocumentCurrencyCode><cbc:TaxCurrencyCode>USD</cbc:TaxCurrencyCode>",
+    );
+    let accounting = r#"<cac:TaxTotal><cbc:TaxAmount currencyID="USD">30.00</cbc:TaxAmount></cac:TaxTotal>"#;
+    let invoice = r#"<cac:TaxTotal><cbc:TaxAmount currencyID="EUR">26.50</cbc:TaxAmount></cac:TaxTotal>"#;
+    let start = source.find("<cac:TaxTotal>").unwrap();
+    let end = start + source[start..].find("</cac:TaxTotal>").unwrap() + "</cac:TaxTotal>".len();
+    let with_breakdown = &source[start..end];
+
+    for taxes in [
+        format!("{accounting}{with_breakdown}"),
+        format!("{with_breakdown}{accounting}"),
+        format!("{accounting}{invoice}"),
+        format!("{invoice}{accounting}"),
+        accounting.to_string(),
+    ] {
+        let mut xml = source.clone();
+        xml.replace_range(start..end, &taxes);
+        let result = parse_file("ubl-multi-devise.xml", xml.as_bytes()).unwrap();
+        let expected = if taxes == accounting { "" } else { "26.50" };
+        assert_eq!(result["synthese"]["devise"], "EUR");
+        assert_eq!(result["synthese"]["tva"], expected);
+        let summary_tax = result["summary"].as_array().unwrap().iter()
+            .find(|row| row["title"] == "Total TVA");
+        if expected.is_empty() {
+            assert!(summary_tax.is_none_or(|row| row["value"] == ""));
+        } else {
+            assert_eq!(summary_tax.unwrap()["value"], "26.50 EUR");
+            assert_eq!(result["synthese"]["provenance"]["tva"]["value"], expected);
+        }
+        let totals = result["sections"].as_array().unwrap().iter()
+            .find(|section| section["name"] == "Totaux").unwrap();
+        let accounting_tax = totals["rows"].as_array().unwrap().iter()
+            .find(|row| row["title"] == "Total TVA en devise comptable").unwrap();
+        assert_eq!(accounting_tax["value"], "30.00 USD");
+    }
+}

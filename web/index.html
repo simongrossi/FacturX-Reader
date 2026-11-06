@@ -16,7 +16,7 @@
     })();
   </script>
   <link rel="stylesheet" href="style.css">
-<script src="pdfjs/pdf.min.js"></script>
+<script type="module" src="pdfjs/setup.js"></script>
 </head>
 <body>
 
@@ -87,6 +87,9 @@
     <div class="side-title">
       <span class="side-label">Fichiers</span>
       <span class="side-actions">
+        <button type="button" id="btn-print-select-all" class="icon-btn" disabled
+                title="Sélectionner les PDF affichés pour l’impression groupée"
+                aria-label="Sélectionner les PDF affichés pour l’impression groupée" aria-pressed="false"></button>
         <button type="button" id="btn-file-filter-toggle" class="icon-btn"
                 title="Afficher ou masquer les filtres" aria-label="Afficher ou masquer les filtres" aria-pressed="true">
           <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
@@ -231,7 +234,7 @@
       <section id="batch-schedule" class="section" aria-label="Échéancier des factures">
         <div class="section-head">Échéancier des factures</div>
         <div class="batch-schedule-body">
-          <p class="verdict-note">Montants indicatifs tirés des factures ouvertes. Les avoirs sans échéance réduisent le solde global, sans être attribués à une date. Une échéance dépassée ne prouve pas qu’une facture est impayée.</p>
+          <p class="verdict-note">Montants indicatifs tirés des factures ouvertes. Les copies de XML sont comptées une seule fois. Les doublons probables et les avoirs non affectés sont séparés des totaux de factures. Statut de règlement inconnu. Une échéance dépassée ne prouve pas qu’une facture est impayée.</p>
           <div id="schedule-summary" class="schedule-summary" aria-live="polite"></div>
           <details id="schedule-details">
             <summary>Voir les échéances et les factures</summary>
@@ -530,6 +533,7 @@
 <script src="imports.js"></script>
 <script src="controls.js"></script>
 <script src="anomalies.js"></script>
+<script src="pdf-compare.js"></script>
 <script src="app.js"></script>
 <script src="watch-folder.js"></script>
 <script src="workspace.js"></script>

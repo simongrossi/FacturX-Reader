@@ -2,11 +2,13 @@ const { test, expect } = require('@playwright/test');
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
+const { app: { security: { csp } } } = require('../src-tauri/tauri.conf.json');
 let server, url;
 test.beforeAll(async () => {
   server = http.createServer((req, res) => {
+    res.setHeader('Content-Security-Policy', csp);
     const file = path.join(__dirname, '../web', req.url === '/' ? 'index.html' : req.url.split('?')[0]);
-    res.setHeader('Content-Type', file.endsWith('.js') ? 'application/javascript' : file.endsWith('.css') ? 'text/css' : file.endsWith('.png') ? 'image/png' : 'text/html');
+    res.setHeader('Content-Type', /\.m?js$/.test(file) ? 'application/javascript' : file.endsWith('.css') ? 'text/css' : file.endsWith('.png') ? 'image/png' : 'text/html');
     fs.readFile(file, (err, data) => { res.statusCode = err ? 404 : 200; res.end(err ? '' : data); });
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -82,8 +84,18 @@ test('sélection par icône, modes, compteurs et impression unique', async ({ pa
 
   // Icône imprimante sur les deux factures, absente sur une ligne en erreur.
   await expect(page.locator('.file-item .fi-print')).toHaveCount(2);
+  const all = page.locator('#btn-print-select-all');
   await page.locator('.file-item .fi-print').first().click();
-  await page.locator('.file-item .fi-print').last().click();
+  await expect(all).toHaveAttribute('aria-pressed', 'mixed');
+  await all.click();
+  await expect(page.locator('.file-item.print-selected')).toHaveCount(2);
+  await expect(all).toHaveAttribute('aria-pressed', 'true');
+  await page.locator('#side-filter-query').fill('sans-xml');
+  await all.click();
+  await expect(page.locator('.file-item.print-selected')).toHaveCount(0);
+  await page.locator('#side-filter-query').fill('');
+  await expect(page.locator('.file-item.print-selected')).toHaveCount(1);
+  await all.click();
   await expect(page.locator('.file-item.print-selected')).toHaveCount(2);
 
   // Menu actif, modale ouverte : mode par défaut « XML sinon document ».
