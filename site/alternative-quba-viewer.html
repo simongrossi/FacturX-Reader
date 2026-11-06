@@ -1,0 +1,447 @@
+<!doctype html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alternative à Quba Viewer : quelle visionneuse Factur-X choisir ?</title>
+<meta name="description" content="Quba Viewer et Factur-X Reader sont deux visionneuses gratuites de factures Factur-X. Comparatif honnête : validation en ligne ou hors ligne, contrôles des montants, travail sur un lot de factures.">
+<link rel="canonical" href="https://facturxreader.com/alternative-quba-viewer">
+<meta name="theme-color" content="#ffffff">
+<meta name="color-scheme" content="light dark">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Factur-X Reader">
+<meta property="og:locale" content="fr_FR">
+<meta property="og:url" content="https://facturxreader.com/alternative-quba-viewer">
+<meta property="og:title" content="Alternative à Quba Viewer : quelle visionneuse Factur-X choisir ?">
+<meta property="og:description" content="Comparatif honnête entre Quba Viewer et Factur-X Reader : validation en ligne ou hors ligne, contrôles des montants, travail sur un lot.">
+<meta property="og:image" content="https://facturxreader.com/assets/img/og-image.jpg">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://facturxreader.com/assets/img/og-image.jpg">
+
+<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+<link rel="stylesheet" href="assets/css/style.css">
+<link rel="stylesheet" href="assets/css/guide.css">
+<script>
+  (function () {
+    document.documentElement.classList.add("js");
+    try {
+      var saved = localStorage.getItem("fxr-theme");
+      var system = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      document.documentElement.setAttribute("data-theme", saved || system);
+    } catch (e) {}
+  })();
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "headline": "Alternative à Quba Viewer : quelle visionneuse Factur-X choisir ?",
+      "description": "Comparatif entre Quba Viewer et Factur-X Reader : validation en ligne ou hors ligne, contrôles des montants, travail sur un lot de factures.",
+      "inLanguage": "fr",
+      "datePublished": "2026-11-06",
+      "dateModified": "2026-11-06",
+      "author": { "@type": "Person", "name": "Simon Grossi" },
+      "publisher": {
+        "@type": "Organization",
+        "name": "Factur-X Reader",
+        "url": "https://facturxreader.com/"
+      },
+      "mainEntityOfPage": {
+        "@type": "WebPage",
+        "@id": "https://facturxreader.com/alternative-quba-viewer"
+      }
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Quba Viewer fonctionne-t-il hors ligne ?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "La lecture des factures fonctionne hors ligne. En revanche, la validation Schematron et le contrôle du schéma XSD passent par le service en ligne du projet."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Factur-X Reader lit-il les fichiers ZUGFeRD 1.x ?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Non. Factur-X Reader prend en charge Factur-X, ZUGFeRD 2.x, UBL 2.1 et CII. Pour lire du ZUGFeRD 1.x, Quba Viewer reste l'outil adapté."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Peut-on utiliser les deux outils en même temps ?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Oui, et c'est même une bonne approche : Quba Viewer pour les validations de référence, Factur-X Reader pour le contrôle quotidien de vos factures reçues."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Lequel choisir pour une validation officielle ?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Ni l'un ni l'autre ne remplace une plateforme agréée. Pour une validation de référence, Quba Viewer et Mustang sont les outils cités par la documentation du secteur."
+          }
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<a class="skip-link" href="#main">Aller au contenu</a>
+
+<svg xmlns="http://www.w3.org/2000/svg" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true" focusable="false">
+  <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+    <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>
+  </symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>
+  </symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+    <path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/>
+  </symbol>
+  <symbol id="i-arrow-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M19 12H5"/><path d="m12 19-7-7 7-7"/>
+  </symbol>
+  <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>
+  </symbol>
+</svg>
+
+<header class="site-header" data-header>
+  <div class="wrap header-inner">
+    <a class="brand" href="index.html" aria-label="Factur-X Reader, accueil">
+      <img class="brand__logo" src="assets/img/favicon.svg" alt="" width="30" height="30">
+      <span class="brand__name">Factur-X Reader</span>
+    </a>
+
+    <nav class="nav" id="primary-nav" aria-label="Navigation principale">
+      <a href="index.html#atouts">Pourquoi</a>
+      <a href="index.html#fonctionnalites">Fonctionnalités</a>
+      <a href="index.html#apercu">Aperçu</a>
+      <a href="index.html#comparatif">Comparatif</a>
+      <a href="index.html#faq">FAQ</a>
+    </nav>
+
+    <div class="header-actions">
+      <button class="icon-btn" type="button" data-theme-toggle aria-label="Passer au thème sombre" title="Passer au thème sombre">
+        <svg class="icon-sun" aria-hidden="true"><use href="#i-sun"/></svg>
+        <svg class="icon-moon" aria-hidden="true"><use href="#i-moon"/></svg>
+      </button>
+      <a class="btn btn--primary btn--sm" href="https://github.com/simongrossi/FacturX-Reader/releases" target="_blank" rel="noopener">Télécharger</a>
+      <button class="icon-btn nav-toggle" type="button" data-nav-toggle aria-expanded="false" aria-controls="primary-nav" aria-label="Ouvrir le menu">
+        <svg aria-hidden="true"><use href="#i-menu"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+  <div class="wrap">
+    <div class="page-head">
+      <p class="eyebrow">Comparatif</p>
+      <h1>Alternative à Quba Viewer : quelle visionneuse Factur-X choisir ?</h1>
+      <p class="lead">
+        Quba Viewer est une bonne visionneuse libre — et pour certaines tâches, c'est elle qu'il faut.
+        Voici dans quels cas elle suffit, et dans quels cas un outil comme Factur-X Reader est plus
+        adapté.
+      </p>
+    </div>
+
+    <div class="prose">
+
+      <p>
+        Les deux outils sont gratuits, les deux ouvrent un fichier Factur-X et affichent le PDF comme
+        le XML. La différence ne se joue pas sur « qui lit le mieux une facture », mais sur ce qu'on
+        veut en faire ensuite : valider un fichier pour une procédure, ou contrôler vingt factures
+        par mois avant de les payer.
+      </p>
+
+      <nav class="toc" aria-labelledby="toc-title">
+        <h2 id="toc-title">Sommaire</h2>
+        <ol>
+          <li><a href="#quba">Ce que Quba Viewer fait très bien</a></li>
+          <li><a href="#comparatif">Le comparatif</a></li>
+          <li><a href="#differences">Les différences qui comptent au quotidien</a></li>
+          <li><a href="#choisir">Comment choisir</a></li>
+          <li><a href="#faq">Questions fréquentes</a></li>
+        </ol>
+      </nav>
+
+      <h2 id="quba">Ce que Quba Viewer fait très bien</h2>
+
+      <p>
+        Quba Viewer est un projet open source (licence Apache 2.0), développé autour du standard
+        ZUGFeRD. Il faut lui reconnaître trois qualités que Factur-X Reader n'a pas :
+      </p>
+
+      <ul>
+        <li>
+          <strong>une validation de référence.</strong> Son contrôle du PDF/A-3 et du Schematron
+          s'appuie sur des services reconnus du secteur, ce qui en fait un outil de contrôle crédible.
+        </li>
+        <li>
+          <strong>la lecture du ZUGFeRD 1.x</strong>, l'ancienne génération de format, que Factur-X
+          Reader ne prend pas en charge.
+        </li>
+        <li>
+          <strong>une communauté</strong> et une antériorité qui en font un choix par défaut
+          raisonnable quand on découvre le sujet.
+        </li>
+      </ul>
+
+      <p>
+        Si votre besoin est de valider un fichier pour une procédure, ou de lire un format ancien,
+        arrêtez-vous là : Quba fait le travail.
+      </p>
+
+      <h2 id="comparatif">Le comparatif</h2>
+
+      <div class="table-scroll">
+        <table class="cmp">
+          <caption class="visually-hidden">Comparaison entre Factur-X Reader et Quba Viewer.</caption>
+          <thead>
+            <tr>
+              <th scope="col">Fonctionnalité</th>
+              <th scope="col" class="col-own">Factur-X Reader</th>
+              <th scope="col">Quba Viewer</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">Prix</th>
+              <td class="col-own"><span class="txt">Gratuit</span></td>
+              <td><span class="txt">Gratuit</span></td>
+            </tr>
+            <tr>
+              <th scope="row">Licence</th>
+              <td class="col-own"><span class="txt">PolyForm Shield</span></td>
+              <td><span class="txt">Apache 2.0</span></td>
+            </tr>
+            <tr>
+              <th scope="row">Windows, macOS, Linux</th>
+              <td class="col-own"><span class="yes" aria-label="Oui">✓</span></td>
+              <td><span class="yes" aria-label="Oui">✓</span></td>
+            </tr>
+            <tr>
+              <th scope="row">Affiche le PDF et les données du XML</th>
+              <td class="col-own"><span class="yes" aria-label="Oui">✓</span></td>
+              <td><span class="yes" aria-label="Oui">✓</span></td>
+            </tr>
+            <tr>
+              <th scope="row">PDF et données côte à côte</th>
+              <td class="col-own"><span class="yes" aria-label="Oui">✓</span></td>
+              <td><span class="no" aria-label="Non">—</span></td>
+            </tr>
+            <tr>
+              <th scope="row">Schematron EN&nbsp;16931 officiel</th>
+              <td class="col-own"><span class="txt">Hors ligne</span></td>
+              <td><span class="txt">En ligne</span></td>
+            </tr>
+            <tr>
+              <th scope="row">Règles françaises BR-FR</th>
+              <td class="col-own"><span class="txt">Hors ligne</span></td>
+              <td><span class="no" aria-label="Non">—</span></td>
+            </tr>
+            <tr>
+              <th scope="row">Validation XSD</th>
+              <td class="col-own"><span class="txt">Hors ligne</span></td>
+              <td><span class="txt">En ligne</span></td>
+            </tr>
+            <tr>
+              <th scope="row">Validation PDF/A-3 du fichier</th>
+              <td class="col-own"><span class="txt">Déclarations seules</span></td>
+              <td><span class="txt">En ligne</span></td>
+            </tr>
+            <tr>
+              <th scope="row">Lecture du ZUGFeRD 1.x</th>
+              <td class="col-own"><span class="no" aria-label="Non">—</span></td>
+              <td><span class="yes" aria-label="Oui">✓</span></td>
+            </tr>
+            <tr>
+              <th scope="row">Contrôles arithmétiques en décimaux exacts</th>
+              <td class="col-own"><span class="yes" aria-label="Oui">✓</span></td>
+              <td><span class="no" aria-label="Non">—</span></td>
+            </tr>
+            <tr>
+              <th scope="row">Tableau de toutes les factures ouvertes</th>
+              <td class="col-own"><span class="yes" aria-label="Oui">✓</span></td>
+              <td><span class="no" aria-label="Non">—</span></td>
+            </tr>
+            <tr>
+              <th scope="row">Pointage, statuts et commentaires</th>
+              <td class="col-own"><span class="yes" aria-label="Oui">✓</span></td>
+              <td><span class="no" aria-label="Non">—</span></td>
+            </tr>
+            <tr>
+              <th scope="row">Alerte IBAN, doublon, variation de prix</th>
+              <td class="col-own"><span class="yes" aria-label="Oui">✓</span></td>
+              <td><span class="no" aria-label="Non">—</span></td>
+            </tr>
+            <tr>
+              <th scope="row">Export CSV, Excel, JSON, PDF</th>
+              <td class="col-own"><span class="yes" aria-label="Oui">✓</span></td>
+              <td><span class="no" aria-label="Non">—</span></td>
+            </tr>
+            <tr>
+              <th scope="row">Interface en français</th>
+              <td class="col-own"><span class="yes" aria-label="Oui">✓</span></td>
+              <td><span class="yes" aria-label="Oui">✓</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p class="cmp-note">
+        Établi d'après la documentation publique de chaque projet. Une case vide signifie « non
+        documenté », pas forcément « impossible ». Les deux outils évoluent : vérifiez leurs pages
+        respectives avant de décider.
+      </p>
+
+      <h2 id="differences">Les différences qui comptent au quotidien</h2>
+
+      <h3>1. Tout reste sur votre poste</h3>
+      <p>
+        Factur-X Reader n'effectue aucun appel réseau : le Schematron officiel EN&nbsp;16931 et le
+        schéma XSD sont embarqués. Pour une facture fournisseur, ce n'est pas un détail : elle
+        contient vos prix d'achat, vos volumes et vos coordonnées bancaires. Quba Viewer, lui, envoie
+        le fichier à un service en ligne pour la validation.
+      </p>
+
+      <h3>2. Les contrôles arithmétiques</h3>
+      <p>
+        C'est la différence la plus utile au quotidien. Factur-X Reader recalcule chaque ligne,
+        chaque taux de TVA et chaque total en décimaux exacts, puis affiche la valeur attendue, la
+        valeur constatée et l'écart. Un centime d'écart sur un total TTC est signalé — Quba ne fait
+        pas ce calcul, il vérifie la conformité du fichier, pas l'exactitude des montants.
+      </p>
+
+      <h3>3. Les règles françaises</h3>
+      <p>
+        Au-delà du socle EN&nbsp;16931, Factur-X Reader évalue les règles françaises EXTENDED-CTC-FR
+        et BR-FR. C'est ce qui distingue un fichier « européen conforme » d'un fichier acceptable
+        dans le contexte de la réforme française.
+      </p>
+
+      <h3>4. Le travail sur un lot de factures</h3>
+      <p>
+        Quba Viewer ouvre une facture. Factur-X Reader a été conçu pour en traiter vingt : tableau
+        avec totaux par devise, avoirs déduits, filtres, échéancier, bibliothèque locale qui alerte
+        sur un IBAN inconnu ou un doublon. Rien de tout cela n'existe chez Quba.
+      </p>
+
+      <h3>5. Le poids et la vitesse</h3>
+      <p>
+        Factur-X Reader est écrit en Rust avec Tauri : environ 5 Mo d'installeur, un démarrage
+        immédiat. Quba Viewer repose sur Electron, plus lourd par nature. Sur une machine ancienne,
+        la différence se sent.
+      </p>
+
+      <h2 id="choisir">Comment choisir</h2>
+
+      <ul>
+        <li>
+          <strong>Vous devez lire du ZUGFeRD 1.x</strong> → Quba Viewer, sans hésiter.
+        </li>
+        <li>
+          <strong>Vous voulez une validation de référence du conteneur</strong> → Quba Viewer ou
+          Mustang.
+        </li>
+        <li>
+          <strong>Vous recevez des factures chaque mois et devez vérifier les montants</strong> →
+          Factur-X Reader.
+        </li>
+        <li>
+          <strong>Vous tenez une comptabilité et cherchez les fraudes</strong> (IBAN changé, doublon,
+          prix anormal) → Factur-X Reader.
+        </li>
+        <li>
+          <strong>Vous préférez ne rien envoyer à un serveur</strong> → Factur-X Reader.
+        </li>
+      </ul>
+
+      <p>
+        Les deux sont gratuits et rien n'empêche de les installer côte à côte : Quba pour la
+        validation ponctuelle, Factur-X Reader pour le contrôle courant.
+        <a href="verifier-facture-factur-x">Notre guide de vérification</a> détaille les sept
+        contrôles à faire sur une facture reçue.
+      </p>
+
+      <div class="cta" style="margin:2.4em 0">
+        <div class="cta__inner">
+          <h2 style="font-size:1.5rem">Essayez Factur-X Reader</h2>
+          <p>Gratuit, hors ligne, Windows, macOS et Linux. Aucune inscription.</p>
+          <div class="cta__actions">
+            <a class="btn btn--primary btn--lg" href="https://github.com/simongrossi/FacturX-Reader/releases" target="_blank" rel="noopener">
+              <svg aria-hidden="true" style="width:17px;height:17px"><use href="#i-download"/></svg>
+              Télécharger gratuitement
+            </a>
+            <a class="btn btn--ghost btn--lg" href="index.html#comparatif">Voir le comparatif complet</a>
+          </div>
+        </div>
+      </div>
+
+      <h2 id="faq">Questions fréquentes</h2>
+
+      <h3>Quba Viewer fonctionne-t-il hors ligne ?</h3>
+      <p>
+        La lecture des factures fonctionne hors ligne. En revanche, la validation Schematron et le
+        contrôle du schéma XSD passent par le service en ligne du projet.
+      </p>
+
+      <h3>Factur-X Reader lit-il les fichiers ZUGFeRD 1.x ?</h3>
+      <p>
+        Non. Factur-X Reader prend en charge Factur-X, ZUGFeRD 2.x, UBL 2.1 et CII. Pour lire du
+        ZUGFeRD 1.x, Quba Viewer reste l'outil adapté.
+      </p>
+
+      <h3>Peut-on utiliser les deux outils en même temps ?</h3>
+      <p>
+        Oui, et c'est même une bonne approche : Quba Viewer pour les validations de référence,
+        Factur-X Reader pour le contrôle quotidien de vos factures reçues.
+      </p>
+
+      <h3>Lequel choisir pour une validation officielle ?</h3>
+      <p>
+        Ni l'un ni l'autre ne remplace une plateforme agréée. Pour une validation de référence, Quba
+        Viewer et Mustang sont les outils cités par la documentation du secteur.
+      </p>
+
+      <p style="margin-top:2.4em">
+        <a class="btn btn--ghost" href="index.html">
+          <svg aria-hidden="true" style="width:17px;height:17px"><use href="#i-arrow-left"/></svg>
+          Retour à l'accueil
+        </a>
+      </p>
+
+    </div>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="footer-bottom" style="border-top:0">
+      <p>© <span data-year>2026</span> Simon Grossi. Tous droits réservés.</p>
+      <p>
+        <a href="index.html">Accueil</a> ·
+        <a href="mentions-legales.html">Mentions légales</a> ·
+        <a href="confidentialite.html">Confidentialité</a> ·
+        <a href="mailto:simon.grossi@gmail.com">Contact</a>
+      </p>
+    </div>
+  </div>
+</footer>
+
+<script src="assets/js/main.js" defer></script>
+</body>
+</html>

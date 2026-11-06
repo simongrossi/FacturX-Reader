@@ -1,0 +1,785 @@
+<!doctype html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Factur-X Reader — Lisez et vérifiez vos factures électroniques hors ligne</title>
+<meta name="description" content="Application de bureau gratuite pour ouvrir, contrôler et exporter vos factures Factur-X, UBL et CII. 100 % local, sans serveur ni compte. Windows, macOS et Linux.">
+<link rel="canonical" href="https://facturxreader.com/">
+<meta name="theme-color" content="#ffffff">
+<meta name="color-scheme" content="light dark">
+<meta name="google-site-verification" content="GnEuTSY1UqtVDC6eeReH5Q10NX5VOgbS6F6HLijgg-A">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Factur-X Reader">
+<meta property="og:locale" content="fr_FR">
+<meta property="og:url" content="https://facturxreader.com/">
+<meta property="og:title" content="Factur-X Reader — Lisez et vérifiez vos factures électroniques hors ligne">
+<meta property="og:description" content="Ouvrez un PDF Factur-X, une archive ZIP ou un XML UBL/CII : le PDF, les données en tableaux, les montants recalculés et les écarts signalés. Sans serveur, sans compte.">
+<meta property="og:image" content="https://facturxreader.com/assets/img/og-image.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Factur-X Reader — vos factures, lues et vérifiées sur votre poste">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Factur-X Reader — vos factures électroniques, lues et vérifiées">
+<meta name="twitter:description" content="Application de bureau gratuite pour Factur-X, UBL et CII. 100 % hors ligne, Windows, macOS, Linux.">
+<meta name="twitter:image" content="https://facturxreader.com/assets/img/og-image.jpg">
+
+<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+<link rel="stylesheet" href="assets/css/style.css">
+<script>
+  // Thème appliqué avant le rendu pour éviter tout flash de couleur.
+  (function () {
+    document.documentElement.classList.add("js");
+    try {
+      var saved = localStorage.getItem("fxr-theme");
+      var system = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      document.documentElement.setAttribute("data-theme", saved || system);
+    } catch (e) {}
+  })();
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Factur-X Reader",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "Windows, macOS, Linux",
+  "description": "Application de bureau pour lire, contrôler et exporter les factures électroniques Factur-X, UBL et CII. Fonctionne entièrement hors ligne.",
+  "url": "https://facturxreader.com/",
+  "downloadUrl": "https://github.com/simongrossi/FacturX-Reader/releases",
+  "softwareVersion": "0.9.0",
+  "screenshot": "https://facturxreader.com/assets/img/controles.webp",
+  "inLanguage": "fr",
+  "license": "https://github.com/simongrossi/FacturX-Reader/blob/main/LICENSE.md",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "EUR"
+  },
+  "author": {
+    "@type": "Person",
+    "name": "Simon Grossi",
+    "email": "simon.grossi@gmail.com"
+  }
+}
+</script>
+</head>
+<body>
+<a class="skip-link" href="#main">Aller au contenu</a>
+
+<!-- Pictogrammes réutilisables -->
+<svg xmlns="http://www.w3.org/2000/svg" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true" focusable="false">
+  <symbol id="i-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+  </symbol>
+  <symbol id="i-zap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M13 2 3 14h8l-1 8 10-12h-8l1-8z"/>
+  </symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/>
+  </symbol>
+  <symbol id="i-file-text" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/>
+  </symbol>
+  <symbol id="i-clipboard" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9 2h6a1 1 0 0 1 1 1v2H8V3a1 1 0 0 1 1-1z"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/>
+  </symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m12 2 10 5-10 5L2 7z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/>
+  </symbol>
+  <symbol id="i-file-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="m9 15 2 2 4-4"/>
+  </symbol>
+  <symbol id="i-check-circle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.5 2.5 5-5"/>
+  </symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/>
+  </symbol>
+  <symbol id="i-table" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 9v12"/>
+  </symbol>
+  <symbol id="i-calendar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/>
+  </symbol>
+  <symbol id="i-database" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.7 4 3 9 3s9-1.3 9-3V5"/><path d="M3 12c0 1.7 4 3 9 3s9-1.3 9-3"/>
+  </symbol>
+  <symbol id="i-columns" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 3v18"/>
+  </symbol>
+  <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>
+  </symbol>
+  <symbol id="i-printer" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>
+  </symbol>
+  <symbol id="i-pen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>
+  </symbol>
+  <symbol id="i-github" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M12 .5A11.5 11.5 0 0 0 .5 12a11.5 11.5 0 0 0 7.86 10.92c.58.1.79-.25.79-.55v-1.94c-3.2.7-3.88-1.54-3.88-1.54-.53-1.34-1.29-1.7-1.29-1.7-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.2 1.77 1.2 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.7 0-1.26.45-2.29 1.19-3.1-.12-.29-.51-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.79 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.24 2.76.12 3.05.74.81 1.19 1.84 1.19 3.1 0 4.43-2.7 5.4-5.26 5.69.41.36.78 1.06.78 2.14v3.17c0 .3.2.66.8.55A11.5 11.5 0 0 0 23.5 12A11.5 11.5 0 0 0 12 .5z"/>
+  </symbol>
+  <symbol id="i-arrow-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
+  </symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+    <path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/>
+  </symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+    <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>
+  </symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>
+  </symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 6-10 7L2 6"/>
+  </symbol>
+  <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m20 6-11 11-5-5"/>
+  </symbol>
+</svg>
+
+<header class="site-header" data-header>
+  <div class="wrap header-inner">
+    <a class="brand" href="#" aria-label="Factur-X Reader, accueil">
+      <img class="brand__logo" src="assets/img/favicon.svg" alt="" width="30" height="30">
+      <span class="brand__name">Factur-X Reader</span>
+    </a>
+
+    <nav class="nav" id="primary-nav" aria-label="Navigation principale">
+      <a href="#atouts">Pourquoi</a>
+      <a href="#fonctionnalites">Fonctionnalités</a>
+      <a href="#apercu">Aperçu</a>
+      <a href="#comparatif">Comparatif</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+
+    <div class="header-actions">
+      <button class="icon-btn" type="button" data-theme-toggle aria-label="Passer au thème sombre" title="Passer au thème sombre">
+        <svg class="icon-sun" aria-hidden="true"><use href="#i-sun"/></svg>
+        <svg class="icon-moon" aria-hidden="true"><use href="#i-moon"/></svg>
+      </button>
+      <a class="btn btn--primary btn--sm" href="https://github.com/simongrossi/FacturX-Reader/releases" target="_blank" rel="noopener">
+        Télécharger
+      </a>
+      <button class="icon-btn nav-toggle" type="button" data-nav-toggle aria-expanded="false" aria-controls="primary-nav" aria-label="Ouvrir le menu">
+        <svg aria-hidden="true"><use href="#i-menu"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- ================= HÉROS ================= -->
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="wrap">
+      <div class="hero__grid">
+        <div class="hero__copy">
+          <p class="hero__badge"><b>0.9.0</b> Application de bureau · Windows, macOS, Linux</p>
+
+          <h1 id="hero-title">Vos factures électroniques, <em>lues et vérifiées</em> sur votre poste.</h1>
+
+          <p class="lead">
+            Déposez un PDF Factur-X, une archive ZIP ou un XML UBL/CII : Factur-X&nbsp;Reader affiche le
+            document d'origine, traduit le XML en tableaux lisibles, <strong>recalcule les montants</strong>
+            et signale ce qui ne colle pas. Sans serveur, sans compte, sans qu'un seul fichier quitte votre
+            ordinateur.
+          </p>
+
+          <div class="hero__actions">
+            <a class="btn btn--primary btn--lg" href="https://github.com/simongrossi/FacturX-Reader/releases" target="_blank" rel="noopener">
+              <svg aria-hidden="true"><use href="#i-download"/></svg>
+              Télécharger gratuitement
+            </a>
+            <a class="btn btn--ghost btn--lg" href="#fonctionnalites">
+              Voir les fonctionnalités
+            </a>
+          </div>
+
+          <ul class="hero__meta">
+            <li>Installeur Windows ≈ 5&nbsp;Mo</li>
+            <li>Licence PolyForm Shield</li>
+            <li>Version 0.9.0</li>
+          </ul>
+        </div>
+
+        <div class="hero__visual">
+          <div class="shot-frame">
+            <span class="shot-frame__glow" aria-hidden="true"></span>
+            <picture>
+              <source type="image/webp"
+                      srcset="assets/img/controles-900.webp 900w, assets/img/controles.webp 1800w"
+                      sizes="(max-width: 980px) 92vw, 560px">
+              <img src="assets/img/controles.jpg" width="1800" height="1125"
+                   alt="Fenêtre de Factur-X Reader sur l'onglet Données : synthèse d'une facture, contrôles de cohérence et écart d'un centime sur le total TTC."
+                   fetchpriority="high" decoding="async">
+            </picture>
+          </div>
+          <p class="shot-caption">
+            Onglet Données : contrôles de cohérence, écart de 0,01&nbsp;€ et anomalies de conteneur
+            sur une même facture.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= BANDEAU DE CONFIANCE ================= -->
+  <div class="trust">
+    <div class="wrap">
+      <ul class="trust__list">
+        <li><svg aria-hidden="true"><use href="#i-lock"/></svg>100&nbsp;% hors ligne</li>
+        <li><svg aria-hidden="true"><use href="#i-shield"/></svg>Schematron EN&nbsp;16931 officiel</li>
+        <li><svg aria-hidden="true"><use href="#i-layers"/></svg>Factur-X, UBL 2.1, CII</li>
+        <li><svg aria-hidden="true"><use href="#i-zap"/></svg>Aucun compte requis</li>
+        <li><svg aria-hidden="true"><use href="#i-table"/></svg>Exports CSV, Excel, JSON, PDF</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ================= ATOUTS ================= -->
+  <section class="section" id="atouts" aria-labelledby="atouts-title">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="eyebrow">Pourquoi Factur-X Reader</p>
+        <h2 id="atouts-title">Conçu pour vérifier, pas seulement pour afficher.</h2>
+        <p class="lead">
+          La plupart des lecteurs ouvrent le PDF. Factur-X Reader confronte le XML aux règles,
+          recalcule chaque montant et vous dit précisément où regarder.
+        </p>
+      </div>
+
+      <div class="pillars">
+        <article class="pillar reveal">
+          <span class="pillar__icon"><svg aria-hidden="true"><use href="#i-lock"/></svg></span>
+          <h3>Rien ne sort de votre poste</h3>
+          <p>
+            Aucun appel réseau, aucun compte, aucun fichier envoyé pour être validé. La bibliothèque
+            des factures déjà ouvertes reste un fichier local, que vous pouvez désactiver.
+          </p>
+        </article>
+
+        <article class="pillar reveal">
+          <span class="pillar__icon"><svg aria-hidden="true"><use href="#i-zap"/></svg></span>
+          <h3>Léger par choix</h3>
+          <p>
+            Installeur Windows d'environ 5&nbsp;Mo, exécutable d'environ 19&nbsp;Mo, moteur de validation
+            et règles officielles compris. Écrit en Rust et Tauri, sans navigateur embarqué.
+          </p>
+        </article>
+
+        <article class="pillar reveal">
+          <span class="pillar__icon"><svg aria-hidden="true"><use href="#i-shield"/></svg></span>
+          <h3>Les contrôles d'abord</h3>
+          <p>
+            Calculs en décimaux exacts, mentions obligatoires, Schematron officiel, schéma XSD :
+            chaque écart donne sa source, la valeur attendue et la valeur constatée.
+          </p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= FONCTIONNALITÉS ================= -->
+  <section class="section section--soft" id="fonctionnalites" aria-labelledby="features-title">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="eyebrow">Fonctionnalités</p>
+        <h2 id="features-title">Tout ce qu'il faut pour ne plus subir une facture illisible.</h2>
+        <p class="lead">
+          Lecture, validation, pointage, suivi, exports : les mêmes données, sous l'angle qui vous sert.
+        </p>
+      </div>
+
+      <div class="features">
+        <article class="feature reveal">
+          <span class="feature__icon"><svg aria-hidden="true"><use href="#i-file-text"/></svg></span>
+          <h3>Lecture universelle</h3>
+          <p>PDF Factur-X, archive ZIP, XML UBL 2.x et CII, ou un dossier entier : le PDF d'origine, les données en tableaux, le XML complet et le XML brut.</p>
+        </article>
+
+        <article class="feature reveal">
+          <span class="feature__icon"><svg aria-hidden="true"><use href="#i-clipboard"/></svg></span>
+          <h3>Schematron officiel</h3>
+          <p>Les règles EN&nbsp;16931 de la Commission européenne, exécutées sur votre poste. Aucune facture n'est envoyée pour être validée.</p>
+        </article>
+
+        <article class="feature reveal">
+          <span class="feature__icon"><svg aria-hidden="true"><use href="#i-layers"/></svg></span>
+          <h3>Schéma XSD</h3>
+          <p>La structure du XML confrontée au schéma officiel : celui du profil Factur-X annoncé pour le CII, UBL&nbsp;2.1 pour l'UBL.</p>
+        </article>
+
+        <article class="feature reveal">
+          <span class="feature__icon"><svg aria-hidden="true"><use href="#i-file-check"/></svg></span>
+          <h3>Conteneur PDF/A-3</h3>
+          <p>PDF/A-3 annoncé, pièce jointe XML déclarée, profil annoncé comparé à celui du XML, polices, chiffrement et métadonnées contrôlés dans le fichier.</p>
+        </article>
+
+        <article class="feature reveal">
+          <span class="feature__icon"><svg aria-hidden="true"><use href="#i-check-circle"/></svg></span>
+          <h3>Règles métier EN&nbsp;16931</h3>
+          <p>Une soixantaine de règles évaluées sur chaque facture : mentions obligatoires, calculs, décimales, catégories de TVA, échéance, escompte.</p>
+        </article>
+
+        <article class="feature reveal">
+          <span class="feature__icon"><svg aria-hidden="true"><use href="#i-alert"/></svg></span>
+          <h3>Centre d'anomalies</h3>
+          <p>Écarts et alertes regroupés par source, valeur trouvée et valeur attendue, actions conseillées, accès direct au champ XML en cause.</p>
+        </article>
+
+        <article class="feature reveal">
+          <span class="feature__icon"><svg aria-hidden="true"><use href="#i-table"/></svg></span>
+          <h3>Tableau multi-factures</h3>
+          <p>Toutes les factures ouvertes sur une page : totaux par devise, avoirs déduits, filtres d'anomalies, de période, de montant et de fournisseur, export CSV.</p>
+        </article>
+
+        <article class="feature reveal">
+          <span class="feature__icon"><svg aria-hidden="true"><use href="#i-calendar"/></svg></span>
+          <h3>Échéancier et dossier surveillé</h3>
+          <p>Factures groupées par échéance et devise, retards, soldes indicatifs. Un dossier surveillé importe les nouvelles factures au fil de l'eau.</p>
+        </article>
+
+        <article class="feature reveal">
+          <span class="feature__icon"><svg aria-hidden="true"><use href="#i-database"/></svg></span>
+          <h3>Bibliothèque locale</h3>
+          <p>Les factures déjà ouvertes, retrouvables entre les sessions. Alerte sur un IBAN nouveau, un doublon probable, une variation de prix unitaire.</p>
+        </article>
+
+        <article class="feature reveal">
+          <span class="feature__icon"><svg aria-hidden="true"><use href="#i-columns"/></svg></span>
+          <h3>PDF et données côte à côte</h3>
+          <p>Vérifiez une ligne sans changer d'onglet. Recherche texte ou expression régulière, dans le document ou dans tous les documents ouverts.</p>
+        </article>
+
+        <article class="feature reveal">
+          <span class="feature__icon"><svg aria-hidden="true"><use href="#i-download"/></svg></span>
+          <h3>Exports et impression</h3>
+          <p>Lignes et tableau en CSV ou Excel, rapport de contrôle en JSON ou PDF, impression de la vue affichée sans l'habillage de l'application.</p>
+        </article>
+
+        <article class="feature reveal">
+          <span class="feature__icon"><svg aria-hidden="true"><use href="#i-pen"/></svg></span>
+          <h3>Pointage et suivi</h3>
+          <p>Lignes pointées, statut À vérifier / Vérifiée / Anomalie, commentaires par facture et par ligne, conservés d'une session à l'autre.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= APERÇU ================= -->
+  <section class="section" id="apercu" aria-labelledby="apercu-title">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="eyebrow">En images</p>
+        <h2 id="apercu-title">L'écart d'un centime, retrouvé en un clic.</h2>
+        <p class="lead">
+          Captures réalisées avec des factures entièrement fictives. Chaque contrôle cite sa règle,
+          sa valeur attendue et sa tolérance.
+        </p>
+      </div>
+
+      <div class="gallery">
+        <figure class="gallery__item gallery__item--wide reveal">
+          <div class="gallery__frame">
+            <picture>
+              <source type="image/webp"
+                      srcset="assets/img/controles-900.webp 900w, assets/img/controles.webp 1800w"
+                      sizes="(max-width: 860px) 92vw, 1092px">
+              <img src="assets/img/controles.jpg" width="1800" height="1125" loading="lazy" decoding="async"
+                   alt="Onglet Données de Factur-X Reader : fiche de synthèse, bandeau de verdicts et tableau des contrôles affichant un écart d'un centime entre le TTC attendu et le TTC déclaré.">
+            </picture>
+          </div>
+          <figcaption>
+            <b>Contrôles de cohérence</b>
+            Total TTC attendu, total déclaré, écart et tolérance. Les anomalies de conteneur et de règle
+            EN&nbsp;16931 remontent dans le même écran.
+          </figcaption>
+        </figure>
+
+        <figure class="gallery__item reveal">
+          <div class="gallery__frame">
+            <picture>
+              <source type="image/webp"
+                      srcset="assets/img/pdf-et-donnees-900.webp 900w, assets/img/pdf-et-donnees.webp 1800w"
+                      sizes="(max-width: 860px) 92vw, 520px">
+              <img src="assets/img/pdf-et-donnees.jpg" width="1800" height="1125" loading="lazy" decoding="async"
+                   alt="Vue PDF et données côte à côte : le PDF d'origine à gauche, les champs du XML traduits en fiches à droite.">
+            </picture>
+          </div>
+          <figcaption>
+            <b>PDF et données côte à côte</b>
+            Le document d'origine à gauche, le XML traduit en fiches à droite : la quantité se vérifie
+            sans quitter la facture.
+          </figcaption>
+        </figure>
+
+        <figure class="gallery__item reveal">
+          <div class="gallery__frame">
+            <picture>
+              <source type="image/webp"
+                      srcset="assets/img/tableau-900.webp 900w, assets/img/tableau.webp 1800w"
+                      sizes="(max-width: 860px) 92vw, 520px">
+              <img src="assets/img/tableau.jpg" width="1800" height="1125" loading="lazy" decoding="async"
+                   alt="Tableau des factures ouvertes : totaux par devise, avoirs déduits, état des contrôles et de la vérification.">
+            </picture>
+          </div>
+          <figcaption>
+            <b>Tableau multi-factures</b>
+            Totaux par devise, avoirs déduits, filtres et export : le lot entier se lit comme une
+            seule liste.
+          </figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= COMPARATIF ================= -->
+  <section class="section section--soft" id="comparatif" aria-labelledby="comparatif-title">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="eyebrow">Comparatif</p>
+        <h2 id="comparatif-title">Face aux visionneuses existantes.</h2>
+        <p class="lead">
+          Comparaison avec des outils gratuits courants pour ouvrir une facture électronique. Même
+          quand une case est cochée des deux côtés, le niveau de détail peut différer.
+        </p>
+      </div>
+
+      <p class="table-hint">Tableau défilable horizontalement&nbsp;→</p>
+
+      <div class="table-scroll reveal">
+        <table class="cmp">
+          <caption class="visually-hidden">Comparaison des fonctionnalités entre Factur-X Reader, Quba Viewer, Mustang et un lecteur PDF classique.</caption>
+          <thead>
+            <tr>
+              <th scope="col">Fonctionnalité</th>
+              <th scope="col" class="col-own">Factur-X Reader</th>
+              <th scope="col">Quba Viewer</th>
+              <th scope="col">Mustang</th>
+              <th scope="col">Lecteur PDF</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">Fonctionne hors ligne</th>
+              <td class="col-own"><span class="yes" aria-label="Oui">✓</span></td>
+              <td><span class="yes" aria-label="Oui">✓</span></td>
+              <td><span class="yes" aria-label="Oui">✓</span></td>
+              <td><span class="yes" aria-label="Oui">✓</span></td>
+            </tr>
+            <tr>
+              <th scope="row">Affiche le PDF</th>
+              <td class="col-own"><span class="yes" aria-label="Oui">✓</span></td>
+              <td><span class="yes" aria-label="Oui">✓</span></td>
+              <td><span class="no" aria-label="Non">—</span></td>
+              <td><span class="yes" aria-label="Oui">✓</span></td>
+            </tr>
+            <tr>
+              <th scope="row">Affiche les données du XML</th>
+              <td class="col-own"><span class="yes" aria-label="Oui">✓</span></td>
+              <td><span class="yes" aria-label="Oui">✓</span></td>
+              <td><span class="txt">HTML expérimental</span></td>
+              <td><span class="no" aria-label="Non">—</span></td>
+            </tr>
+            <tr>
+              <th scope="row">PDF et données côte à côte</th>
+              <td class="col-own"><span class="yes" aria-label="Oui">✓</span></td>
+              <td><span class="no" aria-label="Non">—</span></td>
+              <td><span class="no" aria-label="Non">—</span></td>
+              <td><span class="no" aria-label="Non">—</span></td>
+            </tr>
+            <tr>
+              <th scope="row">Contrôles arithmétiques détaillés</th>
+              <td class="col-own"><span class="yes" aria-label="Oui">✓</span></td>
+              <td><span class="no" aria-label="Non">—</span></td>
+              <td><span class="txt">Via la validation</span></td>
+              <td><span class="no" aria-label="Non">—</span></td>
+            </tr>
+            <tr>
+              <th scope="row">Schematron EN&nbsp;16931 officiel</th>
+              <td class="col-own"><span class="txt">Hors ligne</span></td>
+              <td><span class="txt">En ligne</span></td>
+              <td><span class="yes" aria-label="Oui">✓</span></td>
+              <td><span class="no" aria-label="Non">—</span></td>
+            </tr>
+            <tr>
+              <th scope="row">Règles françaises BR-FR</th>
+              <td class="col-own"><span class="txt">Hors ligne</span></td>
+              <td><span class="no" aria-label="Non">—</span></td>
+              <td><span class="no" aria-label="Non">—</span></td>
+              <td><span class="no" aria-label="Non">—</span></td>
+            </tr>
+            <tr>
+              <th scope="row">Validation XSD</th>
+              <td class="col-own"><span class="txt">Hors ligne</span></td>
+              <td><span class="txt">En ligne</span></td>
+              <td><span class="yes" aria-label="Oui">✓</span></td>
+              <td><span class="no" aria-label="Non">—</span></td>
+            </tr>
+            <tr>
+              <th scope="row">Tableau multi-factures avec totaux</th>
+              <td class="col-own"><span class="yes" aria-label="Oui">✓</span></td>
+              <td><span class="no" aria-label="Non">—</span></td>
+              <td><span class="no" aria-label="Non">—</span></td>
+              <td><span class="no" aria-label="Non">—</span></td>
+            </tr>
+            <tr>
+              <th scope="row">Pointage, statuts et commentaires</th>
+              <td class="col-own"><span class="yes" aria-label="Oui">✓</span></td>
+              <td><span class="no" aria-label="Non">—</span></td>
+              <td><span class="no" aria-label="Non">—</span></td>
+              <td><span class="no" aria-label="Non">—</span></td>
+            </tr>
+            <tr>
+              <th scope="row">Historique : IBAN, doublons, prix</th>
+              <td class="col-own"><span class="yes" aria-label="Oui">✓</span></td>
+              <td><span class="no" aria-label="Non">—</span></td>
+              <td><span class="no" aria-label="Non">—</span></td>
+              <td><span class="no" aria-label="Non">—</span></td>
+            </tr>
+            <tr>
+              <th scope="row">Export CSV / rapport JSON</th>
+              <td class="col-own"><span class="yes" aria-label="Oui">✓</span></td>
+              <td><span class="no" aria-label="Non">—</span></td>
+              <td><span class="no" aria-label="Non">—</span></td>
+              <td><span class="no" aria-label="Non">—</span></td>
+            </tr>
+            <tr>
+              <th scope="row">Interface en français</th>
+              <td class="col-own"><span class="yes" aria-label="Oui">✓</span></td>
+              <td><span class="yes" aria-label="Oui">✓</span></td>
+              <td><span class="no" aria-label="Non">—</span></td>
+              <td><span class="txt">Selon l'outil</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p class="cmp-note">
+        Établi d'après la documentation publique de chaque projet. Une case vide signifie
+        « non documenté », pas forcément « impossible ». Factur-X Reader exécute le Schematron officiel
+        EN&nbsp;16931 et celui des profils Factur-X, et contrôle le schéma XSD, mais ne contrôle ni la
+        conformité PDF/A-3 complète du fichier, ni les règles nationales autres que françaises. Pour une
+        validation qui fait foi, Mustang ou Quba restent les outils de référence.
+      </p>
+    </div>
+  </section>
+
+  <!-- ================= FORMATS ================= -->
+  <section class="section" aria-labelledby="formats-title">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="eyebrow">Formats pris en charge</p>
+        <h2 id="formats-title">Les standards de la facture électronique européenne.</h2>
+        <p class="lead">
+          Factur-X, ZUGFeRD 2.x, UBL et CII partagent la même norme sémantique : EN&nbsp;16931.
+        </p>
+      </div>
+
+      <ul class="formats">
+        <li class="format reveal">
+          <h3>Factur-X</h3>
+          <p>PDF/A-3 avec XML CII en pièce jointe, profils MINIMUM à EXTENDED.</p>
+        </li>
+        <li class="format reveal">
+          <h3>ZUGFeRD 2.x</h3>
+          <p>Le même conteneur, côté allemand. La version 1.x n'est pas prise en charge.</p>
+        </li>
+        <li class="format reveal">
+          <h3>UBL 2.1</h3>
+          <p>Facture et avoir UBL, avec contrôle du schéma officiel.</p>
+        </li>
+        <li class="format reveal">
+          <h3>CII</h3>
+          <p>CrossIndustryInvoice, XML nu ou extrait d'un PDF.</p>
+        </li>
+        <li class="format reveal">
+          <h3>ZIP et dossiers</h3>
+          <p>Archive de factures ou dossier entier déposé d'un bloc.</p>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ================= FAQ ================= -->
+  <section class="section section--soft" id="faq" aria-labelledby="faq-title">
+    <div class="wrap">
+      <div class="section-head section-head--center reveal">
+        <p class="eyebrow">Questions fréquentes</p>
+        <h2 id="faq-title">Ce qu'on nous demande le plus souvent.</h2>
+      </div>
+
+      <div class="faq reveal">
+        <details>
+          <summary>Mes factures sont-elles envoyées quelque part&nbsp;?</summary>
+          <div class="answer">
+            <p>
+              Non. Factur-X Reader ne contacte aucun serveur : la lecture, le recalcul, le Schematron
+              officiel et le contrôle XSD s'exécutent sur votre poste. La seule connexion réseau est
+              celle de votre navigateur, au moment où vous téléchargez l'application.
+            </p>
+          </div>
+        </details>
+
+        <details>
+          <summary>Faut-il un compte ou un abonnement&nbsp;?</summary>
+          <div class="answer">
+            <p>
+              Ni l'un ni l'autre. L'application est gratuite et son code source est publié sous
+              licence PolyForm Shield. Aucune inscription, aucune clé de licence, aucune limite de
+              factures.
+            </p>
+          </div>
+        </details>
+
+        <details>
+          <summary>Quels formats puis-je ouvrir&nbsp;?</summary>
+          <div class="answer">
+            <p>
+              Les PDF Factur-X et ZUGFeRD 2.x, les XML UBL 2.1 et CII, les archives ZIP et les dossiers
+              entiers. ZUGFeRD 1.x n'est pas pris en charge.
+            </p>
+          </div>
+        </details>
+
+        <details>
+          <summary>Est-ce que cela remplace une validation officielle&nbsp;?</summary>
+          <div class="answer">
+            <p>
+              Non. L'application exécute le Schematron officiel EN&nbsp;16931 et celui des profils
+              Factur-X, et contrôle le schéma XSD, mais son validateur n'est pas l'implémentation de
+              référence et la conformité PDF/A-3 n'est vérifiée que sur ses déclarations. Pour une
+              validation qui fait foi, utilisez Mustang ou Quba.
+            </p>
+            <p>
+              <a href="verifier-facture-factur-x">Voir le guide : vérifier une facture Factur-X en 7 contrôles</a>
+            </p>
+          </div>
+        </details>
+
+        <details>
+          <summary>Pourquoi Windows ou macOS affichent-ils un avertissement&nbsp;?</summary>
+          <div class="answer">
+            <p>
+              Les builds ne sont pas signés. Windows SmartScreen et macOS Gatekeeper affichent donc un
+              message au premier lancement, qu'il suffit de confirmer. Vérifiez que le fichier provient
+              bien de la page des versions GitHub officielle.
+            </p>
+          </div>
+        </details>
+
+        <details>
+          <summary>Où sont stockées mes données&nbsp;?</summary>
+          <div class="answer">
+            <p>
+              Sur votre poste uniquement. La bibliothèque qui garde la trace des factures ouvertes est
+              un fichier local, et cette fonction peut être désactivée dans les paramètres.
+            </p>
+          </div>
+        </details>
+
+        <details>
+          <summary>Puis-je l'installer dans mon entreprise&nbsp;?</summary>
+          <div class="answer">
+            <p>
+              Oui, pour un usage interne, tant que vous ne proposez pas un produit concurrent à partir
+              du logiciel. La licence PolyForm Shield autorise la distribution et les modifications,
+              dans cette limite. Pour un cas particulier, <a href="mailto:simon.grossi@gmail.com">écrivez-moi</a>.
+            </p>
+          </div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= CTA ================= -->
+  <section class="section" aria-labelledby="cta-title">
+    <div class="wrap">
+      <div class="cta reveal">
+        <div class="cta__inner">
+          <h2 id="cta-title">Essayez sur une facture à vous.</h2>
+          <p>
+            Téléchargez l'application, déposez un fichier, et regardez ce que les contrôles ont à dire.
+            Aucune inscription, aucune donnée transmise.
+          </p>
+          <div class="cta__actions">
+            <a class="btn btn--primary btn--lg" href="https://github.com/simongrossi/FacturX-Reader/releases" target="_blank" rel="noopener">
+              <svg aria-hidden="true"><use href="#i-download"/></svg>
+              Télécharger pour Windows
+            </a>
+            <a class="btn btn--ghost btn--lg" href="https://github.com/simongrossi/FacturX-Reader/releases" target="_blank" rel="noopener">
+              macOS et Linux
+            </a>
+          </div>
+          <p class="cta__note">
+            Builds non signés : un avertissement de SmartScreen ou Gatekeeper apparaît au premier lancement.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <a class="brand" href="#" aria-label="Factur-X Reader, accueil">
+          <img class="brand__logo" src="assets/img/favicon.svg" alt="" width="30" height="30">
+          <span class="brand__name">Factur-X Reader</span>
+        </a>
+        <p>
+          Lire, contrôler et exploiter les factures électroniques, sans que rien ne quitte votre poste.
+        </p>
+      </div>
+
+      <div class="footer-col">
+        <h3>Produit</h3>
+        <ul>
+          <li><a href="#fonctionnalites">Fonctionnalités</a></li>
+          <li><a href="#comparatif">Comparatif</a></li>
+          <li><a href="#faq">Questions fréquentes</a></li>
+          <li><a href="https://github.com/simongrossi/FacturX-Reader/releases" target="_blank" rel="noopener">Télécharger</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col">
+        <h3>Ressources</h3>
+        <ul>
+          <li><a href="verifier-facture-factur-x">Vérifier une facture Factur-X</a></li>
+          <li><a href="recevoir-facture-electronique">Recevoir une facture électronique</a></li>
+          <li><a href="alternative-quba-viewer">Alternative à Quba Viewer</a></li>
+          <li><a href="https://github.com/simongrossi/FacturX-Reader" target="_blank" rel="noopener">Code source</a></li>
+          <li><a href="https://github.com/simongrossi/FacturX-Reader/blob/main/CHANGELOG.md" target="_blank" rel="noopener">Nouveautés</a></li>
+          <li><a href="https://github.com/simongrossi/FacturX-Reader/issues" target="_blank" rel="noopener">Signaler un problème</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col">
+        <h3>Contact et légal</h3>
+        <ul>
+          <li><a href="mailto:simon.grossi@gmail.com">simon.grossi@gmail.com</a></li>
+          <li><a href="mentions-legales.html">Mentions légales</a></li>
+          <li><a href="confidentialite.html">Confidentialité</a></li>
+          <li><a href="https://github.com/simongrossi/FacturX-Reader/blob/main/LICENSE.md" target="_blank" rel="noopener">Licence PolyForm Shield</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <p>© <span data-year>2026</span> Simon Grossi. Tous droits réservés.</p>
+      <p>Factur-X Reader n'est pas affilié à la Commission européenne ni au Forum Factur-X.</p>
+    </div>
+  </div>
+</footer>
+
+<script src="assets/js/main.js" defer></script>
+</body>
+</html>

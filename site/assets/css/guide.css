@@ -1,0 +1,141 @@
+/* Sommaire et encadrés des pages guides. */
+.toc {
+  margin: 0 0 2.4em;
+  padding: 20px 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.toc h2 {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.toc ol {
+  margin: 0;
+  padding-left: 1.2em;
+  color: var(--muted);
+}
+
+.toc li {
+  margin: 5px 0;
+  font-size: 0.93rem;
+}
+
+.toc a {
+  text-decoration: none;
+}
+
+.toc a:hover {
+  text-decoration: underline;
+}
+
+.callout {
+  margin: 1.9em 0;
+  padding: 18px 22px;
+  border-left: 3px solid var(--accent);
+  border-radius: 4px var(--radius-sm) var(--radius-sm) 4px;
+  background: var(--accent-soft);
+}
+
+.callout p {
+  margin-bottom: 0.7em;
+}
+
+.callout p:last-child {
+  margin-bottom: 0;
+}
+
+.callout strong {
+  color: var(--accent-ink);
+}
+
+[data-theme="dark"] .callout strong {
+  color: var(--accent-strong);
+}
+
+.guide-figure {
+  margin: 2em 0;
+}
+
+.guide-figure img {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+}
+
+.guide-figure figcaption {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.prose h2 {
+  scroll-margin-top: calc(var(--header-h) + 20px);
+}
+
+.prose h3 {
+  scroll-margin-top: calc(var(--header-h) + 20px);
+}
+
+/* Tableaux des pages guides */
+.guide-table {
+  width: 100%;
+  margin: 1.8em 0;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  font-size: 0.92rem;
+  overflow: hidden;
+}
+
+.guide-table th,
+.guide-table td {
+  padding: 11px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+
+.guide-table thead th {
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.guide-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.guide-table td {
+  color: var(--text);
+}
+
+.prose code {
+  padding: 1px 5px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface-2);
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 0.86em;
+}
+
+@media (max-width: 640px) {
+  .guide-table {
+    font-size: 0.85rem;
+  }
+
+  .guide-table th,
+  .guide-table td {
+    padding: 9px 10px;
+  }
+}
