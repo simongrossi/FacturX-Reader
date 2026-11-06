@@ -17,6 +17,23 @@ let batchPrintBusy = false;
 
 function plural(n, singulier, pluriel) { return n > 1 ? pluriel : singulier; }
 
+function hasPrintablePdf(file) {
+  return file.status === "ok" && !!(file.result?.pdf?.base64 || file.result?.xml_pdf?.base64);
+}
+
+function refreshPrintSelectionButton(visible) {
+  const button = byId("btn-print-select-all");
+  const printable = visible.filter(hasPrintablePdf);
+  const selected = printable.filter(file => state.printSelection.has(file.id)).length;
+  const all = printable.length > 0 && selected === printable.length;
+  const label = all ? "Désélectionner les PDF affichés pour l’impression groupée"
+    : "Sélectionner les PDF affichés pour l’impression groupée";
+  button.disabled = !printable.length;
+  button.title = label;
+  button.setAttribute("aria-label", label);
+  button.setAttribute("aria-pressed", all ? "true" : selected ? "mixed" : "false");
+}
+
 function togglePrintSelection(id) {
   if (state.printSelection.has(id)) state.printSelection.delete(id);
   else state.printSelection.add(id);
@@ -173,6 +190,17 @@ async function prepareBatchPrint() {
 }
 
 function wireBatchPrint() {
+  const selectAll = byId("btn-print-select-all");
+  selectAll.innerHTML = PRINT_ICON_SVG;
+  selectAll.addEventListener("click", () => {
+    const printable = getFilteredFiles().filter(hasPrintablePdf);
+    const all = printable.every(file => state.printSelection.has(file.id));
+    for (const file of printable) {
+      if (all) state.printSelection.delete(file.id);
+      else state.printSelection.add(file.id);
+    }
+    renderList(true);
+  });
   let sheet = byId("batch-print-sheet");
   if (!sheet) {
     sheet = document.createElement("div");

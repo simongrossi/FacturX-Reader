@@ -581,6 +581,7 @@ function renderList(preserveSearch = false) {
   const totalCount = state.files.length;
   const filtered = getFilteredFiles();
   const filteredCount = filtered.length;
+  refreshPrintSelectionButton(filtered);
 
   updateSidebarFilterUI(filteredCount, totalCount);
 
@@ -610,7 +611,7 @@ function renderList(preserveSearch = false) {
 
   for (const f of filtered) {
     // Icône imprimante : uniquement les factures analysées qui portent au moins un PDF.
-    const printable = f.status === "ok" && !!(f.result && (f.result.pdf || f.result.xml_pdf));
+    const printable = hasPrintablePdf(f);
     const selectedForPrint = printable && state.printSelection.has(f.id);
     const li = document.createElement("li");
     li.className = "file-item"

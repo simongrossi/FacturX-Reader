@@ -84,8 +84,18 @@ test('sélection par icône, modes, compteurs et impression unique', async ({ pa
 
   // Icône imprimante sur les deux factures, absente sur une ligne en erreur.
   await expect(page.locator('.file-item .fi-print')).toHaveCount(2);
+  const all = page.locator('#btn-print-select-all');
   await page.locator('.file-item .fi-print').first().click();
-  await page.locator('.file-item .fi-print').last().click();
+  await expect(all).toHaveAttribute('aria-pressed', 'mixed');
+  await all.click();
+  await expect(page.locator('.file-item.print-selected')).toHaveCount(2);
+  await expect(all).toHaveAttribute('aria-pressed', 'true');
+  await page.locator('#side-filter-query').fill('sans-xml');
+  await all.click();
+  await expect(page.locator('.file-item.print-selected')).toHaveCount(0);
+  await page.locator('#side-filter-query').fill('');
+  await expect(page.locator('.file-item.print-selected')).toHaveCount(1);
+  await all.click();
   await expect(page.locator('.file-item.print-selected')).toHaveCount(2);
 
   // Menu actif, modale ouverte : mode par défaut « XML sinon document ».

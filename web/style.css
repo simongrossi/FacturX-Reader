@@ -247,6 +247,7 @@ button, input, select { font: inherit; color: inherit; }
   color: var(--muted);
 }
 .side-actions { display: inline-flex; gap: 4px; }
+#btn-print-select-all:is([aria-pressed="true"], [aria-pressed="mixed"]) { color: var(--accent); }
 .icon-btn {
   width: 24px;
   height: 24px;

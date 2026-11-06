@@ -5,6 +5,11 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 
 ## [Non publié]
 
+## [0.10.1] - 2026-11-06
+
+- Ajout d’un bouton dans la barre des fichiers pour sélectionner ou désélectionner tous les PDF imprimables affichés, en respectant les filtres actifs.
+- Cette préversion inclut les changements décrits dans la section 0.10.0 ci-dessous.
+
 ## [0.10.0] - 2026-11-06
 
 ### Ajouté
