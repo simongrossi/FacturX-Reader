@@ -21,3 +21,6 @@ dev-launch.log
 
 # Archives de déploiement générées localement
 *.tar.gz
+
+# Métadonnées locales de macOS
+.DS_Store

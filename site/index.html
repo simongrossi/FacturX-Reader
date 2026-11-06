@@ -49,8 +49,8 @@
   "operatingSystem": "Windows, macOS, Linux",
   "description": "Application de bureau pour lire, contrôler et exporter les factures électroniques Factur-X, UBL et CII. Fonctionne entièrement hors ligne.",
   "url": "https://facturxreader.com/",
-  "downloadUrl": "https://github.com/simongrossi/FacturX-Reader/releases",
-  "softwareVersion": "0.9.0",
+  "downloadUrl": "https://github.com/simongrossi/FacturX-Reader/releases/tag/v0.10.1",
+  "softwareVersion": "0.10.1",
   "screenshot": "https://facturxreader.com/assets/img/controles.webp",
   "inLanguage": "fr",
   "license": "https://github.com/simongrossi/FacturX-Reader/blob/main/LICENSE.md",
@@ -163,7 +163,7 @@
         <svg class="icon-sun" aria-hidden="true"><use href="#i-sun"/></svg>
         <svg class="icon-moon" aria-hidden="true"><use href="#i-moon"/></svg>
       </button>
-      <a class="btn btn--primary btn--sm" href="https://github.com/simongrossi/FacturX-Reader/releases" target="_blank" rel="noopener">
+      <a class="btn btn--primary btn--sm" href="#telechargements">
         Télécharger
       </a>
       <button class="icon-btn nav-toggle" type="button" data-nav-toggle aria-expanded="false" aria-controls="primary-nav" aria-label="Ouvrir le menu">
@@ -180,7 +180,7 @@
     <div class="wrap">
       <div class="hero__grid">
         <div class="hero__copy">
-          <p class="hero__badge"><b>0.9.0</b> Application de bureau · Windows, macOS, Linux</p>
+          <p class="hero__badge"><b>0.10.1</b> Application de bureau · Windows, macOS, Linux</p>
 
           <h1 id="hero-title">Vos factures électroniques, <em>lues et vérifiées</em> sur votre poste.</h1>
 
@@ -192,19 +192,19 @@
           </p>
 
           <div class="hero__actions">
-            <a class="btn btn--primary btn--lg" href="https://github.com/simongrossi/FacturX-Reader/releases" target="_blank" rel="noopener">
+            <a class="btn btn--primary btn--lg" href="#telechargements">
               <svg aria-hidden="true"><use href="#i-download"/></svg>
               Télécharger gratuitement
             </a>
-            <a class="btn btn--ghost btn--lg" href="#fonctionnalites">
-              Voir les fonctionnalités
+            <a class="btn btn--ghost btn--lg" href="#facture-exemple">
+              Essayer avec une facture fictive
             </a>
           </div>
 
           <ul class="hero__meta">
-            <li>Installeur Windows ≈ 5&nbsp;Mo</li>
+            <li>Installateur Windows ≈ 6,4&nbsp;Mo</li>
             <li>Licence PolyForm Shield</li>
-            <li>Version 0.9.0</li>
+            <li>Préversion 0.10.1</li>
           </ul>
         </div>
 
@@ -242,6 +242,43 @@
     </div>
   </div>
 
+  <section class="section" id="telechargements" aria-labelledby="telechargements-title">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Préversion 0.10.1</p>
+        <h2 id="telechargements-title">Télécharger Factur-X Reader</h2>
+        <p class="lead">Choisissez votre système. <a href="https://github.com/simongrossi/FacturX-Reader/releases/tag/v0.10.1">Notes de version et tous les fichiers sur GitHub</a>.</p>
+      </div>
+      <div class="features">
+        <article class="feature">
+          <h3>Windows x64</h3>
+          <p>Installateur .exe · 6,4&nbsp;Mo</p>
+          <ul class="feature__list">
+            <li><a href="https://github.com/simongrossi/FacturX-Reader/releases/download/v0.10.1/Factur-X.Reader_0.10.1_x64-setup.exe">Télécharger l’installateur Windows</a></li>
+            <li><a href="https://github.com/simongrossi/FacturX-Reader/releases/download/v0.10.1/Factur-X.Reader_0.10.1_x64_en-US.msi">Autre format (.msi)</a></li>
+          </ul>
+        </article>
+        <article class="feature">
+          <h3>macOS</h3>
+          <p>Apple Silicon et Intel · .dmg · 16,4&nbsp;Mo</p>
+          <ul class="feature__list">
+            <li><a href="https://github.com/simongrossi/FacturX-Reader/releases/download/v0.10.1/Factur-X.Reader_0.10.1_universal.dmg">Télécharger pour macOS</a></li>
+          </ul>
+        </article>
+        <article class="feature">
+          <h3>Linux x86-64</h3>
+          <p>AppImage · 86,7&nbsp;Mo</p>
+          <ul class="feature__list">
+            <li><a href="https://github.com/simongrossi/FacturX-Reader/releases/download/v0.10.1/Factur-X.Reader_0.10.1_amd64.AppImage">Télécharger l’AppImage</a></li>
+            <li><a href="https://github.com/simongrossi/FacturX-Reader/releases/download/v0.10.1/Factur-X.Reader_0.10.1_amd64.deb">Paquet Debian / Ubuntu (.deb)</a></li>
+            <li><a href="https://github.com/simongrossi/FacturX-Reader/releases/download/v0.10.1/Factur-X.Reader-0.10.1-1.x86_64.rpm">Paquet RPM (.rpm)</a></li>
+          </ul>
+        </article>
+      </div>
+      <div class="hero__actions"><a href="#aide-installation">Besoin d’aide pour l’installation&nbsp;?</a></div>
+    </div>
+  </section>
+
   <!-- ================= ATOUTS ================= -->
   <section class="section" id="atouts" aria-labelledby="atouts-title">
     <div class="wrap">
@@ -268,8 +305,7 @@
           <span class="pillar__icon"><svg aria-hidden="true"><use href="#i-zap"/></svg></span>
           <h3>Léger par choix</h3>
           <p>
-            Installeur Windows d'environ 5&nbsp;Mo, exécutable d'environ 19&nbsp;Mo, moteur de validation
-            et règles officielles compris. Écrit en Rust et Tauri, sans navigateur embarqué.
+            Installateur Windows d’environ 6,4&nbsp;Mo, moteur de validation et règles officielles compris. Écrit en Rust et Tauri, sans navigateur embarqué.
           </p>
         </article>
 
@@ -330,7 +366,7 @@
         <article class="feature reveal">
           <span class="feature__icon"><svg aria-hidden="true"><use href="#i-alert"/></svg></span>
           <h3>Centre d'anomalies</h3>
-          <p>Écarts et alertes regroupés par source, valeur trouvée et valeur attendue, actions conseillées, accès direct au champ XML en cause.</p>
+          <p>Écarts et alertes regroupés par source. Pour un PDF avec du texte, les champs reconnus sont comparés au XML, avec des liens vers la page PDF et le champ XML.</p>
         </article>
 
         <article class="feature reveal">
@@ -342,13 +378,13 @@
         <article class="feature reveal">
           <span class="feature__icon"><svg aria-hidden="true"><use href="#i-calendar"/></svg></span>
           <h3>Échéancier et dossier surveillé</h3>
-          <p>Factures groupées par échéance et devise, retards, soldes indicatifs. Un dossier surveillé importe les nouvelles factures au fil de l'eau.</p>
+          <p>Factures par échéance et devise. Les doublons probables et les avoirs non affectés sont présentés séparément. Le statut de règlement reste inconnu. Un dossier surveillé importe les nouvelles factures.</p>
         </article>
 
         <article class="feature reveal">
           <span class="feature__icon"><svg aria-hidden="true"><use href="#i-database"/></svg></span>
           <h3>Bibliothèque locale</h3>
-          <p>Les factures déjà ouvertes, retrouvables entre les sessions. Alerte sur un IBAN nouveau, un doublon probable, une variation de prix unitaire.</p>
+          <p>Les factures déjà ouvertes, retrouvables entre les sessions. Alertes sur les IBAN à vérifier, les doublons probables et les variations de prix. La confirmation manuelle d’un IBAN reste enregistrée localement.</p>
         </article>
 
         <article class="feature reveal">
@@ -383,6 +419,19 @@
           sa valeur attendue et sa tolérance.
         </p>
       </div>
+
+      <article class="feature" id="facture-exemple" aria-labelledby="facture-exemple-title">
+        <h3 id="facture-exemple-title">Essayez avec une facture fictive</h3>
+        <p>Le PDF affiche un net à payer de 1&nbsp;200&nbsp;€, tandis que son XML indique 1&nbsp;020&nbsp;€. Cet écart est volontaire.</p>
+        <ol>
+          <li>Téléchargez le PDF et ouvrez-le dans Factur-X Reader.</li>
+          <li>Dans <strong>Données → Centre d’anomalies</strong>, repérez <strong>PDF / XML · Net à payer</strong>.</li>
+          <li>Ouvrez la page PDF et le champ XML à partir des liens de l’anomalie.</li>
+        </ol>
+        <div class="hero__actions">
+          <a class="btn btn--primary" href="/exemples/facture-exemple-facturx-reader.pdf" download>Télécharger la facture d’exemple (PDF)</a>
+        </div>
+      </article>
 
       <div class="gallery">
         <figure class="gallery__item gallery__item--wide reveal">
@@ -663,14 +712,13 @@
           </div>
         </details>
 
-        <details>
-          <summary>Pourquoi Windows ou macOS affichent-ils un avertissement&nbsp;?</summary>
+        <details id="aide-installation" open>
+          <summary>Installer sur Windows, macOS ou Linux</summary>
           <div class="answer">
-            <p>
-              Les builds ne sont pas signés. Windows SmartScreen et macOS Gatekeeper affichent donc un
-              message au premier lancement, qu'il suffit de confirmer. Vérifiez que le fichier provient
-              bien de la page des versions GitHub officielle.
-            </p>
+            <p>Cette préversion est distribuée sans signature de l’éditeur. Vérifiez que le fichier provient de la <a href="https://github.com/simongrossi/FacturX-Reader/releases/tag/v0.10.1">préversion officielle sur GitHub</a>. Sur un poste géré, demandez à votre service informatique si l’installation est autorisée.</p>
+            <p><strong>Windows.</strong> Lancez l’installateur .exe. SmartScreen peut signaler un éditeur inconnu.</p>
+            <p><strong>macOS.</strong> Ouvrez le .dmg et glissez l’application dans Applications. Gatekeeper peut afficher un avertissement. L’aperçu de l’impression groupée a été vérifié sur macOS Apple Silicon.</p>
+            <p><strong>Linux.</strong> Rendez l’AppImage exécutable dans les propriétés du fichier, puis ouvrez-la. Vous pouvez aussi installer le .deb ou le .rpm si votre distribution utilise ce format.</p>
           </div>
         </details>
 
@@ -709,16 +757,12 @@
             Aucune inscription, aucune donnée transmise.
           </p>
           <div class="cta__actions">
-            <a class="btn btn--primary btn--lg" href="https://github.com/simongrossi/FacturX-Reader/releases" target="_blank" rel="noopener">
-              <svg aria-hidden="true"><use href="#i-download"/></svg>
-              Télécharger pour Windows
-            </a>
-            <a class="btn btn--ghost btn--lg" href="https://github.com/simongrossi/FacturX-Reader/releases" target="_blank" rel="noopener">
-              macOS et Linux
-            </a>
+            <a class="btn btn--primary btn--lg" href="#telechargements">Choisir mon système</a>
+            <a class="btn btn--ghost btn--lg" href="#facture-exemple">Essayer avec une facture fictive</a>
           </div>
           <p class="cta__note">
-            Builds non signés : un avertissement de SmartScreen ou Gatekeeper apparaît au premier lancement.
+            Préversion non signée. Windows ou macOS peuvent afficher un avertissement.
+            La sélection groupée des PDF imprimables est disponible.
           </p>
         </div>
       </div>
@@ -746,7 +790,7 @@
           <li><a href="#fonctionnalites">Fonctionnalités</a></li>
           <li><a href="#comparatif">Comparatif</a></li>
           <li><a href="#faq">Questions fréquentes</a></li>
-          <li><a href="https://github.com/simongrossi/FacturX-Reader/releases" target="_blank" rel="noopener">Télécharger</a></li>
+          <li><a href="https://github.com/simongrossi/FacturX-Reader/releases/tag/v0.10.1" target="_blank" rel="noopener">Télécharger</a></li>
         </ul>
       </div>
 
@@ -757,7 +801,7 @@
           <li><a href="recevoir-facture-electronique">Recevoir une facture électronique</a></li>
           <li><a href="alternative-quba-viewer">Alternative à Quba Viewer</a></li>
           <li><a href="https://github.com/simongrossi/FacturX-Reader" target="_blank" rel="noopener">Code source</a></li>
-          <li><a href="https://github.com/simongrossi/FacturX-Reader/blob/main/CHANGELOG.md" target="_blank" rel="noopener">Nouveautés</a></li>
+          <li><a href="https://github.com/simongrossi/FacturX-Reader/releases/tag/v0.10.1" target="_blank" rel="noopener">Nouveautés</a></li>
           <li><a href="https://github.com/simongrossi/FacturX-Reader/issues" target="_blank" rel="noopener">Signaler un problème</a></li>
         </ul>
       </div>

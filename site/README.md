@@ -7,7 +7,8 @@ aucune dépendance, aucun build. Le dossier se copie tel quel sur un serveur web
 
 ```
 site/
-├── index.html                        page d'accueil (héros, atouts, fonctionnalités, aperçu, comparatif, FAQ)
+├── index.html                        page d’accueil, téléchargements et aide à l’installation
+├── exemples/                         PDF fictif avec un écart PDF/XML
 ├── verifier-facture-factur-x.html    guide : les 7 contrôles d'une facture Factur-X
 ├── recevoir-facture-electronique.html guide : obligations de la réforme 2026
 ├── alternative-quba-viewer.html      comparatif face à Quba Viewer
