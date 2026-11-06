@@ -23,13 +23,25 @@ function scheduleToday() {
 }
 
 function scheduleEntries(today = scheduleToday()) {
-  return state.files.filter(f => f.status === "ok" && f.result?.synthese).map(f => {
+  const hashes = new Set();
+  return state.files.filter(f => {
+    if (f.status !== "ok" || !f.result?.synthese) return false;
+    const hash = f.result.doc_hash;
+    if (!hash) return true;
+    if (hashes.has(hash)) return false;
+    hashes.add(hash);
+    return true;
+  }).map(f => {
     const s = f.result.synthese, credit = !!s.avoir;
     // Un avoir porte une réduction, pas un décaissement. Son TTC est sa valeur, même sans montant « à payer ».
     const cents = scheduleCents(credit ? s.ttc : s.a_payer);
     const due = scheduleDate(s.echeance);
+    const supplierKey = s.vendeur_tva || s.vendeur_id_legal || s.vendeur || f.id;
+    const probable = [...duplicateChecks(f), ...(f.result.controles || [])]
+      .some(check => check.famille === "historique" && check.regle.startsWith("Doublon probable"));
+    const kind = probable ? "review" : credit ? "credit" : "invoice";
     return { f, filename: f.name, seller: s.vendeur || "", number: s.numero || "", currency: s.devise || "",
-      credit, cents: cents == null ? null : credit ? -(cents < 0n ? -cents : cents) : cents, due,
+      supplierKey, kind, credit, cents: cents == null ? null : credit ? -(cents < 0n ? -cents : cents) : cents, due,
       status: !due ? "undated" : due < today ? "overdue" : due === today ? "today" : "upcoming" };
   }).sort((a, b) => (a.due || "9999-99-99").localeCompare(b.due || "9999-99-99") ||
     a.currency.localeCompare(b.currency, "fr") || a.filename.localeCompare(b.filename, "fr"));
@@ -38,14 +50,15 @@ function scheduleEntries(today = scheduleToday()) {
 function scheduleGroups(entries) {
   const groups = new Map();
   for (const entry of entries) {
-    const key = entry.due + "\u0000" + entry.currency;
-    if (!groups.has(key)) groups.set(key, { due: entry.due, currency: entry.currency, status: entry.status,
-      entries: [], net: 0n, known: 0, missing: 0, credits: 0 });
+    const seller = entry.kind === "credit" ? entry.seller : "";
+    const due = entry.kind === "credit" ? "" : entry.due;
+    const key = JSON.stringify([entry.kind, due, entry.currency, entry.kind === "credit" ? entry.supplierKey : ""]);
+    if (!groups.has(key)) groups.set(key, { due, seller, kind: entry.kind, currency: entry.currency,
+      status: entry.status, entries: [], total: 0n, known: 0, missing: 0 });
     const group = groups.get(key);
     group.entries.push(entry);
-    if (entry.credit) group.credits++;
     if (entry.cents == null) group.missing++;
-    else { group.net += entry.cents; group.known++; }
+    else { group.total += entry.cents; group.known++; }
   }
   return [...groups.values()];
 }
@@ -79,25 +92,30 @@ function renderSchedule() {
   const summary = byId("schedule-summary");
   summary.replaceChildren();
   const totals = new Map();
+  const readable = state.files.filter(f => f.status === "ok" && f.result?.synthese).length;
+  const copies = readable - entries.length;
+  const missing = state.files.length - readable;
   for (const entry of entries) {
-    const t = totals.get(entry.currency) || { count: 0, known: 0, net: 0n, credits: 0, undatedCredits: 0, missing: 0 };
-    t.count++;
-    if (entry.credit) { t.credits++; if (!entry.due) t.undatedCredits++; }
-    if (entry.cents == null) t.missing++;
-    else { t.known++; t.net += entry.cents; }
+    const t = totals.get(entry.currency) || { total: 0n, known: 0, missing: 0, credits: 0, review: 0 };
+    if (entry.kind === "credit") t.credits++;
+    else if (entry.kind === "review") t.review++;
+    else if (entry.cents == null) t.missing++;
+    else { t.known++; t.total += entry.cents; }
     totals.set(entry.currency, t);
   }
   const overview = Object.assign(document.createElement("p"), { className: "verdict-note",
     textContent: scheduleCount(entries.length, "document") + " avec synthèse" +
-      " · " + scheduleCount(entries.filter(e => e.status === "overdue" && !e.credit).length, "échéance dépassée", "échéances dépassées") +
+      " · " + scheduleCount(entries.filter(e => e.status === "overdue" && e.kind === "invoice").length, "échéance dépassée", "échéances dépassées") +
       " · " + entries.filter(e => !e.due).length + " sans échéance" +
-      (state.files.length > entries.length ? " · " + scheduleCount(state.files.length - entries.length, "document") + " sans synthèse" : "") });
+      (copies ? " · " + scheduleCount(copies, "copie exclue", "copies exclues") : "") +
+      (missing ? " · " + scheduleCount(missing, "document") + " sans synthèse" : "") });
   summary.appendChild(overview);
   for (const [currency, total] of totals) {
     summary.appendChild(Object.assign(document.createElement("div"), { className: "schedule-total",
-      textContent: (currency || "Sans devise") + " · solde indicatif " +
-        (total.known ? scheduleMoney(total.net) : "indisponible") +
-        " · " + scheduleCount(total.credits, "avoir") + ", dont " + total.undatedCredits + " sans échéance" +
+      textContent: (currency || "Sans devise") + " · montant facturé à échéance " +
+        (total.known ? scheduleMoney(total.total) : "indisponible") +
+        " · " + scheduleCount(total.credits, "avoir non affecté", "avoirs non affectés") +
+        " · " + scheduleCount(total.review, "pièce à arbitrer", "pièces à arbitrer") +
         (total.missing ? " · " + scheduleCount(total.missing, "montant indisponible", "montants indisponibles") : "") }));
   }
   const currencySelect = byId("schedule-currency");
@@ -106,7 +124,7 @@ function renderSchedule() {
     ...currencyOptions.map(currency => Object.assign(document.createElement("option"), { value: currency,
       textContent: currency || "Sans devise" })));
   currencySelect.value = schedule.currency;
-  byId("schedule-count").textContent = visible.length + " / " + entries.length + " documents · " + scheduleCount(groups.length, "groupe") + " par date et devise";
+  byId("schedule-count").textContent = visible.length + " / " + entries.length + " documents · " + scheduleCount(groups.length, "groupe");
   const container = byId("schedule-groups");
   container.replaceChildren();
   if (!visible.length) container.appendChild(Object.assign(document.createElement("p"), { className: "notice",
@@ -114,11 +132,13 @@ function renderSchedule() {
   for (const group of groups) {
     const block = Object.assign(document.createElement("article"), { className: "schedule-group" });
     const head = Object.assign(document.createElement("div"), { className: "schedule-group-head" });
-    head.appendChild(Object.assign(document.createElement("strong"), { textContent: scheduleDateLabel(group.due) + " · " + (group.currency || "Sans devise") }));
-    head.appendChild(Object.assign(document.createElement("span"), { className: "schedule-status schedule-" + group.status,
+    head.appendChild(Object.assign(document.createElement("strong"), { textContent: (group.kind === "credit" ? "Avoirs non affectés · " + (group.seller || "Vendeur inconnu")
+      : group.kind === "review" ? "Doublons probables à arbitrer · " + scheduleDateLabel(group.due)
+      : scheduleDateLabel(group.due)) + " · " + (group.currency || "Sans devise") }));
+    if (group.kind !== "credit") head.appendChild(Object.assign(document.createElement("span"), { className: "schedule-status schedule-" + group.status,
       textContent: scheduleStatusLabel(group.status) }));
-    head.appendChild(Object.assign(document.createElement("span"), { textContent: scheduleCount(group.entries.length, "document") + " · solde " +
-      (group.known ? scheduleMoney(group.net) : "indisponible") +
+    head.appendChild(Object.assign(document.createElement("span"), { textContent: scheduleCount(group.entries.length, "document") + (group.kind === "review" ? "" : " · total " +
+      (group.known ? scheduleMoney(group.total) : "indisponible")) +
       (group.missing ? " · " + scheduleCount(group.missing, "montant indisponible", "montants indisponibles") : "") }));
     block.appendChild(head);
     const list = Object.assign(document.createElement("div"), { className: "schedule-items" });
@@ -129,7 +149,7 @@ function renderSchedule() {
       open.addEventListener("click", () => selectFile(entry.f.id));
       item.appendChild(open);
       item.appendChild(Object.assign(document.createElement("span"), { textContent: entry.seller || "Vendeur inconnu" }));
-      item.appendChild(Object.assign(document.createElement("span"), { textContent: entry.credit ? "Avoir" : "Facture" }));
+      item.appendChild(Object.assign(document.createElement("span"), { textContent: entry.kind === "review" ? "À arbitrer" : entry.credit ? "Avoir" : "Facture" }));
       item.appendChild(Object.assign(document.createElement("strong"), { textContent: entry.cents == null ? "Montant indisponible" :
         (entry.cents < 0n ? "−" : "") + scheduleMoney(entry.cents < 0n ? -entry.cents : entry.cents) + " " + (entry.currency || "") }));
       list.appendChild(item);
@@ -140,13 +160,15 @@ function renderSchedule() {
 
 function scheduleExportRows() {
   const entries = scheduleVisible(), groups = scheduleGroups(entries);
-  const rows = [["Ligne", "Échéance", "Devise", "Situation", "Fichier", "Fournisseur", "Numéro", "Type", "Montant signé"]];
+  const rows = [["Ligne", "Échéance", "Devise", "Situation", "Fichier", "Fournisseur", "Numéro", "Type", "Montant signé", "Règlement"]];
   for (const group of groups) {
     for (const entry of group.entries) rows.push(["Document", entry.due, entry.currency, scheduleStatusLabel(entry.status),
-      entry.filename, entry.seller, entry.number, entry.credit ? "Avoir" : "Facture",
-      entry.cents == null ? "" : decimalCentsText(entry.cents).replace(".", ",")]);
-    rows.push(["Total échéance", group.due, group.currency, scheduleStatusLabel(group.status), "", "", "", "",
-      group.known ? decimalCentsText(group.net).replace(".", ",") : ""]);
+      entry.filename, entry.seller, entry.number, entry.kind === "review" ? (entry.credit ? "Avoir à arbitrer" : "Facture à arbitrer") : entry.credit ? "Avoir" : "Facture",
+      entry.cents == null ? "" : decimalCentsText(entry.cents).replace(".", ","), "Inconnu"]);
+    if (group.kind !== "review") rows.push([
+      group.kind === "credit" ? "Total avoirs non affectés" : "Total échéance", group.due, group.currency,
+      group.kind === "credit" ? "" : scheduleStatusLabel(group.status), "", group.seller, "", "",
+      group.known ? decimalCentsText(group.total).replace(".", ",") : "", "Inconnu"]);
   }
   return rows;
 }

@@ -2,11 +2,13 @@ const { test, expect } = require('@playwright/test');
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
+const { app: { security: { csp } } } = require('../src-tauri/tauri.conf.json');
 let server, url;
 test.beforeAll(async () => {
   server = http.createServer((req, res) => {
+    res.setHeader('Content-Security-Policy', csp);
     const file = path.join(__dirname, '../web', req.url === '/' ? 'index.html' : req.url.split('?')[0]);
-    res.setHeader('Content-Type', file.endsWith('.js') ? 'application/javascript' : file.endsWith('.css') ? 'text/css' : 'text/html');
+    res.setHeader('Content-Type', /\.m?js$/.test(file) ? 'application/javascript' : file.endsWith('.css') ? 'text/css' : 'text/html');
     fs.readFile(file, (err, data) => { res.statusCode = err ? 404 : 200; res.end(err ? '' : data); });
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -49,6 +51,13 @@ async function mockBackend(page, pdf = null, extra = {}) {
         { folder: args.folder, files: [], truncated: false, max: 500 };
       if (command === 'startup_paths') return { files: [] };
       if (command === 'app_info') return { version: 'test', pointages: 'test' };
+      if (command === 'library_confirm_iban') {
+        window.__ibanConfirmation = args;
+        return { hashes: [args.hash], check: {
+          regle: 'IBAN confirmé manuellement', etat: 'info', famille: 'historique',
+          iban_review: 'confirmed', detail: args.evidence,
+        } };
+      }
       if (command === 'get_pointage') return { lines: [] };
       if (command === 'parse_path' && args.path.includes('missing')) throw new Error('Fichier introuvable');
       if (command === 'parse_path') {
@@ -397,7 +406,11 @@ test('PDF multipage : zoom et position après changement de vue et rechargement'
 test('recherche dans le texte du PDF : résultats, navigation et zoom', async ({ page }) => {
   await mockBackend(page, require('./fixtures.cjs').invoicePdf().toString('base64'));
   await page.goto(url);
+  const worker = page.waitForEvent('worker', {
+    predicate: worker => worker.url().endsWith('/pdfjs/pdf.worker.min.mjs'),
+  });
   await page.locator('#file-input').setInputFiles({ name: 'synthetic.pdf', mimeType: 'application/pdf', buffer: Buffer.from('test') });
+  await worker;
   await expect(page.locator('.pdf-page')).toHaveCount(2);
   await page.locator('#pdf-search').fill('TEST-P0');
   await expect(page.locator('#pdf-search-status')).toHaveText('1 / 2');
@@ -741,7 +754,8 @@ test('suivi de vérification, rapport JSON, vue PDF et données, tableau persist
   const report = await page.evaluate(() => window.__report.report);
   expect(report).toMatchObject({ fichier: 'suivi.pdf', empreinte_xml: 'fixture', synthese: { ttc: '120.00' },
     suivi: { statut: 'Anomalie', commentaire: 'À revoir avec le fournisseur', lignes: { 0: 'Quantité à confirmer' } } });
-  expect(report.controles).toHaveLength(1);
+  expect(report.controles.filter(check => check.famille === "calcul")).toHaveLength(1);
+  expect(report.controles.filter(check => check.famille === "pdf_xml")).toHaveLength(5);
 
   // Le tableau reprend le statut, le filtre et l'export ; il est rouvert après rechargement.
   await page.locator('#tab-batch').click();
@@ -892,7 +906,7 @@ test('bibliothèque : recherche, ouverture, retrait, historique des prix, régla
     synthese: { numero: 'F-9', type: '380', avoir: false, date: '2026-10-01', echeance: '', jours_echeance: null, week_end: false,
       vendeur: 'Papeterie Durand SAS', acheteur: 'Buyer', devise: 'EUR', ht: '100.00', tva: '20.00', ttc: '120.00', a_payer: '120.00',
       lignes: [{ ref: 'PAP-A4', nom: 'Papier A4', qte: '2', pu: '52.50', total: '105.00' }] },
-    controles: [{ regle: 'IBAN différent des factures précédentes de ce fournisseur', etat: 'alerte', attendu: '', constate: '', ecart: '', path: 'Invoice/IBAN', detail: 'Cette facture : FR76… Précédemment : FR14…' }],
+    controles: [{ regle: 'IBAN fournisseur à vérifier', iban_review: 'pending', etat: 'alerte', attendu: '', constate: '', ecart: '', path: 'Invoice/IBAN', detail: 'Cette facture : FR76… Précédemment : FR14…' }],
     lines_columns: [{ key: 'name', title: 'Désignation', align: 'left' }, { key: 'detail', title: 'Détail', align: 'left' }],
     lines: [{ fields: [{ title: 'Désignation', value: 'Papier A4', path: 'Invoice/x' }], cells: { name: cell('Désignation', 'Papier A4') } }],
   });
@@ -922,7 +936,14 @@ test('bibliothèque : recherche, ouverture, retrait, historique des prix, régla
 
   // L'alerte tirée de l'historique apparaît dans les contrôles ; historique des prix dans le détail de ligne.
   await page.getByRole('button', { name: 'Données', exact: true }).click();
-  await expect(page.locator('#controls')).toContainText('IBAN différent des factures précédentes');
+  await expect(page.locator('#controls')).toContainText('IBAN fournisseur à vérifier');
+  await page.getByRole('textbox', { name: 'Canal fournisseur connu ou référence de vérification' }).fill('Appel au numéro du référentiel');
+  await page.getByRole('button', { name: 'Confirmer l’IBAN' }).click();
+  await expect(page.locator('#controls')).toContainText('IBAN confirmé manuellement');
+  await expect(page.getByRole('button', { name: 'Confirmer l’IBAN' })).toHaveCount(0);
+  expect(await page.evaluate(() => window.__ibanConfirmation)).toEqual({
+    hash: 'fixture', evidence: 'Appel au numéro du référentiel',
+  });
   await page.locator('.detail-btn').first().click();
   await page.locator('.price-history-btn').first().click();
   const history = page.locator('.price-history table tbody tr');
@@ -1469,35 +1490,41 @@ test('échéancier : dates, devises, avoir non affecté, export filtré et accè
     });
     const docs = [
       ['retard.xml', item('R-1', 'EUR', '100.00', day(-1), false, '=2+2')],
-      ['jour.xml', item('J-1', 'EUR', '50.00', day(0))],
+      ['jour.xml', { ...item('J-1', 'EUR', '50.00', day(0)), doc_hash: 'same-xml' }],
       ['avenir.xml', item('A-1', 'EUR', '75.00', day(1))],
       ['avoir.xml', item('C-1', 'EUR', '30.00', '', true)],
       ['chf.xml', item('S-1', 'CHF', '20.00', day(1))],
       ['inconnu.xml', item('U-1', 'EUR', '', '2026-02-30')],
+      ['copie.xml', { ...item('J-1', 'EUR', '50.00', day(0)), doc_hash: 'same-xml' }],
+      ['a-arbitrer.xml', item('D-1', 'EUR', '400.00', day(1))],
+      ['a-arbitrer-bis.xml', item('D-1', 'EUR', '401.00', day(1))],
     ];
     await addSources([...docs.map(([name, result]) => ({ name, load: () => Promise.resolve(result) })),
       { name: 'illisible.xml', load: () => Promise.reject(new Error('XML invalide')) }]);
     showBatch();
   });
-  await expect(page.locator('#schedule-summary')).toContainText('6 documents avec synthèse');
+  await expect(page.locator('#schedule-summary')).toContainText('8 documents avec synthèse');
   await expect(page.locator('#schedule-summary')).toContainText('1 échéance dépassée');
   await expect(page.locator('#schedule-summary')).toContainText('2 sans échéance');
-  await expect(page.locator('#schedule-summary')).toContainText('EUR · solde indicatif 195,00');
-  await expect(page.locator('#schedule-summary')).toContainText('CHF · solde indicatif 20,00');
+  await expect(page.locator('#schedule-summary')).toContainText('EUR · montant facturé à échéance 225,00');
+  await expect(page.locator('#schedule-summary')).toContainText('CHF · montant facturé à échéance 20,00');
   await expect(page.locator('#schedule-summary')).toContainText('1 montant indisponible');
   await expect(page.locator('#batch-schedule')).toContainText('ne prouve pas');
   await page.locator('#schedule-details summary').click();
-  await expect(page.locator('.schedule-group')).toHaveCount(5);
+  await expect(page.locator('.schedule-group')).toHaveCount(7);
   await expect(page.locator('.schedule-group').last()).toContainText('Sans échéance');
-  await expect(page.locator('.schedule-group').last()).toContainText('−30,00');
+  await expect(page.locator('.schedule-group').filter({ hasText: 'Avoirs non affectés · Vendeur' })).toContainText('−30,00');
+  await expect(page.locator('.schedule-group').filter({ hasText: 'Doublons probables à arbitrer' })).toContainText('a-arbitrer-bis.xml');
+  await expect(page.locator('#schedule-summary')).toContainText('1 copie exclue');
+  await expect(page.locator('#batch-schedule')).toContainText('Statut de règlement inconnu');
   await expect(page.locator('.schedule-group').last()).toContainText('Montant indisponible');
   await page.locator('#batch-search').fill('aucune correspondance');
   await expect(page.locator('.batch-empty')).toBeVisible();
-  await expect(page.locator('.schedule-group')).toHaveCount(5);
+  await expect(page.locator('.schedule-group')).toHaveCount(7);
   await page.locator('#schedule-status').selectOption('overdue');
   await page.locator('#schedule-currency').selectOption('EUR');
   await expect(page.locator('.schedule-group')).toHaveCount(1);
-  await expect(page.locator('#schedule-count')).toContainText('1 / 6 documents');
+  await expect(page.locator('#schedule-count')).toContainText('1 / 8 documents');
   await page.locator('#schedule-export').click();
   await expect.poll(() => page.evaluate(() => window.__saved?.filename)).toBe('echeancier.csv');
   const filteredCsv = await page.evaluate(() => window.__saved.content);
@@ -1513,6 +1540,10 @@ test('échéancier : dates, devises, avoir non affecté, export filtré et accè
   expect(csv).toContain('avoir.xml');
   expect(csv).toContain('-30,00');
   expect(csv).toContain('inconnu.xml');
+  expect(csv).not.toContain('copie.xml');
+  expect(csv).toContain('Facture à arbitrer;401,00;Inconnu');
+  expect(csv).not.toMatch(/Total échéance[^\r\n]*(400|401|801),00/);
+  expect(csv).toContain('Total avoirs non affectés');
   await page.screenshot({ path: testInfo.outputPath('echeancier.png') });
   await page.locator('.schedule-item button').filter({ hasText: 'avoir.xml' }).click();
   await expect(page.locator('#fv-name')).toHaveText('avoir.xml');
@@ -1638,4 +1669,42 @@ test('vues par usage : personnalisation, persistance et accès avancé', async (
   await expect(page.locator('#display-preset')).toHaveValue('full');
   await expect(page.locator('html')).not.toHaveClass(/hide-display-/);
   expect(errors).toEqual([]);
+});
+
+test('comparaison PDF et XML : preuve, revue de lot, ambiguïté et document sans texte', async ({ page }) => {
+  const { invoicePdf } = require('./fixtures.cjs');
+  const pdf = invoicePdf(['Invoice number F-2026', 'Net a payer : 1 200,00 EUR']);
+  const path = 'Invoice/LegalMonetaryTotal/PayableAmount';
+  await mockBackend(page, pdf.toString('base64'), {
+    format: 'UBL', root: 'Invoice', xml_pretty: '<Invoice><LegalMonetaryTotal><PayableAmount>1020.00</PayableAmount></LegalMonetaryTotal></Invoice>',
+    header: [{ title: 'N° de facture', value: 'F-2026', path: 'Invoice/ID' }],
+    rows: [{ title: 'PayableAmount', value: '1020.00', path }],
+    synthese: { numero: 'F-2026', devise: 'EUR', a_payer: '1020.00', provenance: { a_payer: { path, value: '1020.00' } } },
+  });
+  await page.goto(url);
+  await page.locator('#file-input').setInputFiles({ name: 'comparaison.pdf', mimeType: 'application/pdf', buffer: pdf });
+  await page.locator('#tab-batch').click();
+  await page.locator('#batch-anomalies summary').click();
+  const batch = page.locator('.batch-issue').filter({ hasText: 'PDF / XML · Net à payer' }).filter({ hasText: '1 200,00 EUR' });
+  await expect(batch).toContainText('1020.00');
+  await batch.getByRole('button', { name: 'Voir la page PDF 2' }).click();
+  await expect(page.locator('#pdf-pages [data-page="2"]')).toBeInViewport();
+  await page.getByRole('button', { name: 'Données', exact: true }).click();
+  const anomaly = page.locator('#anomaly-center').getByRole('button', { name: 'Voir la page PDF 2' }).locator('..').locator('..');
+  await expect(anomaly).toContainText('Valeur XML');
+  await anomaly.getByRole('button', { name: 'Voir le champ dans le XML' }).click();
+  await expect(page.locator('#tab-xml')).toHaveClass(/active/);
+
+  const outcomes = await page.evaluate(async base64 => {
+    const invoice = { format: 'UBL', header: [], controles: [],
+      synthese: { numero: 'F-2026', devise: 'EUR', a_payer: '1020.00', ttc: '1200', },
+      sections: [{ name: 'Vendeur', rows: [{ title: 'SIREN / registre', value: '732829320', path: 'Invoice/Seller/ID' }] }] };
+    const controls = pdfXmlChecks(invoice, ['Invoice number F-2026\nSIREN fournisseur : 732 829 320\nDevise : EUR\nTotal TTC : 1.200,00\nNet à payer : 1020\nNet à payer : 1200'], 'pdf');
+    const blank = { ...invoice, pdf: { base64 } };
+    await compareInvoicePdf(blank);
+    return { statuses: controls.map(c => c.etat), details: controls.map(c => c.detail), blank: blank.controles[0].detail };
+  }, invoicePdf(['', '']).toString('base64'));
+  expect(outcomes.statuses).toEqual(['conforme', 'conforme', 'conforme', 'conforme', 'non_verifiable']);
+  expect(outcomes.details[4]).toContain('Plusieurs correspondances');
+  expect(outcomes.blank).toContain('Texte indisponible');
 });

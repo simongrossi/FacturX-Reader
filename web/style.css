@@ -665,6 +665,11 @@ button, input, select { font: inherit; color: inherit; }
 .pdf-page canvas { display: block; max-width: none; height: auto; }
 .pdf-text-layer { position: absolute; inset: 0 auto auto 0; overflow: hidden; line-height: 1; text-align: initial; -webkit-text-size-adjust: none; forced-color-adjust: none; }
 .pdf-text-layer span { color: transparent; position: absolute; white-space: pre; cursor: text; transform-origin: 0 0; }
+.pdf-text-layer { --min-font-size: 1; --scale-round-x: 1px; --scale-round-y: 1px; }
+.pdf-text-layer span:not(.pdf-match) {
+  font-size: calc(var(--total-scale-factor) * var(--min-font-size) * var(--font-height));
+  transform: rotate(var(--rotate, 0deg)) scaleX(var(--scale-x, 1)) scale(calc(1 / var(--min-font-size)));
+}
 .pdf-match { position: absolute; background: rgba(255, 211, 62, .58); pointer-events: none; mix-blend-mode: multiply; }
 .pdf-match.active { background: rgba(255, 137, 36, .78); }
 .pdf-page-label {

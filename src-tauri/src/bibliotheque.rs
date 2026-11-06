@@ -32,6 +32,11 @@ CREATE TABLE IF NOT EXISTS lines (
     PRIMARY KEY (hash, idx)
 );
 CREATE INDEX IF NOT EXISTS lines_cle ON lines (cle);
+CREATE TABLE IF NOT EXISTS iban_reviews (
+    vendeur_cle TEXT NOT NULL, iban TEXT NOT NULL,
+    confirmed_at TEXT, evidence TEXT, source_hash TEXT,
+    PRIMARY KEY (vendeur_cle, iban)
+);
 CREATE TABLE IF NOT EXISTS schematron (
     cle TEXT PRIMARY KEY, regles TEXT NOT NULL, moteur TEXT NOT NULL,
     resultat TEXT NOT NULL, calcule_le TEXT NOT NULL
@@ -132,6 +137,12 @@ fn note(regle: &str, etat: &str, detail: String, path: &str) -> Value {
     json!({ "regle": regle, "etat": etat, "famille": "historique", "attendu": "", "constate": "", "ecart": "", "path": path, "detail": detail })
 }
 
+fn iban_note(date: &str, evidence: &str, path: &str) -> Value {
+    let mut check = note("IBAN confirmé manuellement", "info", format!("{date} · {evidence}"), path);
+    check["iban_review"] = "confirmed".into();
+    check
+}
+
 impl Library {
     pub fn new(path: PathBuf) -> Self {
         let conn = open(&path);
@@ -212,28 +223,39 @@ impl Library {
                 }
             }
 
-            // IBAN jamais vu pour ce fournisseur alors que d'autres factures en portent un.
+            // Une observation ne constitue pas une confirmation.
             if !key.is_empty() && !iban.is_empty() {
                 let mut q = tx.prepare(
-                    "SELECT iban, COUNT(*), MAX(date) FROM invoices WHERE vendeur_cle = ?1 AND hash <> ?2 AND iban <> '' GROUP BY iban ORDER BY MAX(date) DESC",
+                    "SELECT iban, COUNT(*), MAX(date) FROM invoices WHERE vendeur_cle = ?1 AND iban <> ?2 AND iban <> '' GROUP BY iban ORDER BY MAX(date) DESC",
                 )?;
                 let known: Vec<(String, i64, String)> =
-                    q.query_map(params![key, hash], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<rusqlite::Result<_>>()?;
-                if !known.is_empty() && !known.iter().any(|(k, _, _)| *k == iban) {
+                    q.query_map(params![key, iban], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<rusqlite::Result<_>>()?;
+                if !known.is_empty() {
+                    tx.execute("INSERT OR IGNORE INTO iban_reviews (vendeur_cle, iban) VALUES (?1, ?2)", params![key, iban])?;
+                }
+                let review: Option<(Option<String>, Option<String>)> = tx.query_row(
+                    "SELECT confirmed_at, evidence FROM iban_reviews WHERE vendeur_cle = ?1 AND iban = ?2",
+                    params![key, iban], |r| Ok((r.get(0)?, r.get(1)?)),
+                ).optional()?;
+                if let Some((Some(date), Some(evidence))) = &review {
+                    notes.push(iban_note(&date, &evidence, &s(synthese, "iban_path")));
+                } else if review.is_some() {
                     let previous: Vec<String> = known
                         .iter()
                         .take(3)
                         .map(|(k, n, d)| format!("{k} ({n} facture{}, dernière du {d})", if *n > 1 { "s" } else { "" }))
                         .collect();
-                    notes.push(note(
-                        "IBAN différent des factures précédentes de ce fournisseur",
+                    let mut check = note(
+                        "IBAN fournisseur à vérifier",
                         "alerte",
                         format!(
-                            "Cette facture : {iban}. Précédemment : {}. Vérifiez ce changement auprès du fournisseur par un canal déjà connu avant tout paiement.",
-                            previous.join(" ; ")
+                            "Cette facture : {iban}. Autres IBAN observés : {}. Confirmez l’IBAN par un canal fournisseur déjà connu.",
+                            if previous.is_empty() { "historique indisponible".into() } else { previous.join(" ; ") }
                         ),
                         &s(synthese, "iban_path"),
-                    ));
+                    );
+                    check["iban_review"] = "pending".into();
+                    notes.push(check);
                 }
             }
 
@@ -317,6 +339,39 @@ impl Library {
             }
             tx.commit()?;
             Ok(notes)
+        })
+    }
+
+    fn confirm_iban(&self, hash: &str, evidence: &str) -> Result<Value, String> {
+        let evidence = evidence.trim();
+        if evidence.is_empty() || evidence.chars().count() > 500 {
+            return Err("Indiquez le canal ou la référence de vérification (500 caractères maximum).".into());
+        }
+        self.with(|conn| {
+            let tx = conn.transaction()?;
+            let (key, iban): (String, String) = tx.query_row(
+                "SELECT vendeur_cle, iban FROM invoices WHERE hash = ?1 AND vendeur_cle <> '' AND iban <> ''",
+                [hash], |row| Ok((row.get(0)?, row.get(1)?)),
+            )?;
+            tx.execute(
+                "INSERT INTO iban_reviews (vendeur_cle, iban, confirmed_at, evidence, source_hash)
+                 VALUES (?1, ?2, ?3, ?4, ?5)
+                 ON CONFLICT (vendeur_cle, iban) DO UPDATE SET
+                 confirmed_at = excluded.confirmed_at, evidence = excluded.evidence, source_hash = excluded.source_hash
+                 WHERE iban_reviews.confirmed_at IS NULL",
+                params![key, iban, now(), evidence, hash],
+            )?;
+            let (date, evidence): (String, String) = tx.query_row(
+                "SELECT confirmed_at, evidence FROM iban_reviews WHERE vendeur_cle = ?1 AND iban = ?2",
+                params![key, iban], |row| Ok((row.get(0)?, row.get(1)?)),
+            )?;
+            let hashes = {
+                let mut query = tx.prepare("SELECT hash FROM invoices WHERE vendeur_cle = ?1 AND iban = ?2")?;
+                let rows = query.query_map(params![key, iban], |row| row.get::<_, String>(0))?;
+                rows.collect::<rusqlite::Result<Vec<_>>>()?
+            };
+            tx.commit()?;
+            Ok(json!({ "hashes": hashes, "check": iban_note(&date, &evidence, "") }))
         })
     }
 
@@ -438,7 +493,7 @@ pub fn annotate(library: &Library, result: &mut Value, path: Option<&str>) {
     }
 }
 
-const CLEAR: &str = "DELETE FROM lines; DELETE FROM invoices; DELETE FROM schematron; VACUUM;";
+const CLEAR: &str = "DELETE FROM lines; DELETE FROM invoices; DELETE FROM schematron; DELETE FROM iban_reviews; VACUUM;";
 
 #[tauri::command]
 pub fn library_status(library: State<'_, Library>) -> Value {
@@ -472,7 +527,7 @@ pub async fn library_open(library: State<'_, Library>, hash: String, remember: O
 
 #[tauri::command]
 pub async fn library_relink(app: tauri::AppHandle, library: State<'_, Library>, hash: String,
-    path: Option<String>, selection: Option<crate::facturx::ArchiveSelection>) -> Result<Value, String> {
+    path: Option<String>, selection: Option<crate::facturx::ArchiveSelection>, remember: Option<bool>) -> Result<Value, String> {
     let path = match path {
         Some(path) => PathBuf::from(path),
         None => {
@@ -483,6 +538,7 @@ pub async fn library_relink(app: tauri::AppHandle, library: State<'_, Library>, 
     let mut result = read_invoice_path(&path, selection.as_ref())?;
     if result.get("archive_choices").is_none() {
         library.relink(&hash, &path.to_string_lossy(), &result)?;
+        if remember != Some(false) { annotate(&library, &mut result, Some(&path.to_string_lossy())); }
     }
     result["replacement_path"] = path.to_string_lossy().into_owned().into();
     Ok(result)
@@ -501,6 +557,11 @@ pub fn library_clear(library: State<'_, Library>) -> Result<(), String> {
 #[tauri::command]
 pub fn library_reset(library: State<'_, Library>) -> Result<(), String> {
     library.reset()
+}
+
+#[tauri::command]
+pub fn library_confirm_iban(library: State<'_, Library>, hash: String, evidence: String) -> Result<Value, String> {
+    library.confirm_iban(&hash, &evidence)
 }
 
 #[tauri::command]
@@ -651,17 +712,28 @@ mod tests {
         assert_eq!(rules(&notes), ["Doublon probable dans la bibliothèque"]);
         // Nouvel IBAN et prix en hausse.
         let notes = lib.record(&invoice("h4", "F-4", "2026-10-01", "FR7610011000201234567890188", "52.50"), None).unwrap();
-        assert_eq!(rules(&notes), ["IBAN différent des factures précédentes de ce fournisseur", "Prix unitaire modifié : PAP-A4"]);
+        assert_eq!(rules(&notes), ["IBAN fournisseur à vérifier", "Prix unitaire modifié : PAP-A4"]);
         assert_eq!(notes[0]["etat"], "alerte");
         assert_eq!(notes[0]["path"], "x/IBANID");
         assert!(notes[0]["detail"].as_str().unwrap().contains("FR7630006000011234567890189 (3 factures, dernière du 2026-09-01)"));
         assert_eq!(notes[1]["detail"], "50.00 → 52.50 (+5.0 %) depuis la facture F-2 du 2026-09-01.");
-        // Facture suivante avec le nouvel IBAN : il est desormais connu, le prix est stable.
-        let notes = lib.record(&invoice("h5", "F-5", "2026-10-15", "FR7610011000201234567890188", "52.50"), None).unwrap();
-        assert!(notes.is_empty(), "{notes:?}");
-        // Une facture plus ancienne rouverte n'est pas comparee a des prix posterieurs.
+        // Une deuxième observation ne vaut pas confirmation, y compris après redémarrage.
+        drop(lib);
+        let lib = Library::new(dir.join("bibliotheque.sqlite"));
+        let repeat = invoice("h5", "F-5", "2026-10-15", "FR7610011000201234567890188", "52.50");
+        assert_eq!(rules(&lib.record(&repeat, None).unwrap()), ["IBAN fournisseur à vérifier"]);
+        assert!(lib.confirm_iban("h5", " ").is_err());
+        let result = lib.confirm_iban("h5", "Appel au contact du référentiel").unwrap();
+        assert_eq!(result["hashes"].as_array().unwrap().len(), 2);
+        assert_eq!(result["check"]["iban_review"], "confirmed");
+        drop(lib);
+        let lib = Library::new(dir.join("bibliotheque.sqlite"));
+        let notes = lib.record(&repeat, None).unwrap();
+        assert_eq!(rules(&notes), ["IBAN confirmé manuellement"]);
+        assert!(notes[0]["detail"].as_str().unwrap().contains("Appel au contact du référentiel"));
+        // Une facture ancienne n'est pas comparée à des prix postérieurs.
         let notes = lib.record(&invoice("h1", "F-1", "2026-08-01", iban, "50.00"), None).unwrap();
-        assert!(notes.is_empty(), "{notes:?}");
+        assert_eq!(rules(&notes), ["IBAN fournisseur à vérifier"]);
         let history = lib.price_history("h4", "PAP-A4", "").unwrap();
         let prices: Vec<&str> = history.as_array().unwrap().iter().map(|r| r["pu"].as_str().unwrap()).collect();
         assert_eq!(prices, ["50.00", "50.00", "50.00", "52.50", "52.50"]);
@@ -744,7 +816,7 @@ mod tests {
         annotate(&lib, &mut second, None);
         let added: Vec<&Value> = second["controles"].as_array().unwrap().iter().skip(before).collect();
         let labels: Vec<&str> = added.iter().map(|n| n["regle"].as_str().unwrap()).collect();
-        assert_eq!(labels, ["IBAN différent des factures précédentes de ce fournisseur", "Prix unitaire modifié : PAP-A4"]);
+        assert_eq!(labels, ["IBAN fournisseur à vérifier", "Prix unitaire modifié : PAP-A4"]);
         assert!(added[0]["path"].as_str().unwrap().ends_with("PayeePartyCreditorFinancialAccount/IBANID"));
         assert_eq!(added[1]["detail"], "50.00 → 55.00 (+10.0 %) depuis la facture F-1 du 2026-08-01.");
         assert_eq!(lib.search("pap-a4").unwrap()["factures"].as_array().unwrap().len(), 2);

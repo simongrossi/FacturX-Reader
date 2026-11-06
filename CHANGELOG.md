@@ -5,6 +5,24 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 
 ## [Non publié]
 
+## [0.10.0] - 2026-11-06
+
+### Ajouté
+
+- Comparaison des champs reconnus entre le PDF et le XML, avec accès aux preuves depuis la fiche et la revue du lot.
+- Confirmation manuelle des IBAN fournisseurs, datée et conservée dans la bibliothèque locale.
+
+### Corrigé
+
+- PDF.js et son worker mis à niveau vers 6.5.438.
+- TVA UBL sélectionnée selon la devise de facture, avec affichage séparé de la TVA en devise comptable.
+- Échéancier et CSV séparant les doublons probables et les avoirs non affectés des totaux de factures. Un même XML est compté une fois.
+
+### Validation de la préversion
+
+- Sur macOS Apple Silicon, l’ouverture du PDF, la recherche et le CSV UBL multi-devise ont été vérifiés dans une application de test locale. La boîte d’impression système ne s’est pas affichée après le lancement de l’impression groupée.
+- Les essais manuels des paquets Windows et Linux restent à faire.
+
 ## [0.9.0] - 2026-10-06
 
 ### Ajouté

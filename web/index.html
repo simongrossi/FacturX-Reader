@@ -16,7 +16,7 @@
     })();
   </script>
   <link rel="stylesheet" href="style.css">
-<script src="pdfjs/pdf.min.js"></script>
+<script type="module" src="pdfjs/setup.js"></script>
 </head>
 <body>
 
@@ -231,7 +231,7 @@
       <section id="batch-schedule" class="section" aria-label="Échéancier des factures">
         <div class="section-head">Échéancier des factures</div>
         <div class="batch-schedule-body">
-          <p class="verdict-note">Montants indicatifs tirés des factures ouvertes. Les avoirs sans échéance réduisent le solde global, sans être attribués à une date. Une échéance dépassée ne prouve pas qu’une facture est impayée.</p>
+          <p class="verdict-note">Montants indicatifs tirés des factures ouvertes. Les copies de XML sont comptées une seule fois. Les doublons probables et les avoirs non affectés sont séparés des totaux de factures. Statut de règlement inconnu. Une échéance dépassée ne prouve pas qu’une facture est impayée.</p>
           <div id="schedule-summary" class="schedule-summary" aria-live="polite"></div>
           <details id="schedule-details">
             <summary>Voir les échéances et les factures</summary>
@@ -530,6 +530,7 @@
 <script src="imports.js"></script>
 <script src="controls.js"></script>
 <script src="anomalies.js"></script>
+<script src="pdf-compare.js"></script>
 <script src="app.js"></script>
 <script src="watch-folder.js"></script>
 <script src="workspace.js"></script>

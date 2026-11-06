@@ -71,7 +71,7 @@ const api = {
   async libraryRelink(hash) {
     let path = null;
     return parseArchiveChoice(async (selection) => {
-      const result = await invoke("library_relink", { hash, path, selection: selection || null });
+      const result = await invoke("library_relink", { hash, path, selection: selection || null, remember: settings.library !== "off" });
       if (result?.replacement_path) path = result.replacement_path;
       return result;
     });
@@ -79,6 +79,7 @@ const api = {
   libraryRemove: (hash) => invoke("library_remove", { hash }),
   libraryClear: () => invoke("library_clear"),
   libraryReset: () => invoke("library_reset"),
+  libraryConfirmIban: (hash, evidence) => invoke("library_confirm_iban", { hash, evidence }),
   libraryPrices: (hash, reference, name) => invoke("library_prices", { hash, reference, name }),
   pickFolder: () => invoke("pick_folder"),
   pickWatchFolder: () => invoke("pick_watch_folder"),
@@ -153,6 +154,7 @@ async function addSources(sources, options = {}) {
         entry.source.selection = entry.result.archive_selection;
         if (entry.source.path) entry.source.key = entry.source.path + "#archive:" + JSON.stringify(entry.source.selection);
       }
+      await compareInvoicePdf(entry.result);
       entry.status = "ok";
       if (entry.result && (entry.result.format === "CII" || entry.result.format === "UBL")) {
         triggerSchematronValidation(entry);
@@ -900,6 +902,7 @@ async function renderPdf(f, src) {
   const pane = byId("pdf-pages");
   const pdfObj = (src === "xmlpdf") ? f.result.xml_pdf : f.result.pdf;
   state.pdfSource = src;
+  f.rendered.pdf = false;
   state.pdfSearchPages = [];
   state.pdfSearchMatches = [];
   state.pdfSearchIndex = -1;
@@ -917,7 +920,7 @@ async function renderPdf(f, src) {
   pane.innerHTML = '<div class="pdf-loading">Chargement du PDF…</div>';
   try {
     const bytes = b64toBytes(pdfObj.base64);
-    const doc = await pdfjsLib.getDocument({ data: bytes }).promise;
+    const doc = await loadPdf(bytes);
     const f3 = getFile(state.selected);
     if (!f3 || f3.id !== f.id || state.pdfSource !== src) return;
     state.pdfDoc = doc;
@@ -930,6 +933,19 @@ async function renderPdf(f, src) {
     }
     if (state.selected === f.id) restoreDocumentScroll(f);
   }
+}
+
+function loadPdfTask(data) {
+  return pdfjsLib.getDocument({
+    data,
+    useWasm: false,
+    wasmUrl: new URL("pdfjs/wasm/", document.baseURI).href,
+    standardFontDataUrl: new URL("pdfjs/standard_fonts/", document.baseURI).href,
+  });
+}
+
+function loadPdf(data) {
+  return loadPdfTask(data).promise;
 }
 
 async function renderAllPages(doc) {
@@ -970,21 +986,25 @@ async function renderAllPages(doc) {
       const layer = document.createElement("div");
       layer.className = "pdf-text-layer";
       // PDF.js dimensionne le calque et ses textes avec cette variable ; sans elle, le calque est vide.
-      layer.style.setProperty("--scale-factor", viewport.scale);
+      layer.style.setProperty("--total-scale-factor", viewport.scale * viewport.userUnit);
       layer.style.width = viewport.width + "px";
       layer.style.height = viewport.height + "px";
       div.appendChild(layer);
-      const textDivs = [];
-      await pdfjsLib.renderTextLayer({ textContentSource: content, container: layer, viewport, textDivs }).promise;
+      const textLayer = new pdfjsLib.TextLayer({ textContentSource: content, container: layer, viewport });
+      await textLayer.render();
       if (token !== state.renderToken) return;
-      state.pdfSearchPages.push({ layer, content, textDivs, page: i });
+      state.pdfSearchPages.push({ layer, content, textDivs: textLayer.textDivs, page: i });
     } catch (e) { /* Un calque texte défectueux ne doit pas empêcher l'affichage du PDF. */ }
   }
   if (token === state.renderToken) {
     updatePdfSearch(false);
     updatePageInfo(doc);
     const f = getFile(state.selected);
-    if (f) { f.rendered.pdf = true; restoreDocumentScroll(f); }
+    if (f) {
+      f.rendered.pdf = true;
+      restoreDocumentScroll(f);
+      revealPdfComparisonPage(f);
+    }
   }
 }
 
@@ -1607,6 +1627,56 @@ function summaryValue(r, title) {
   return ((r.summary || []).find((s) => s.title === title) || {}).value || "";
 }
 
+function ibanReviewForm(f) {
+  const form = document.createElement("form");
+  form.className = "schedule-tools";
+  const label = Object.assign(document.createElement("label"), {
+    textContent: "Canal fournisseur connu ou référence de vérification",
+  });
+  const evidence = Object.assign(document.createElement("input"), {
+    type: "text", required: true, maxLength: 500, placeholder: "Ex. appel au numéro du référentiel",
+  });
+  label.append(" ", evidence);
+  const submit = Object.assign(document.createElement("button"), {
+    type: "submit", className: "btn btn-sm", textContent: "Confirmer l’IBAN",
+  });
+  const status = document.createElement("span");
+  status.setAttribute("role", "status");
+  form.append(label, submit, status);
+  form.addEventListener("submit", async event => {
+    event.preventDefault();
+    submit.disabled = true;
+    try {
+      const result = await api.libraryConfirmIban(f.result.doc_hash, evidence.value.trim());
+      for (const file of state.files) {
+        if (!result.hashes.includes(file.result?.doc_hash)) continue;
+        file.result.controles = (file.result.controles || []).filter(check => !check.iban_review);
+        file.result.controles.push({ ...result.check, path: file.result.synthese?.iban_path || "" });
+        file.rendered.data = false;
+      }
+      renderList();
+      if (state.batch && !state.selected) renderBatch();
+      if (state.selected && (state.tab === "data" || state.tab === "dual")) {
+        const selected = getFile(state.selected);
+        if (selected && !selected.rendered.data) {
+          renderData(selected);
+          selected.rendered.data = true;
+          const controls = byId("controls");
+          if (controls) {
+            controls.open = true;
+            controls.querySelector("summary").focus();
+          }
+        }
+      }
+    } catch (error) {
+      status.textContent = "Confirmation impossible · " + (error?.message || error);
+    } finally {
+      submit.disabled = false;
+    }
+  });
+  return form;
+}
+
 function controlsSection(f) {
   const checks = [...duplicateChecks(f), ...(f.result.controles || [])];
   if (!checks.length) return null;
@@ -1659,11 +1729,24 @@ function controlsSection(f) {
       tr.title = "Voir dans le XML : " + c.path;
       tr.addEventListener("click", () => gotoXml(c.path));
     }
+    if (c.pdf_page) {
+      const pdf = Object.assign(document.createElement("button"), {
+        type: "button", className: "btn btn-sm", textContent: "Voir la page PDF " + c.pdf_page,
+      });
+      pdf.addEventListener("click", event => {
+        event.stopPropagation();
+        openPdfComparisonPage(f, { pdfPage: c.pdf_page, pdfSource: c.pdf_source });
+      });
+      tr.cells[1].appendChild(pdf);
+    }
     tbody.appendChild(tr);
   }
   table.appendChild(tbody);
   wrap.appendChild(table);
   sec.appendChild(wrap);
+  if (settings.library !== "off" && f.result.doc_hash && checks.some(c => c.iban_review === "pending")) {
+    sec.appendChild(ibanReviewForm(f));
+  }
   return sec;
 }
 

@@ -98,7 +98,7 @@ async function prepareBatchPrint() {
   let total = 0;
   try {
     for (const job of jobs) {
-      const doc = await pdfjsLib.getDocument({ data: b64toBytes(job.base64) }).promise;
+      const doc = await loadPdf(b64toBytes(job.base64));
       loaded.push({ job, doc });
       total += doc.numPages;
     }

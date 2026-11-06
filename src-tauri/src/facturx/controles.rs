@@ -167,12 +167,7 @@ fn ubl_totals(root: N, paths: &Paths) -> Totals {
     let r = Some(root);
     let a = |el: ON| amt(el, paths);
     let lmt = find(r, "LegalMonetaryTotal");
-    let tax_totals = findall(r, "TaxTotal");
-    let tt = tax_totals
-        .iter()
-        .copied()
-        .find(|t| find(Some(*t), "TaxSubtotal").is_some())
-        .or_else(|| tax_totals.first().copied());
+    let tt = super::ubl::invoice_tax_total(root);
     let mut t = Totals {
         lines_sum: a(find(lmt, "LineExtensionAmount")),
         allowances: a(find(lmt, "AllowanceTotalAmount")),

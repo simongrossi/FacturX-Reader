@@ -123,6 +123,7 @@ function wireMenubar() {
 
 /* Licences des composants embarqués : leurs textes font partie de l'application installée. */
 const THIRD_PARTY_LICENSES = [
+  { title: "PDF.js (Apache 2.0)", file: "pdfjs/LICENSE" },
   { title: "ExcelJS (MIT)", file: "exports/LICENSE-ExcelJS.txt" },
   { title: "jsPDF (MIT)", file: "exports/LICENSE-jsPDF.txt" },
   { title: "Noto Sans (SIL Open Font License)", file: "exports/LICENSE-NotoSans.txt" },

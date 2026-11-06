@@ -1,18 +1,19 @@
 // Facture entièrement synthétique : aucune donnée client.
-function invoicePdf() {
+function invoicePdf(pageText = ['Synthetic invoice TEST-P0 - Page 1', 'Synthetic invoice TEST-P0 - Page 2']) {
   const xml = `<rsm:CrossIndustryInvoice xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100" xmlns:ram="urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100">
     <rsm:ExchangedDocument><ram:ID>TEST-P0</ram:ID><ram:TypeCode>380</ram:TypeCode><ram:IssueDateTime>2026-10-02</ram:IssueDateTime></rsm:ExchangedDocument>
     <rsm:SupplyChainTradeTransaction><ram:ApplicableHeaderTradeAgreement><ram:SellerTradeParty><ram:Name>Test Seller</ram:Name></ram:SellerTradeParty></ram:ApplicableHeaderTradeAgreement><ram:ApplicableHeaderTradeSettlement><ram:InvoiceCurrencyCode>EUR</ram:InvoiceCurrencyCode><ram:SpecifiedTradeSettlementHeaderMonetarySummation><ram:TaxBasisTotalAmount>100.00</ram:TaxBasisTotalAmount><ram:TaxTotalAmount currencyID="EUR">20.00</ram:TaxTotalAmount><ram:GrandTotalAmount>120.00</ram:GrandTotalAmount></ram:SpecifiedTradeSettlementHeaderMonetarySummation></ram:ApplicableHeaderTradeSettlement></rsm:SupplyChainTradeTransaction>
   </rsm:CrossIndustryInvoice>`;
   const stream = text => `<< /Length ${Buffer.byteLength(text)} >>\nstream\n${text}\nendstream`;
+  const pageStream = text => stream(text ? `BT /F1 18 Tf 40 740 Td (${text}) Tj ET` : '');
   const objects = [
     '<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles << /Names [(factur-x.xml) 8 0 R] >> >> >>',
     '<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>',
     '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 600 800] /Resources << /Font << /F1 5 0 R >> >> /Contents 6 0 R >>',
     '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 600 800] /Resources << /Font << /F1 5 0 R >> >> /Contents 7 0 R >>',
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
-    stream('BT /F1 18 Tf 40 740 Td (Synthetic invoice TEST-P0 - Page 1) Tj ET'),
-    stream('BT /F1 18 Tf 40 740 Td (Synthetic invoice TEST-P0 - Page 2) Tj ET'),
+    pageStream(pageText[0]),
+    pageStream(pageText[1]),
     '<< /Type /Filespec /F (factur-x.xml) /UF (factur-x.xml) /EF << /F 9 0 R >> >>',
     stream(xml),
   ];

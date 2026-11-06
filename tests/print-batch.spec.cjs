@@ -2,11 +2,13 @@ const { test, expect } = require('@playwright/test');
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
+const { app: { security: { csp } } } = require('../src-tauri/tauri.conf.json');
 let server, url;
 test.beforeAll(async () => {
   server = http.createServer((req, res) => {
+    res.setHeader('Content-Security-Policy', csp);
     const file = path.join(__dirname, '../web', req.url === '/' ? 'index.html' : req.url.split('?')[0]);
-    res.setHeader('Content-Type', file.endsWith('.js') ? 'application/javascript' : file.endsWith('.css') ? 'text/css' : file.endsWith('.png') ? 'image/png' : 'text/html');
+    res.setHeader('Content-Type', /\.m?js$/.test(file) ? 'application/javascript' : file.endsWith('.css') ? 'text/css' : file.endsWith('.png') ? 'image/png' : 'text/html');
     fs.readFile(file, (err, data) => { res.statusCode = err ? 404 : 200; res.end(err ? '' : data); });
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));

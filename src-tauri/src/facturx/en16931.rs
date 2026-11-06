@@ -123,13 +123,7 @@ fn read_ubl(root: N, paths: &Paths) -> Invoice {
     let buyer = find(find(r, "AccountingCustomerParty"), "Party");
     let seller_addr = find(seller, "PostalAddress");
     let buyer_addr = find(buyer, "PostalAddress");
-    let currency = text(find(r, "DocumentCurrencyCode"));
-    let tax_totals = findall(r, "TaxTotal");
-    let tt = tax_totals
-        .iter()
-        .copied()
-        .find(|t| attr(find(Some(*t), "TaxAmount"), "currencyID").as_deref() == Some(currency.as_str()))
-        .or_else(|| tax_totals.first().copied());
+    let tt = super::ubl::invoice_tax_total(root);
     let lmt = find(r, "LegalMonetaryTotal");
     let pm = find(r, "PaymentMeans");
     let mut inv = Invoice {
