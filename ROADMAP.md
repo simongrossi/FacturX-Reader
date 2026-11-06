@@ -230,8 +230,9 @@ lot avec historique et suivi. Ce qui en ressort pour le plan :
   des taux de TVA légaux.
 - [ ] Règle de ligne : décider du traitement des émetteurs dont le prix unitaire et les frais de
   ligne ne redonnent pas le total (plusieurs écarts par facture sur certains fournisseurs).
-- [ ] Recherche dans les lignes de toutes les factures et filtres dans la liste latérale
-  (fournisseur, numéro, montant, statut), masquage des PDF sans XML.
+- [ ] Arbitrage des doublons probables dans l’échéancier. Comparer les pièces et mémoriser la décision d’inclusion, d’exclusion ou de rattachement à une rectificative. [Cadrage](IDEES.md#autres-chantiers-utiles).
+- [ ] Recherche transversale dans les lignes, avec filtres par article, prix et période et accès à la ligne source.
+- [ ] Compléter les filtres latéraux avec un filtre par montant et le masquage des PDF sans XML.
 - [x] Recherche dans le texte du PDF, surlignage et navigation entre occurrences ; OCR à décider séparément.
 - [x] Verdicts communs à la fiche, au tableau et au rapport JSON ; synthèse de ce qui demande
   une action en tête de la fiche ; colonnes et filtres Schematron, XSD, règles françaises.

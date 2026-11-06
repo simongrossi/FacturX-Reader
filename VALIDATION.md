@@ -3,6 +3,18 @@
 Bilan de ce qui a été vérifié pour cette version, et de ce qui ne l'a pas été.
 Les commandes sont décrites dans [README.md](README.md#tests).
 
+## Impression groupée — 0.10.1, 6 novembre 2026
+
+Sur macOS Apple Silicon, une application de test compilée depuis le code de la
+0.10.1 a ouvert le panneau système pour un lot de deux PDF fictifs de deux pages.
+L’aperçu indiquait quatre pages. Après annulation, les deux pièces sont restées
+sélectionnées. Le premier constat d’absence du panneau venait d’un clic hors du
+bouton de confirmation. Aucun tirage papier n’a été effectué.
+
+Les essais manuels des installateurs distribués sur des postes propres restent à
+faire. Le test natif automatisé Windows de la 0.10.1 a réussi dans
+[GitHub Actions](https://github.com/simongrossi/FacturX-Reader/actions/runs/42229084626).
+
 ## Affichage par usage — développement local du 6 octobre 2026
 
 Les vues Complète, Comptabilité, Réception / Stock et Personnalisée ont été vérifiées

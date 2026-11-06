@@ -1,6 +1,6 @@
 # Idées de développement — usage comptable
 
-État au 4 octobre 2026. Ce document regroupe des pistes à étudier : aucune des fonctions ci-dessous n'est annoncée comme disponible. Les priorités tiennent compte du moteur existant (montants en décimaux exacts, TVA par taux, avoirs, provenance XML, bibliothèque locale, doublons et revue de lot).
+État au 6 novembre 2026. Ce document regroupe des pistes à étudier : aucune des fonctions ci-dessous n'est annoncée comme disponible. Les priorités tiennent compte du moteur existant (montants en décimaux exacts, TVA par taux, avoirs, provenance XML, bibliothèque locale, doublons et revue de lot).
 
 ## Priorité 1 — Préparer des écritures comptables
 
@@ -28,8 +28,10 @@ Références éditeurs consultées le 4 octobre 2026 : [EBP, import TXT/CSV](htt
 
 ## Autres chantiers utiles
 
-- **Comparer PDF et XML** : rechercher dans le texte du PDF les montants et références clés du XML, afficher les écarts avec leur page et leur provenance. Commencer sans OCR et signaler les ambiguïtés. La recherche PDF existe déjà ; cette comparaison reste à développer.
-- **Rechercher dans toutes les lignes** : filtrer les articles et prestations de l'ensemble des factures, puis retrouver immédiatement la facture source.
+- **Arbitrer les doublons probables** — Comparer deux pièces côte à côte et mettre en évidence leurs différences. Mémoriser la décision de garder les deux, d’exclure une copie des totaux ou de relier une rectificative à l’originale. L’échéancier met déjà les doublons probables à part. L’arbitrage doit permettre d’en réintégrer une pièce ou de confirmer son exclusion, avec un motif consultable.
+- **Revoir les factures au clavier** — Depuis la revue de lot, parcourir les pièces à examiner, ouvrir la preuve PDF ou XML, marquer la pièce comme vérifiée ou à revoir, puis passer à la suivante en conservant le filtre et la position.
+- **Rechercher dans les lignes de plusieurs factures** — Rechercher par référence, désignation ou prix sur une période. Afficher les lignes correspondantes avec un lien vers la pièce et la ligne source. La bibliothèque permet déjà de retrouver les factures par article.
+- **Étendre la comparaison PDF/XML** — La comparaison existe depuis la 0.10.1 pour les champs reconnus dans les PDF textuels. Mieux reconnaître les libellés variables et les valeurs placées dans une colonne ou sur la ligne suivante. Étudier ensuite un OCR local pour les scans, avec confirmation humaine des valeurs incertaines.
 - **Jeu de tests anonymisé** : achats, ventes, avoirs, plusieurs taux de TVA, remises, acomptes, devises et formats CII/UBL/PDF pour fiabiliser les écritures proposées et les profils d'export.
 
 ## Décisions à prendre avant le chantier comptable
