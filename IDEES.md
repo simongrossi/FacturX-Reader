@@ -1,8 +1,67 @@
 # Idées de développement — usage comptable
 
-État au 4 octobre 2026. Ce document regroupe des pistes à étudier : aucune des fonctions ci-dessous n'est annoncée comme disponible. Les priorités tiennent compte du moteur existant (montants en décimaux exacts, TVA par taux, avoirs, provenance XML, bibliothèque locale, doublons et revue de lot).
+État au 5 octobre 2026. Ce document regroupe des pistes à étudier : aucune des fonctions ci-dessous n'est annoncée comme disponible. Les priorités tiennent compte du moteur existant (montants en décimaux exacts, TVA par taux, avoirs, provenance XML, bibliothèque locale, doublons et revue de lot).
 
-## Priorité 1 — Préparer des écritures comptables
+## Idées classées par priorité
+
+Ordre proposé pour les prochains développements, à confronter aux fonctions déjà présentes avant chaque chantier. Les détails du chantier comptable sont conservés plus bas.
+
+| Niveau | Ordre | Fonction à ajouter ou à compléter | Intérêt / exemples |
+| --- | --- | --- | --- |
+| P1 — Usage quotidien | 1 | Recherche globale dans toutes les lignes de factures | Retrouver une prestation, un abonnement Microsoft, une référence article ou un montant dans l'ensemble des factures. |
+| P1 — Usage quotidien | 2 | Comparaison PDF ↔ XML | Vérifier la correspondance entre les données visibles dans le PDF et celles exploitées depuis le XML ; présenter les écarts et leur provenance. |
+| P1 — Usage quotidien | 3 | Statut de paiement distinct du statut de contrôle | À payer / Partiellement payée / Payée / Litige / Bloquée. |
+| P1 — Usage quotidien | 4 | Date de règlement et montant réglé | Rendre l'échéancier exploitable avec les règlements et distinguer retard théorique et retard réel. |
+| P1 — Usage quotidien | 5 | Tags et catégories personnalisés | Immobilisation, Télécom, À voir avec Pierre, Litige, Contrat, Véhicule. |
+| P1 — Usage quotidien | 6 | Actions en masse | Sélectionner plusieurs factures pour les marquer vérifiées, ajouter un tag, changer un statut ou exporter. |
+| P1 — Usage quotidien | 7 | Colonnes configurables du tableau | Afficher ou masquer SIRET, IBAN, numéro de commande, statut, TTC et échéance selon le service. |
+| P1 — Usage quotidien | 8 | Filtres et vues enregistrés | À payer cette semaine, montant supérieur à 5 000 €, Nouveaux IBAN, Anomalies, Non vérifiées. |
+| P2 — Préparation comptable | 9 | Référence commande / PO mise en avant | Rendre la référence visible et filtrable ; prévoir une alerte si elle est requise et absente. |
+| P2 — Préparation comptable | 10 | Référence BL / livraison | Rendre la référence visible et filtrable pour faciliter le rapprochement facture / livraison. |
+| P2 — Préparation comptable | 11 | Affectation comptable | Journal, compte fournisseur, compte de charge, compte TVA et axe analytique. |
+| P2 — Préparation comptable | 12 | Affectations mémorisées par fournisseur | Proposer, par exemple, Orange → 626xxx ou EDF → 6061xx, avec confirmation du comptable. |
+| P2 — Préparation comptable | 13 | File de précomptabilisation | À compléter / Prête / Exportée / Rejetée, avec revue et correction. |
+| P2 — Préparation comptable | 14 | Exports comptables EBP / Sage / Pennylane | Construire d'abord un modèle interne d'écriture, puis valider chaque profil d'import avec le logiciel et la version ciblés. |
+| P3 — Contrôle fournisseur | 15 | Évolution des numéros de facture fournisseur | Repérer un format inhabituel, un doublon ou une rupture de séquence à examiner. |
+| P3 — Contrôle fournisseur | 16 | Changement de SIREN, TVA ou coordonnées | Étendre les contrôles d'IBAN à l'identité et aux coordonnées du fournisseur. |
+| P3 — Contrôle fournisseur | 17 | Référence commande obligatoire | Définir les fournisseurs qui doivent toujours renseigner un numéro de commande. |
+| P3 — Contrôle fournisseur | 18 | Règles personnalisables par fournisseur | IBAN connu, commande obligatoire, échéance à 30 jours. |
+| P3 — Contrôle fournisseur | 19 | Détection de facture inhabituelle | Signaler un montant très supérieur à l'historique, un nouveau taux de TVA ou un nouveau compte bancaire, sans présenter ces alertes comme une preuve de fraude. |
+| P4 — Ergonomie | — | Copier en un clic | IBAN, SIRET, TVA, numéro de facture, montant TTC et échéance. |
+| P4 — Ergonomie | — | Ouvrir le dossier contenant la facture | Accéder directement au fichier dans son dossier. |
+| P4 — Ergonomie | — | Copier le chemin du fichier | Réutiliser facilement l'emplacement de la pièce. |
+| P4 — Ergonomie | — | Renommer automatiquement une facture | Exemple : `2026-10-05_Fournisseur_FA123_1213.45EUR.pdf`. |
+| P4 — Ergonomie | — | Facture précédente / suivante au clavier | Accélérer la revue des pièces. |
+| P4 — Ergonomie | — | Afficher, masquer et réordonner les colonnes | Compléter les colonnes configurables prévues en P1. |
+| P4 — Ergonomie | — | Mémoriser la largeur et l'ordre des colonnes | Retrouver son organisation à la prochaine ouverture. |
+| P4 — Ergonomie | — | Tri multi-colonnes | Combiner plusieurs critères de classement. |
+| P4 — Ergonomie | — | Menu contextuel de copie | Clic droit pour copier une ligne, une valeur ou une référence. |
+| P4 — Ergonomie | — | Épingler une facture | Retrouver rapidement une pièce à suivre. |
+| P4 — Ergonomie | — | Notes visibles dans le tableau | Consulter les annotations pendant la revue du lot. |
+| P4 — Ergonomie | — | Historique simple des actions | Vérifiée le…, paiement renseigné le…, exportée le… |
+| P5 — Plus tard | — | Rapprochement bancaire | Importer un relevé et confirmer les correspondances ; extension du périmètre après le suivi des règlements. |
+| P5 — Plus tard | — | Multi-sociétés / dossiers comptables | Séparer les bibliothèques et paramètres, surtout pour la précomptabilisation. |
+| P5 — Plus tard | — | API / MCP / connecteurs ERP | Étudier les intégrations selon les besoins. |
+| P5 — Plus tard | — | Validation PDF/A complète | Évaluer la valeur quotidienne au regard du coût technique. |
+| P5 — Plus tard | — | Conversion CII ↔ UBL | Étudier dans une étape ultérieure. |
+| Hors périmètre proposé | — | Création de factures | Conserver le positionnement Reader ; ne pas prévoir ce chantier à ce stade. |
+
+### Ordre concret proposé
+
+| Étape | Chantier |
+| --- | --- |
+| 1 | Recherche globale dans les lignes |
+| 2 | Comparaison PDF ↔ XML |
+| 3 | Statut de paiement et règlements |
+| 4 | Tags personnalisés |
+| 5 | Actions en masse |
+| 6 | Colonnes et vues personnalisables |
+| 7 | Références commande / BL visibles et filtrables |
+| 8 | Affectation comptable |
+| 9 | Règles d'affectation fournisseur |
+| 10 | Précomptabilisation et exports comptables |
+
+## Détail du chantier — Préparer des écritures comptables
 
 Transformer une facture **contrôlée** en proposition d'écriture, avec aperçu et correction avant export. Commencer par les achats et leurs avoirs ; traiter les ventes dans une étape distincte. Le comptable choisit le journal, les comptes de tiers, de charge et de TVA, la date comptable et la référence de pièce. Il peut enregistrer une règle d'affectation pour un fournisseur ou une nature d'achat. Une pièce sans compte fiable reste « à compléter ».
 
