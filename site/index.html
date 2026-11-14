@@ -141,6 +141,9 @@
   <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
     <path d="m20 6-11 11-5-5"/>
   </symbol>
+  <symbol id="i-external" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/>
+  </symbol>
 </svg>
 
 <header class="site-header" data-header>
@@ -163,6 +166,9 @@
         <svg class="icon-sun" aria-hidden="true"><use href="#i-sun"/></svg>
         <svg class="icon-moon" aria-hidden="true"><use href="#i-moon"/></svg>
       </button>
+      <a class="icon-btn" href="https://github.com/simongrossi/FacturX-Reader" target="_blank" rel="noopener" aria-label="Code source sur GitHub" title="Code source sur GitHub">
+        <svg aria-hidden="true"><use href="#i-github"/></svg>
+      </a>
       <a class="btn btn--primary btn--sm" href="#telechargements">
         Télécharger
       </a>
@@ -653,6 +659,36 @@
           <p>Archive de factures ou dossier entier déposé d'un bloc.</p>
         </li>
       </ul>
+
+      <div class="refs-box reveal">
+        <p class="refs-box__title">Références techniques et légales officielles</p>
+        <ul class="refs-list">
+          <li>
+            <a href="https://www.impots.gouv.fr/professionnel/je-passe-la-facturation-electronique" target="_blank" rel="noopener">
+              <span>Réforme de la facturation électronique <span class="refs-list__src">· impots.gouv.fr</span></span>
+              <svg aria-hidden="true"><use href="#i-external"/></svg>
+            </a>
+          </li>
+          <li>
+            <a href="https://www.impots.gouv.fr/facturation-electronique-et-plateformes-partenaires" target="_blank" rel="noopener">
+              <span>Annuaire des plateformes agréées (DGFiP) <span class="refs-list__src">· impots.gouv.fr</span></span>
+              <svg aria-hidden="true"><use href="#i-external"/></svg>
+            </a>
+          </li>
+          <li>
+            <a href="https://fnfe-mpe.org/factur-x/" target="_blank" rel="noopener">
+              <span>Spécification officielle Factur-X <span class="refs-list__src">· fnfe-mpe.org</span></span>
+              <svg aria-hidden="true"><use href="#i-external"/></svg>
+            </a>
+          </li>
+          <li>
+            <a href="https://ec.europa.eu/digital-building-blocks/sites/display/DIGITAL/eInvoicing" target="_blank" rel="noopener">
+              <span>Norme européenne EN&nbsp;16931 <span class="refs-list__src">· ec.europa.eu</span></span>
+              <svg aria-hidden="true"><use href="#i-external"/></svg>
+            </a>
+          </li>
+        </ul>
+      </div>
     </div>
   </section>
 
@@ -800,7 +836,7 @@
           <li><a href="verifier-facture-factur-x">Vérifier une facture Factur-X</a></li>
           <li><a href="recevoir-facture-electronique">Recevoir une facture électronique</a></li>
           <li><a href="alternative-quba-viewer">Alternative à Quba Viewer</a></li>
-          <li><a href="https://github.com/simongrossi/FacturX-Reader" target="_blank" rel="noopener">Code source</a></li>
+          <li><a href="https://github.com/simongrossi/FacturX-Reader" target="_blank" rel="noopener"><svg class="inline-icon" aria-hidden="true"><use href="#i-github"/></svg>Code source sur GitHub</a></li>
           <li><a href="https://github.com/simongrossi/FacturX-Reader/releases/tag/v0.10.1" target="_blank" rel="noopener">Nouveautés</a></li>
           <li><a href="https://github.com/simongrossi/FacturX-Reader/issues" target="_blank" rel="noopener">Signaler un problème</a></li>
         </ul>
