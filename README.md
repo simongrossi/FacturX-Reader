@@ -17,6 +17,7 @@ Application de bureau légère pour Factur-X, UBL et CII (EN 16931) — Windows,
 ![Rust](https://img.shields.io/badge/Rust-moteur-dea584?logo=rust&logoColor=white)
 
 [**Télécharger**](https://github.com/simongrossi/FacturX-Reader/releases) ·
+[**Site web**](https://facturxreader.com) ·
 [Fonctionnalités](#fonctionnalités) ·
 [Comparatif](#comparatif) ·
 [Utilisation](#utilisation) ·
