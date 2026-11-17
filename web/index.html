@@ -292,7 +292,12 @@
           <div id="fv-badges" class="badges"></div>
         </div>
         <div class="file-head-right">
-          <button id="btn-download-pdf" class="btn">Télécharger le PDF</button>
+          <button id="btn-split-pdf" class="btn btn-icon" type="button" title="Séparer les factures du PDF" aria-label="Séparer les factures du PDF">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="m8.2 8.2 12.3 12.3M8.2 15.8 20.5 3.5M14 10l-2 2"/></svg>
+          </button>
+          <button id="btn-download-pdf" class="btn btn-icon" type="button" title="Télécharger le PDF" aria-label="Télécharger le PDF">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/></svg>
+          </button>
         </div>
       </div>
 
@@ -544,6 +549,7 @@
 <script src="library.js"></script>
 <script src="menu.js"></script>
 <script src="print-batch.js"></script>
+<script src="split-pdf.js"></script>
 <script src="menubar.js"></script>
 </body>
 </html>

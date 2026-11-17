@@ -823,6 +823,7 @@ function renderFileView() {
 
   const dl = byId("btn-download-pdf");
   dl.disabled = !(r.pdf || r.xml_pdf);
+  byId("btn-split-pdf").disabled = !(r.pdf || r.xml_pdf);
   document.querySelector('.tab[data-tab="dual"]').hidden = !(r.pdf || r.xml_pdf);
 
   if (f.view?.tab === "dual" && !(r.pdf || r.xml_pdf)) setTab("data", true);

@@ -49,6 +49,7 @@ tableaux lisibles en français, **recalcule les montants** et signale ce qui ne 
 | 📄 **Lecture** | PDF Factur-X, archive ZIP, XML UBL 2.x et CII. PDF d'origine, données en tableaux, XML complet et XML brut. |
 | 🏛️ **Schematron officiel** | Les règles officielles EN 16931 de la Commission européenne, exécutées sur votre poste, sans envoyer la facture où que ce soit. |
 | 🧱 **Schéma XSD** | La structure du XML contrôlée contre le schéma officiel : celui du profil Factur-X annoncé pour le CII, UBL 2.1 pour l'UBL. Sur votre poste. |
+| ✂️ **Séparation des factures** | Découpage proposé par référence, plages modifiables et association explicite des XML. Export des PDF/XML avec manifeste ; aucune conformité Factur-X fabriquée. |
 | 📎 **Conteneur PDF** | PDF/A-3 annoncé, pièce jointe XML déclarée, profil annoncé comparé à celui du XML ; polices incorporées, chiffrement, profil de sortie, métadonnées Factur-X contrôlés dans le fichier. |
 | 📐 **Règles EN 16931** | Une soixantaine de règles métier de la norme évaluées sur chaque facture : mentions obligatoires, calculs, décimales, catégories de TVA. |
 | 🧭 **Centre d’anomalies** | Écarts et alertes regroupés par source, valeurs trouvée/attendue disponibles, actions conseillées, accès au XML et demande de vérification à copier. |
@@ -587,10 +588,34 @@ est ouvert, il laisse la place au contenu : les actions restent dans le menu **F
 barre de recherche (`Ctrl+F`, `Échap` pour la refermer) et la **roue** ouvre les Paramètres.
 Les messages affichés sous les onglets se ferment avec leur croix.
 
+### Séparer les factures d’un PDF
+
+Dans **Actions → Séparer les factures d’un PDF…**, le PDF ouvert est repris directement ;
+sinon, choisissez un fichier. La fiche propose aussi un pictogramme de ciseaux,
+à côté de celui du téléchargement, chacun avec une infobulle.
+Les changements de référence de facture dans le texte proposent des pages de début ;
+ces suggestions doivent être vérifiées et peuvent être corrigées. Les scans sans
+texte nécessitent une séparation manuelle (pas d’OCR dans ce parcours).
+
+Consultez les XML de facture intégrés, puis associez explicitement chaque XML au
+bon groupe de pages. Un XML ne peut être attribué qu’à un seul groupe. L’export ZIP
+contient les PDF dérivés, les XML inchangés, les XML non associés et un manifeste
+avec l’empreinte SHA-256 de la source et les plages de pages. Après enregistrement,
+les groupes associés à un XML sont importés comme paires PDF/XML dans le tableau.
+Les PDF sans XML sont uniquement exportés, sans extraction comptable.
+
+Les PDF dérivés ne revendiquent pas la conformité Factur-X ou PDF/A et ne conservent
+pas les signatures. Le fichier source reste inchangé. L’ouverture classique refuse
+les PDF contenant plusieurs XML de facture distincts pour éviter une sélection
+silencieuse. Limites du parcours : 500 pages, 100 XML, 20 Mo de XML cumulés et 100 Mo
+pour l’export.
+
 ### Barre de menus
 
-La barre **Fichier / Édition / Affichage / Aide** regroupe les actions : ouvrir, exporter,
-fermer, rechercher, copier, changer de vue ou de document. Les raccourcis y sont rappelés.
+La barre **Fichier / Actions / Édition / Affichage / Aide** regroupe les commandes.
+**Fichier** permet d’ouvrir, enregistrer, imprimer et fermer les documents.
+**Actions** rassemble la séparation des factures, les exports et le centre d’anomalies.
+Les autres menus permettent de rechercher, copier et changer de vue ou de document. Les raccourcis y sont rappelés.
 Les onglets **Accueil** et **Tableau** restent fixes à gauche de la barre d'onglets.
 
 ### Clic droit

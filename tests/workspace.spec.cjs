@@ -44,7 +44,7 @@ test('montants exacts du tableau : arrondis et valeurs au-delà de la précision
 });
 async function mockBackend(page, pdf = null, extra = {}) {
   await page.addInitScript(({ pdf, extra }) => {
-    window.__TAURI__ = { core: { invoke: async (command, args) => {
+    window.__TAURI__ = { core: { invoke: async (command, args, options) => {
       if (command === 'pick_watch_folder') return window.__watchPick || null;
       if (command === 'scan_watch_folder') return window.__watchSnapshot ||
         JSON.parse(sessionStorage.getItem('mock-watch-snapshot') || 'null') ||
@@ -64,7 +64,9 @@ async function mockBackend(page, pdf = null, extra = {}) {
         window.__parsedPaths = [...(window.__parsedPaths || []), args.path];
         if (window.__blockWatchParse && args.path.includes('slow')) await new Promise(resolve => { window.__releaseWatchParse = resolve; });
       }
-      if (command === 'save_binary') { window.__binary = args; return true; }
+      if (command === 'inspect_split_pdf') return window.__splitInfo;
+      if (command === 'split_pdf') { window.__splitGroups = JSON.parse(options.headers['x-split-groups']); return window.__splitResult; }
+      if (command === 'save_binary') { window.__binary = args; return !window.__cancelBinary; }
       if (command === 'save_text') { window.__saved = args; return true; }
       if (command === 'validate_schematron') {
         window.__schematronCalls = [...(window.__schematronCalls || []), { format: args.format, priority: args.priority, library: args.library, xml: args.xml }];
@@ -1707,4 +1709,51 @@ test('comparaison PDF et XML : preuve, revue de lot, ambiguïté et document san
   expect(outcomes.statuses).toEqual(['conforme', 'conforme', 'conforme', 'conforme', 'non_verifiable']);
   expect(outcomes.details[4]).toContain('Plusieurs correspondances');
   expect(outcomes.blank).toContain('Texte indisponible');
+});
+
+test('découpage PDF : références reconnues et action accessible', async ({ page }) => {
+  await mockBackend(page);
+  await page.goto(url);
+  expect(await page.evaluate(() => [
+    splitInvoiceReference('Facture n° FA-001'),
+    splitInvoiceReference('Invoice # INV/2026-02'),
+    splitInvoiceReference('Page 2 sur 3'),
+  ])).toEqual(['FA-001', 'INV/2026-02', null]);
+  await page.getByRole('button', { name: 'Actions', exact:true }).click();
+  await expect(page.getByRole('menuitem', {name:'Séparer les factures d’un PDF…'})).toBeVisible();
+});
+
+test('séparation : PDF ouvert, association unique, annulation puis export et import', async ({ page }) => {
+  const alerts = [];
+  page.on('dialog', async d => { alerts.push(d.message()); await d.dismiss(); });
+  const { invoicePdf } = require('./fixtures.cjs');
+  const pdf = invoicePdf(['Facture n: FA-001', 'Facture n: FA-002']);
+  await mockBackend(page, pdf.toString('base64'));
+  await page.goto(url);
+  await page.locator('#file-input').setInputFiles({ name:'lot.pdf', mimeType:'application/pdf', buffer:pdf });
+  await expect(page.locator('#file-view')).toBeVisible();
+  await page.evaluate(() => {
+    window.__splitInfo = {pages:2, xml:[{index:0,name:'piece-1.xml',invoice:{numero:'FA-001'},source:'<Invoice><ID>FA-001</ID></Invoice>'}]};
+    window.__splitResult = { bundle:btoa('export'), imports:[{name:'facture-1.zip',base64:btoa('pair')}] };
+  });
+  await page.getByRole('button', { name:'Séparer les factures du PDF', exact:true }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('heading', { name:'Facture 2 · pages 2–2' })).toBeVisible();
+  const selects = dialog.locator('select');
+  await expect(selects.nth(0)).toHaveValue('');
+  await selects.nth(0).selectOption('0');
+  await selects.nth(1).selectOption('0');
+  await dialog.getByRole('button', { name:'Séparer et exporter…' }).click();
+  await expect(dialog.getByRole('alert')).toContainText('plusieurs factures');
+  await selects.nth(1).selectOption('');
+  await page.evaluate(() => { window.__cancelBinary = true; });
+  await dialog.getByRole('button', { name:'Séparer et exporter…' }).click();
+  await expect(dialog.getByRole('button', { name:'Séparer et exporter…' })).toBeEnabled();
+  expect(await page.evaluate(() => state.files.length)).toBe(1);
+  await page.evaluate(() => { window.__cancelBinary = false; });
+  await dialog.getByRole('button', { name:'Séparer et exporter…' }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(await page.evaluate(() => window.__splitGroups)).toEqual([{start:1,end:1,xml:0},{start:2,end:2,xml:null}]);
+  expect(await page.evaluate(() => state.files.length)).toBe(2);
+  expect(alerts).toEqual([]);
 });

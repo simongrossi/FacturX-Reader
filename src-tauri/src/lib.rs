@@ -6,6 +6,7 @@ mod pointages;
 mod schematron;
 mod xsd;
 mod tables;
+mod split;
 
 #[cfg(feature = "reference-validation")]
 pub mod reference_validation {
@@ -236,7 +237,7 @@ async fn save_text(app: tauri::AppHandle, filename: String, content: String) -> 
 #[tauri::command]
 async fn save_binary(app: tauri::AppHandle, filename: String, base64: String) -> Result<bool, String> {
     let extension = Path::new(&filename).extension().and_then(|v| v.to_str()).unwrap_or("");
-    if !["xlsx", "pdf"].contains(&extension) { return Err("Format d’export non autorisé.".into()); }
+    if !["xlsx", "pdf", "zip"].contains(&extension) { return Err("Format d’export non autorisé.".into()); }
     if base64.len() > 140 * 1024 * 1024 { return Err("Export trop volumineux (max 100 Mo).".into()); }
     let bytes = base64::engine::general_purpose::STANDARD.decode(base64.as_bytes()).map_err(|e| format!("Export invalide : {e}"))?;
     if bytes.len() > 100 * 1024 * 1024 { return Err("Export trop volumineux (max 100 Mo).".into()); }
@@ -301,6 +302,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             parse_file,
+            inspect_split_pdf,
+            split_pdf,
             startup_paths,
             pick_folder,
             pick_watch_folder,
@@ -391,4 +394,16 @@ mod tests {
         assert_eq!(percent_decode("100%"), "100%");
         assert_eq!(percent_decode("a%2"), "a%2");
     }
+}
+
+#[tauri::command]
+fn inspect_split_pdf(request: Request<'_>) -> Result<Value, String> {
+    let InvokeBody::Raw(data) = request.body() else { return Err("PDF manquant.".into()) };
+    split::inspect(data)
+}
+#[tauri::command]
+fn split_pdf(request: Request<'_>) -> Result<Value, String> {
+    let InvokeBody::Raw(data) = request.body() else { return Err("PDF manquant.".into()) };
+    let groups = request.headers().get("x-split-groups").and_then(|s| s.to_str().ok()).ok_or("Groupes manquants.")?;
+    split::split(data, serde_json::from_str(groups).map_err(|e| format!("Groupes invalides : {e}"))?)
 }

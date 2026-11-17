@@ -570,7 +570,9 @@ button, input, select { font: inherit; color: inherit; }
 }
 .file-head h2 { margin: 0 0 8px; font-size: 19px; word-break: break-all; }
 .badges { display: flex; flex-wrap: wrap; gap: 6px; }
-.file-head-right { display: flex; gap: 8px; }
+.file-head-right { display: flex; gap: 4px; }
+.file-head-right .btn-icon { padding: 7px; border-color: transparent; background: transparent; box-shadow: none; color: var(--muted); }
+.file-head-right .btn-icon:hover:not(:disabled) { background: var(--hover); color: var(--text); }
 
 /* ---------- onglets ---------- */
 .tabs {

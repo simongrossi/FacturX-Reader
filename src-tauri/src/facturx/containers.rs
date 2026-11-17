@@ -620,6 +620,9 @@ fn extract_pdf_with_lopdf(
                         };
                         for cand in candidates {
                             if is_invoice_xml(&cand) {
+                                if candidate_xml.as_ref().is_some_and(|(previous, ..)| previous != &cand) {
+                                    return Err(FacturXError("Ce PDF contient plusieurs XML de facture distincts. Utilisez Actions > Séparer les factures d’un PDF pour vérifier leurs associations.".into()));
+                                }
                                 let is_primary_name = name.to_lowercase().contains("factur-x")
                                     || name.to_lowercase().contains("zugferd")
                                     || name.to_lowercase().contains("xrechnung")

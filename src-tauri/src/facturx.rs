@@ -1546,3 +1546,15 @@ mod tests {
         assert_eq!(result["lines"][0]["cells"]["taxamt"]["value"], "0.20 EUR");
     }
 }
+
+/// Extraction bornée pour le parcours de séparation ; les octets XML restent inchangés.
+pub(crate) fn split_xml_stream(stream: &lopdf::Stream) -> Result<Option<Vec<u8>>, String> {
+    let bytes = imports::pdf_stream(stream, MAX_XML).map_err(|e| e.to_string())?;
+    let text = decode_xml(&bytes);
+    let invoice = roxmltree::Document::parse(&text).ok().is_some_and(|d| matches!(d.root_element().tag_name().name(), "Invoice" | "CreditNote" | "CrossIndustryInvoice"));
+    Ok(invoice.then_some(bytes))
+}
+pub(crate) fn split_hash(data: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+    format!("{:x}", Sha256::digest(data))
+}

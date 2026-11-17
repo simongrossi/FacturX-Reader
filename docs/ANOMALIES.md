@@ -4,7 +4,7 @@ Chantier du 4 octobre 2026, après l’intégration des [exports Excel et PDF](E
 
 ## Parcours utilisateur
 
-Dans **Données**, le **Centre d’anomalies** rassemble les points à examiner. Le bouton de la synthèse et **Fichier → Centre d’anomalies** permettent d’y accéder directement.
+Dans **Données**, le **Centre d’anomalies** rassemble les points à examiner. Le bouton de la synthèse et **Actions → Centre d’anomalies** permettent d’y accéder directement.
 
 Chaque carte indique le niveau (écart ou alerte), la source, la règle lorsqu’elle existe, le message du contrôle, les valeurs trouvée et attendue si elles sont disponibles, l’écart éventuel et une action conseillée. La recherche porte aussi sur les valeurs, chemins et actions. Les filtres de gravité et de source se combinent. Ils sont conservés pour ce document pendant la session et lors de l’arrivée des résultats Schematron ; ils ne sont pas enregistrés entre les lancements.
 

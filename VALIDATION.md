@@ -1,7 +1,27 @@
-# Validation — 0.9.0 publiée en préversion, 6 octobre 2026
+# Validation — 0.11.0, 17 novembre 2026
 
 Bilan de ce qui a été vérifié pour cette version, et de ce qui ne l'a pas été.
 Les commandes sont décrites dans [README.md](README.md#tests).
+
+## Séparation des factures — 0.11.0
+
+La compilation locale optimisée macOS a réussi. L’utilisateur a essayé la nouvelle
+interface et validé sa publication après ajout du menu Actions et des pictogrammes.
+Ce retour ne constitue pas une validation exhaustive de tous les types de PDF.
+
+Les tests Rust dédiés vérifient les pages produites, la conservation exacte du XML,
+l’absence d’associations XML héritées dans les PDF dérivés, le refus des plages
+incomplètes et des associations dupliquées, et le refus de l’import classique
+contenant plusieurs XML de facture distincts. Les tests navigateur couvrent les
+références reconnues, l’accès par le menu Actions et le parcours avec PDF ouvert :
+association unique, annulation de l’enregistrement, puis export et import.
+`npm run check:js` et `cargo test --manifest-path src-tauri/Cargo.toml` passent
+(78 tests unitaires Rust réussis, 3 ignorés ; corpus et exemples réussis).
+Les contrôles du site en navigateur passent sur ordinateur et mobile.
+
+Les sorties sont des PDF accompagnés de XML séparés ; aucune conformité Factur-X,
+PDF/A ou conservation de signature n’est revendiquée. Les scans n’ont pas d’OCR.
+Les essais manuels des installateurs Windows et Linux restent à faire.
 
 ## Impression groupée — 0.10.1, 6 novembre 2026
 

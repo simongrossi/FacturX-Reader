@@ -5,6 +5,25 @@ Tant que la version est en `0.y.z`, l'application est en développement initial 
 
 ## [Non publié]
 
+## [0.11.0] - 2026-11-17
+
+### Ajouté
+
+- Séparation des factures regroupées dans un PDF : suggestions de pages de début selon les références reconnues, correction manuelle et association explicite des XML intégrés à chaque groupe.
+- Export ZIP des PDF dérivés, des XML originaux et des XML non associés, avec manifeste des plages de pages et empreinte SHA-256 du PDF source. Les paires PDF/XML associées sont importées dans le tableau après enregistrement.
+- Menu **Actions** regroupant séparation, exports et centre d’anomalies. Accès discret au découpage et au téléchargement par pictogrammes avec infobulles sur la fiche.
+
+### Corrigé
+
+- L’ouverture d’un PDF contenant plusieurs XML de facture distincts ne sélectionne plus silencieusement une facture : elle invite à vérifier les associations dans le parcours de séparation.
+
+- Nettoyage PDF.js après analyse adapté à l’API embarquée, pour afficher les propositions de découpage.
+
+### Limites
+
+- Les suggestions doivent être vérifiées ; pas d’OCR pour les scans. Sans XML associé, les PDF sont uniquement exportés, sans extraction comptable.
+- Les PDF dérivés ne conservent ni la conformité Factur-X/PDF-A ni les signatures. Le PDF source et les octets XML restent inchangés.
+
 ## [0.10.1] - 2026-11-06
 
 - Ajout d’un bouton dans la barre des fichiers pour sélectionner ou désélectionner tous les PDF imprimables affichés, en respectant les filtres actifs.
