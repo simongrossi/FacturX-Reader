@@ -23,6 +23,13 @@ Les sorties sont des PDF accompagnés de XML séparés ; aucune conformité Fact
 PDF/A ou conservation de signature n’est revendiquée. Les scans n’ont pas d’OCR.
 Les essais manuels des installateurs Windows et Linux restent à faire.
 
+Les [contrôles GitHub du tag v0.11.0](https://github.com/simongrossi/FacturX-Reader/actions/runs/44178626909)
+ont réussi pour la comparaison des validateurs et les tests Rust/natifs Windows.
+À la publication, le job navigateur GitHub est encore dans l’installation de
+Chromium ; les 37 scénarios ont réussi localement.
+Les [installateurs des trois plateformes](https://github.com/simongrossi/FacturX-Reader/actions/runs/44178626893)
+sont construits depuis le tag `v0.11.0` (commit `6137708`).
+
 ## Impression groupée — 0.10.1, 6 novembre 2026
 
 Sur macOS Apple Silicon, une application de test compilée depuis le code de la
